@@ -438,7 +438,7 @@ for (const expected of [
 
 // The DEB and RPM install the same tree under /opt; check what each extracted.
 function verifySystemPackage(extracted, label, packageType) {
-  const appRoot = path.join(extracted, "opt", PRODUCT_NAME);
+  const appRoot = path.join(extracted, LINUX_INSTALL_DIR);
   requireDirectoryMode(appRoot, 0o755);
   const packageResources = path.join(appRoot, "resources");
   // Routes the in-app updater to the package-manager hand-off.
@@ -475,7 +475,7 @@ function verifySystemPackage(extracted, label, packageType) {
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     `Name=${PRODUCT_NAME}`,
-    `Exec="${LINUX_INSTALL_DIR}/${LINUX_EXECUTABLE_NAME}" %U`,
+    `Exec=${LINUX_INSTALL_DIR}/${LINUX_EXECUTABLE_NAME} %U`,
     `Icon=${LINUX_EXECUTABLE_NAME}`,
     `StartupWMClass=${APP_ID}`,
     "Categories=Utility;",

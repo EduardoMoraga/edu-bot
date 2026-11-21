@@ -62,7 +62,7 @@ fail-closed Wayland CUA smoke,
 and produces one release artifact containing:
 
 - the versioned `.deb`, `.rpm` and AppImage;
-- stable `OpenMausBot-amd64.deb`, `OpenMausBot-x86_64.rpm` and `OpenMausBot.AppImage` copies used by the latest-download links;
+- stable `EduBot-amd64.deb`, `EduBot-x86_64.rpm` and `EduBot.AppImage` copies used by the latest-download links;
 - `SHA256SUMS-ubuntu-x64.txt` covering both versioned and stable names.
 
 Before publishing, confirm that `package.json` has the release version and dispatch the workflow against the same

@@ -146,7 +146,7 @@ mac:
     NSBonjourServices:
       - _openmausbot._tcp
     NSScreenCaptureUsageDescription: Edu Bot uses Screen Recording so bots can see this Mac before acting.
-    NSDownloadsFolderUsageDescription: Edu Bot looks in Downloads for the file your Grok Bot saved when you move it here.
+    NSDownloadsFolderUsageDescription: Edu Bot looks in Downloads for the file your bot saved when you move it here.
   # Notarization runs manually after the build (notarytool + staple),
   # mirroring the BlueyLite ship_release.sh flow.
   notarize: false
@@ -264,7 +264,7 @@ rpm:
   # Own the install folder as well, so removing the package leaves no empty directories.
   # No /usr/lib/.build-id links: another RPM bundling the same Electron binary
   # would own the same link paths and the install would fail with a file conflict.
-  fpm: ["--directories", "/opt/Edu Bot", "--rpm-rpmbuild-define", "_build_id_links none"]
+  fpm: ["--directories", "/opt/edu-bot", "--rpm-rpmbuild-define", "_build_id_links none"]
   afterInstall: build/linux-after-install.sh
   afterRemove: build/linux-after-remove.sh
 

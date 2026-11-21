@@ -12,5 +12,5 @@ export const DEEP_LINK_PREFIX: "edubot://";
 export const PHONE_LINK_SCHEME: "openmausbot";
 export const PHONE_DISCOVERY_SERVICE_TYPE: "_openmausbot._tcp";
 export const LINUX_EXECUTABLE_NAME: "edu-bot";
-export const LINUX_INSTALL_DIR: "/opt/Edu Bot";
+export const LINUX_INSTALL_DIR: "/opt/edu-bot";
 export const BROWSER_APPARMOR_PROFILE: "edubot-browser";

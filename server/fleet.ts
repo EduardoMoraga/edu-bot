@@ -1,7 +1,7 @@
 // Many client workspaces on one Linux server, each its own OS user and `openmausbot@<slug>` service. This module only plans:
 // it renders files and fixed argument lists as steps, and never builds a shell command string.
 import { posix } from "node:path";
-import { DATA_DIR_NAME } from "../electron/app-identity.mjs";
+import { CLI_NAME, DATA_DIR_NAME } from "../electron/app-identity.mjs";
 
 const { join } = posix;
 
@@ -477,7 +477,7 @@ export function deletePlan(input: { registry: FleetRegistry; slug: string; keepD
 export function upgradePlan(input: { registry: FleetRegistry }): FleetStep[] {
   const running = Object.values(input.registry.workspaces).filter((workspace) => workspace.status === "running").sort((a, b) => a.slug.localeCompare(b.slug));
   return [
-    { kind: "run", argv: ["npm", "install", "-g", "openmausbot@latest"], why: "install the release every workspace runs from" },
+    { kind: "run", argv: ["npm", "install", "-g", `${CLI_NAME}@latest`], why: "install the release every workspace runs from" },
     ...running.map((workspace) => ({ kind: "run" as const, argv: ["systemctl", "restart", `openmausbot@${workspace.slug}.service`], why: `restart ${workspace.slug} on the new release` })),
     ...running.map((workspace) => ({ kind: "health" as const, url: `http://127.0.0.1:${workspace.port}/api/health`, why: `wait for ${workspace.slug}` })),
   ];

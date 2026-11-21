@@ -18,5 +18,8 @@ export const PHONE_LINK_SCHEME = "openmausbot";
 export const PHONE_DISCOVERY_SERVICE_TYPE = "_openmausbot._tcp";
 
 export const LINUX_EXECUTABLE_NAME = "edu-bot";
-export const LINUX_INSTALL_DIR = `/opt/${PRODUCT_NAME}`;
+// Chromium's setuid sandbox launch (CommandLine::PrependWrapper, Electron 43) splits the sandbox path on spaces, so the
+// Linux install folder must have none. electron-builder 26 installs to /opt/<productName>; the Linux package scripts
+// set productName to this name.
+export const LINUX_INSTALL_DIR = `/opt/${LINUX_EXECUTABLE_NAME}`;
 export const BROWSER_APPARMOR_PROFILE = "edubot-browser";

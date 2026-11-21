@@ -35,7 +35,7 @@ There is no supported import from OpenMausBot yet. Copying the folder by hand is
 | Application id (Linux desktop entry, macOS bundle, Windows AppUserModelId) | `io.github.eduardomoraga.edubot` |
 | Links the desktop app opens | `edubot://` (`thread`, `bot`, `cloud`, `organization`, `install`, `team`, `use-my-computer`) |
 | Command line | `edubot` (`pnpm omb` in a checkout) |
-| Linux install folder and command | `/opt/Edu Bot/edu-bot` |
+| Linux install folder and command | `/opt/edu-bot/edu-bot` |
 | Linux browser sandbox policy | AppArmor profile `edubot-browser` |
 
 Two identifiers keep their OpenMausBot values on purpose, because the only phone apps that exist are the published

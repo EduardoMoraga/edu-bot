@@ -84,7 +84,7 @@ const installed = inContainer(
     prepare,
     command,
     'dpkg-query -W -f="INSTALLED=\\${Version} \\${db:Status-Abbrev}\\n" edu-bot',
-    'test -x "/opt/Edu Bot/edu-bot" && echo "EXECUTABLE=yes"',
+    'test -x "/opt/edu-bot/edu-bot" && echo "EXECUTABLE=yes"',
   ].join("\n"),
 );
 

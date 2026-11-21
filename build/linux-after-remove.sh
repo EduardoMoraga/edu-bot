@@ -37,8 +37,8 @@ fi
 # update-alternatives fails on a link group that does not exist.
 if [ "$TEST_MODE" -eq 0 ] && [ "${1:-}" != 0 ]; then
   if command -v update-alternatives >/dev/null 2>&1; then
-    update-alternatives --remove edu-bot '/opt/Edu Bot/edu-bot'
-  elif [ -L /usr/bin/edu-bot ] && [ "$(readlink /usr/bin/edu-bot)" = '/opt/Edu Bot/edu-bot' ]; then
+    update-alternatives --remove edu-bot '/opt/edu-bot/edu-bot'
+  elif [ -L /usr/bin/edu-bot ] && [ "$(readlink /usr/bin/edu-bot)" = '/opt/edu-bot/edu-bot' ]; then
     rm -- /usr/bin/edu-bot
   fi
 fi

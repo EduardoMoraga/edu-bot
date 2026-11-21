@@ -33,7 +33,7 @@ const executables = [
   path.join(root, "release", appImage),
 ];
 if (process.env.OMB_SMOKE_INSTALLED_DEB === "1") {
-  executables.push("/opt/Edu Bot/edu-bot");
+  executables.push("/opt/edu-bot/edu-bot");
 }
 
 for (const executable of executables) {
