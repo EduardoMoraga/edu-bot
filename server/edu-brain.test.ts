@@ -1,13 +1,14 @@
-import { chmodSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { claudeEduMount, compareVersions, createEduBrains, eduBrainWidens, locateEduCli, parseEduBrainSetting, type EduConfig } from "./edu-brain.ts";
+import { claudeEduMount, compareVersions, EDU_PREALLOWED_TOOLS, createEduBrains, eduBrainWidens, eduRegistryHome, locateEduCli, parseEduBrainSetting, type EduConfig } from "./edu-brain.ts";
+import { parseStoredConfig } from "./config.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
 const temps: string[] = [];
-const temp = () => { const dir = mkdtempSync(join(tmpdir(), "edu-brain-")); temps.push(dir); return dir; };
+const temp = () => { const dir = realpathSync(mkdtempSync(join(tmpdir(), "edu-brain-"))); temps.push(dir); return dir; };
 afterEach(async () => { await Promise.all(temps.splice(0).map((dir) => removeTempDir(dir))); vi.restoreAllMocks(); });
 
 describe("eduBrain setting", () => {
@@ -86,29 +87,32 @@ describe("locateEduCli", () => {
 
 describe("createEduBrains", () => {
   const bot = { id: "b1", name: "Luna" };
-  const setup = (options: { version?: string; fail?: boolean; cli?: string | null; config?: EduConfig; initMakesBrain?: boolean } = {}) => {
+  const setup = (options: { version?: string; fail?: boolean; cli?: string | null; config?: EduConfig; initMakesBrain?: boolean; hostLocal?: boolean } = {}) => {
     const dataDir = temp();
     const calls: string[][] = [];
+    const initHomes: Array<string | undefined> = [];
     let config: EduConfig | undefined = options.config;
     const brains = createEduBrains({
       dataDir,
       config: () => config,
       env: { HOME: dataDir },
+      hostLocal: () => options.hostLocal ?? true,
       locate: () => options.cli === undefined ? "/opt/edu/cli.js" : options.cli,
-      run: () => async (args) => {
+      run: () => async (args, { env }) => {
         calls.push(args);
+        if (args.includes("init")) initHomes.push(env.EDU_HOME);
         if (options.fail) throw new Error("edu crashed");
         if (args[0] === "--version") return `${options.version ?? "6.0.0"}\n`;
         if (args.includes("init") && options.initMakesBrain !== false) mkdirSync(join(args[1]!, ".edu"), { recursive: true });
         return "";
       },
     });
-    return { brains, dataDir, calls, setConfig: (next: EduConfig | undefined) => { config = next; } };
+    return { brains, dataDir, calls, initHomes, setConfig: (next: EduConfig | undefined) => { config = next; } };
   };
 
   it("creates a bot's own brain once and mounts edu mcp locked to it", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { brains, dataDir, calls } = setup();
+    const { brains, dataDir, calls, initHomes } = setup();
     const [first, second] = await Promise.all([brains.integration(bot, { local: true }), brains.integration(bot, { local: true })]);
     const folder = join(dataDir, "brains", "b1");
     expect(first).toEqual({
@@ -118,6 +122,7 @@ describe("createEduBrains", () => {
     });
     expect(second).toEqual(first);
     expect(calls.filter((args) => args.includes("init"))).toEqual([["--cwd", folder, "init", "--name", "Luna"]]);
+    expect(initHomes).toEqual([eduRegistryHome(dataDir)]);
     expect(await brains.status(bot)).toMatchObject({ state: "ready", mode: "own", brain: folder, version: "6.0.0" });
   });
 
@@ -157,6 +162,54 @@ describe("createEduBrains", () => {
     expect(await brains.integration(bot, { local: true })).toBeNull();
   });
 
+  it("never mounts or inits through a linked .edu, a linked own folder, the global brain or another bot's brain", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { brains, dataDir, calls } = setup();
+    const elsewhere = temp();
+    mkdirSync(join(elsewhere, ".edu"));
+    mkdirSync(join(dataDir, "brains", "b1"), { recursive: true });
+    symlinkSync(join(elsewhere, ".edu"), join(dataDir, "brains", "b1", ".edu"));
+    expect(await brains.integration(bot, { local: true })).toBeNull();
+    expect(await brains.status(bot)).toMatchObject({ state: "broken", reason: expect.stringMatching(/link/) });
+    rmSync(join(dataDir, "brains", "b1"), { recursive: true });
+    symlinkSync(elsewhere, join(dataDir, "brains", "b1"));
+    expect(await brains.integration(bot, { local: true })).toBeNull();
+    const globalHome = join(dataDir, ".edu");
+    mkdirSync(globalHome);
+    mkdirSync(join(dataDir, "brains", "b2", ".edu"), { recursive: true });
+    for (const path of [dataDir, globalHome, join(dataDir, "brains", "b2")]) {
+      expect(await brains.integration({ ...bot, eduBrain: { mode: "folder", path } }, { local: true }), path).toBeNull();
+    }
+    expect(calls.filter((args) => args.includes("init"))).toEqual([]);
+    expect(brains.folderRefusal(bot, join(dataDir, "brains", "b1"))).toBeNull();
+  });
+
+  it("attaches only for an engine that mounts Edu and a turn on this computer", async () => {
+    const { brains } = setup();
+    const turn = async (capabilities: { eduMcp?: boolean }, where: { computer?: string | null; confined?: boolean }, hostLocal = brains) => {
+      const integrations: Parameters<typeof brains.attach>[0] = {};
+      await hostLocal.attach(integrations, bot, capabilities, where);
+      return integrations.edu !== undefined;
+    };
+    expect(await turn({ eduMcp: true }, { computer: "local" })).toBe(true);
+    expect(await turn({ eduMcp: true }, { computer: null })).toBe(true);
+    expect(await turn({}, { computer: "local" })).toBe(false);
+    expect(await turn({ eduMcp: true }, { computer: "box" })).toBe(false);
+    expect(await turn({ eduMcp: true }, { computer: "vps" })).toBe(false);
+    expect(await turn({ eduMcp: true }, { confined: true })).toBe(false);
+    expect(await turn({ eduMcp: true }, {}, setup({ hostLocal: false }).brains)).toBe(false);
+  });
+
+  it("follows config.json: enabled false mounts nothing, and home is the global brain", async () => {
+    const { brains, calls, dataDir, setConfig } = setup();
+    setConfig(parseStoredConfig({ edu: { enabled: false } }).edu);
+    expect(await brains.integration(bot, { local: true })).toBeNull();
+    expect(calls).toEqual([]);
+    setConfig(parseStoredConfig({ edu: { home: join(dataDir, "global") } }).edu);
+    expect((await brains.integration(bot, { local: true }))?.env.EDU_HOME).toBe(join(dataDir, "global"));
+    expect(await brains.status(bot)).toMatchObject({ state: "ready", home: join(dataDir, "global") });
+  });
+
   it("serves the configured global brain, ~ included", async () => {
     const { brains, dataDir, setConfig } = setup();
     setConfig({ home: "~/brains/global" });
@@ -171,10 +224,11 @@ describe("claudeEduMount", () => {
     expect(claudeEduMount(edu, "b1", {})).toEqual({
       server: { ...edu, env: { EDU_LOCK_WORKSPACE: "1", EDU_CREW_JOB: "" } },
       engineEnv: { EDU_CREW_JOB: "edu-bot:b1" },
+      allowed: EDU_PREALLOWED_TOOLS.map((tool) => `mcp__edu__${tool}`),
     });
   });
 
   it("keeps a guard Edu Bot inherited for both", () => {
-    expect(claudeEduMount(edu, "b1", { EDU_CREW_JOB: "job-7" })).toEqual({ server: edu, engineEnv: {} });
+    expect(claudeEduMount(edu, "b1", { EDU_CREW_JOB: "job-7" })).toEqual({ server: edu, engineEnv: {}, allowed: expect.any(Array) });
   });
 });

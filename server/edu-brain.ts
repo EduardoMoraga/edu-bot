@@ -1,12 +1,13 @@
 // Edu (https://github.com/EduardoMoraga/edu) is a separate CLI. This module finds it, keeps a brain per bot and builds the
 // stdio spec that mounts `edu mcp` in a turn. Nothing here may throw into a turn: a missing or broken Edu means no mount.
 import { execFile } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, normalize, resolve } from "node:path";
 
 import type { EduBrainSetting } from "../shared/edu-brain.ts";
 import { augmentedPath, findCliCandidates, resolveCliSpawn, userHome } from "./env-path.ts";
 import { AGENTS_NODE_FLAG } from "./proxy-paths.ts";
+import { isInside, resolveThroughLinks } from "./sentinel/paths.ts";
 
 export const EDU_MIN_VERSION = "6.0.0";
 
@@ -56,6 +57,8 @@ type Run = (args: string[], options: { env: NodeJS.ProcessEnv; timeoutMs: number
 export interface EduBrainDeps {
   dataDir: string;
   config(): EduConfig | undefined;
+  /** Whether turns run on this computer at all: not on a cloud home or inside the bot box. */
+  hostLocal?(): boolean;
   env?: NodeJS.ProcessEnv;
   /** The CLI's script, or null when none is installed; defaults to a lookup on the app's PATH. */
   locate?(): string | null;
@@ -69,6 +72,37 @@ const VERSION_TIMEOUT_MS = 10_000;
 const INIT_TIMEOUT_MS = 30_000;
 const BOT_ID = /^[\w-]{1,128}$/;
 const SCRIPT = /\.[cm]?js$/i;
+
+/** Where `edu init` registers the bots' own brains, so they never appear in the person's global `projects.json`. */
+export function eduRegistryHome(dataDir: string): string {
+  return join(dataDir, "edu-registry");
+}
+
+export interface EduFolderLimits {
+  dataDir: string;
+  globalHome: string;
+  botId: string;
+}
+
+/** Security: a bot's brain folder, symlinks resolved, is never the global brain or inside it, never in Edu Bot's data
+ * folder except the bot's own brain, and its `.edu` is never a symlink (Edu would write through it into another brain). */
+export function eduFolderRefusal(folder: string, limits: EduFolderLimits): string | null {
+  const real = resolveThroughLinks(folder);
+  const globalHome = resolveThroughLinks(limits.globalHome);
+  if (isInside(real, globalHome) || resolveThroughLinks(join(real, ".edu")) === globalHome) {
+    return "This folder is the global Edu brain; a bot needs a brain of its own";
+  }
+  const dataDir = resolveThroughLinks(limits.dataDir);
+  if (isInside(real, dataDir) && real !== join(dataDir, "brains", limits.botId)) {
+    return "This folder is inside Edu Bot's data folder; pick a folder outside it";
+  }
+  if (isSymlink(join(real, ".edu"))) return "This folder's .edu is a link to another place; use a real .edu folder";
+  return null;
+}
+
+function isSymlink(path: string): boolean {
+  try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
+}
 
 export function parseEduBrainSetting(value: unknown): { ok: true; value: EduBrainSetting | undefined } | { ok: false; error: string } {
   if (value === null) return { ok: true, value: undefined };
@@ -162,6 +196,15 @@ export function createEduBrains(deps: EduBrainDeps) {
     return { ...env, EDU_HOME: globalHome };
   }
 
+  function folderRefusal(bot: EduBot, folder: string): string | null {
+    const where = home();
+    if (!where.ok) return where.reason;
+    if (bot.eduBrain?.mode !== "folder" && resolveThroughLinks(folder) !== join(resolveThroughLinks(deps.dataDir), "brains", bot.id)) {
+      return "This bot's brain folder is a link to another place";
+    }
+    return eduFolderRefusal(folder, { dataDir: deps.dataDir, globalHome: where.path, botId: bot.id });
+  }
+
   async function detect(): Promise<EduRuntime> {
     const where = home();
     if (deps.config()?.enabled === false) return { state: "off", home: where.ok ? where.path : "" };
@@ -199,21 +242,25 @@ export function createEduBrains(deps: EduBrainDeps) {
   }
 
   const hasBrain = (folder: string) => {
-    try { return statSync(join(folder, ".edu")).isDirectory(); } catch { return false; }
+    try { return lstatSync(join(folder, ".edu")).isDirectory(); } catch { return false; }
   };
 
   /** A brain-less folder would make Edu write to the global brain, so an `own` folder is created first and any other
-   * folder must already hold one. */
+   * folder must already hold one. The folder is used by its real path, after the refusals. */
   async function ensureBrain(bot: EduBot, runtime: EduRuntime): Promise<{ ok: true; folder: string } | { ok: false; reason: string; folder?: string }> {
-    const folder = brainFolder(bot);
-    if (!folder) return { ok: false, reason: "Edu brain is off for this bot" };
+    const setting = brainFolder(bot);
+    if (!setting) return { ok: false, reason: "Edu brain is off for this bot" };
+    const refusal = folderRefusal(bot, setting);
+    if (refusal) return { ok: false, folder: setting, reason: refusal };
+    const folder = resolveThroughLinks(setting);
     if (hasBrain(folder)) return { ok: true, folder };
     if (bot.eduBrain?.mode === "folder") return { ok: false, folder, reason: "This folder has no Edu brain: run `edu init` in it" };
     let pending = inits.get(folder);
     if (!pending) {
       pending = (async () => {
         mkdirSync(folder, { recursive: true, mode: 0o700 });
-        await runFor(runtime.cli!)(["--cwd", folder, "init", "--name", bot.name?.trim() || "Edu"], { env: eduEnv(runtime.home), timeoutMs: INIT_TIMEOUT_MS });
+        const init = ["--cwd", folder, "init", "--name", bot.name?.trim() || "Edu"];
+        await runFor(runtime.cli!)(init, { env: eduEnv(eduRegistryHome(deps.dataDir)), timeoutMs: INIT_TIMEOUT_MS });
       })().finally(() => inits.delete(folder));
       inits.set(folder, pending);
     }
@@ -222,7 +269,9 @@ export function createEduBrains(deps: EduBrainDeps) {
     } catch (error) {
       return { ok: false, folder, reason: error instanceof Error ? error.message : String(error) };
     }
-    return hasBrain(folder) ? { ok: true, folder } : { ok: false, folder, reason: "edu init created no brain" };
+    if (!hasBrain(folder)) return { ok: false, folder, reason: "edu init created no brain" };
+    const after = folderRefusal(bot, folder);
+    return after ? { ok: false, folder, reason: after } : { ok: true, folder };
   }
 
   function server(runtime: EduRuntime, folder: string): EduStdioServer {
@@ -234,26 +283,40 @@ export function createEduBrains(deps: EduBrainDeps) {
     };
   }
 
+  /** The turn's `edu` server, or null whenever Edu cannot serve this bot here. Never throws. */
+  async function integration(bot: EduBot, where: { local: boolean }): Promise<EduStdioServer | null> {
+    if (!where.local) return null;
+    try {
+      const runtime = await detect();
+      if (runtime.state !== "ready") return null;
+      const brain = await ensureBrain(bot, runtime);
+      if (!brain.ok) {
+        if (bot.eduBrain?.mode !== "off") console.warn(`edu: no brain for bot ${bot.id}: ${brain.reason}`);
+        return null;
+      }
+      return server(runtime, brain.folder);
+    } catch (error) {
+      console.warn(`edu: not mounted for bot ${bot.id}: ${error instanceof Error ? error.message : String(error)}`);
+      return null;
+    }
+  }
+
   return {
     detect,
     brainFolder,
+    integration,
 
-    /** The turn's `edu` server, or null whenever Edu cannot serve this bot here. Never throws. */
-    async integration(bot: EduBot, where: { local: boolean }): Promise<EduStdioServer | null> {
-      if (!where.local) return null;
-      try {
-        const runtime = await detect();
-        if (runtime.state !== "ready") return null;
-        const brain = await ensureBrain(bot, runtime);
-        if (!brain.ok) {
-          if (bot.eduBrain?.mode !== "off") console.warn(`edu: no brain for bot ${bot.id}: ${brain.reason}`);
-          return null;
-        }
-        return server(runtime, brain.folder);
-      } catch (error) {
-        console.warn(`edu: not mounted for bot ${bot.id}: ${error instanceof Error ? error.message : String(error)}`);
-        return null;
-      }
+    /** Why `folder` may not be this bot's brain, or null. */
+    folderRefusal(bot: EduBot, folder: string): string | null {
+      return folderRefusal({ ...bot, eduBrain: { mode: "folder", path: folder } }, folder);
+    },
+
+    /** Adds the turn's `edu` server when the engine mounts one and the turn runs on this computer. */
+    async attach(integrations: { edu?: EduStdioServer }, bot: EduBot, capabilities: { eduMcp?: boolean }, turn: EduTurn): Promise<void> {
+      if (capabilities.eduMcp !== true) return;
+      const local = (deps.hostLocal?.() ?? true) && turn.computer !== "box" && turn.computer !== "vps" && !turn.confined;
+      const edu = await integration(bot, { local });
+      if (edu) integrations.edu = edu;
     },
 
     async status(bot: EduBot): Promise<EduBrainStatus> {
@@ -262,6 +325,8 @@ export function createEduBrains(deps: EduBrainDeps) {
       const folder = brainFolder(bot) ?? undefined;
       if (mode === "off") return { ...runtime, state: runtime.state === "ready" ? "off" : runtime.state, mode, ...(folder ? { brain: folder } : {}) };
       if (runtime.state !== "ready" || !folder) return { ...runtime, mode, ...(folder ? { brain: folder } : {}) };
+      const refusal = folderRefusal(bot, folder);
+      if (refusal) return { ...runtime, state: "broken", mode, brain: folder, reason: refusal };
       if (hasBrain(folder)) return { ...runtime, mode, brain: folder };
       return mode === "own" ? { ...runtime, mode, brain: folder }
         : { ...runtime, state: "broken", mode, brain: folder, reason: "This folder has no Edu brain: run `edu init` in it" };
@@ -271,10 +336,25 @@ export function createEduBrains(deps: EduBrainDeps) {
 
 export type EduBrains = ReturnType<typeof createEduBrains>;
 
+export interface EduTurn {
+  /** Where the turn's computer runs; `box` and `vps` are not this computer. */
+  computer?: string | null;
+  /** A turn fenced from the person's own data (a proactive fence, a Bot API thread). */
+  confined?: boolean;
+}
+
 /** Claude Code 2.1.330 starts an MCP child with its own environment plus the server's `env`, an empty value included, so
  * the engine (and its shell) carries Edu's crew-worker guard while the `edu` server alone has it cleared. A guard Edu Bot
  * inherited is kept for both. */
-export function claudeEduMount(edu: EduStdioServer, botId: string | undefined, engineEnv: NodeJS.ProcessEnv): { server: EduStdioServer; engineEnv: Record<string, string> } {
-  if (engineEnv.EDU_CREW_JOB?.trim()) return { server: edu, engineEnv: {} };
-  return { server: { ...edu, env: { ...edu.env, EDU_CREW_JOB: "" } }, engineEnv: { EDU_CREW_JOB: `edu-bot:${botId ?? "bot"}` } };
+export function claudeEduMount(edu: EduStdioServer, botId: string | undefined, engineEnv: NodeJS.ProcessEnv): ClaudeEduMount {
+  const allowed = EDU_PREALLOWED_TOOLS.map((tool) => `mcp__edu__${tool}`);
+  if (engineEnv.EDU_CREW_JOB?.trim()) return { server: edu, engineEnv: {}, allowed };
+  return { server: { ...edu, env: { ...edu.env, EDU_CREW_JOB: "" } }, engineEnv: { EDU_CREW_JOB: `edu-bot:${botId ?? "bot"}` }, allowed };
+}
+
+export interface ClaudeEduMount {
+  server: EduStdioServer;
+  engineEnv: Record<string, string>;
+  /** Claude's pre-allowed tool names for the server. */
+  allowed: string[];
 }

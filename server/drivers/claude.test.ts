@@ -23,13 +23,11 @@ import {
   parseClaudeCliVersion,
   permissionSocketPath,
   readClaudeAuthSettings,
-  claudeCostSnapshot,
-  restoredCostBase,
   STEERED_CONTINUATION_GRACE_MS,
   sumNativeTurnResults,
-  turnCostFromRunningTotal,
   type ClaudeConfig,
 } from "./claude.ts";
+import { claudeCostSnapshot, restoredCostBase, turnCostFromRunningTotal } from "./claude-cost.ts";
 import { spawnContractDiff } from "./claude-spawn-contract.ts";
 import { TEAM_TOOLS_FAILED } from "./team-tools.ts";
 import { claudeLimitMessage } from "./claude-limits.ts";

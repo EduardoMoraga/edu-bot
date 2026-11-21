@@ -1,7 +1,7 @@
 // A real server and the real installed Edu (skipped where none is installed, as on CI): the fake engine's turn calls
 // edu_remember and edu_recall through the `edu` server the harness mounted, and the note lands in the bot's own brain in
 // the fixture's data folder. The global Edu brain is a temporary folder too.
-import { mkdtempSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -61,6 +61,16 @@ it.skipIf(!cli)("gives a bot its own Edu brain: a remembered note lands there an
 
     const memory = await api("GET", `/api/bots/${bot.id}/memory`);
     expect(memory.body.edu).toMatchObject({ state: "ready", mode: "own", brain, home: eduHome });
+
+    const globalProjects = join(eduHome, "projects.json");
+    expect(existsSync(globalProjects) ? readFileSync(globalProjects, "utf8") : "").not.toContain(bot.id);
+    expect(readFileSync(join(fixture.info.dataDir, "edu-registry", "projects.json"), "utf8")).toContain(brain);
+
+    const elsewhere = join(eduHome, "..", `${bot.id}-area`);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { eduBrain: { mode: "folder", path: elsewhere } })).status).toBe(403);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { eduBrain: { mode: "folder", path: eduHome } })).status).toBe(400);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { eduBrain: { mode: "off" } })).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { eduBrain: { mode: "own" } })).status).toBe(403);
   } finally {
     await fixture.close();
     await removeTempDir(eduHome);
