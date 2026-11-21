@@ -67,6 +67,19 @@ Hecho = verificado. Cada línea dice cómo se probó.
 - [x] Prueba final en main: la app abre aislada en Linux. Ventana "Edu Bot", datos en `~/.edubot` temporal,
   edición "oss", cero errores en logs. Captura: `~/Projects/edu-bot-wt/reports/m1-shots/m1-final-linux-main.png`.
 
+## M2: memoria Edu en cada bot
+
+Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m2-scout.md`):
+- Cada bot recibe la memoria Edu como herramienta (MCP), con su propio cerebro o uno compartido por área.
+- La memoria actual de Edu Bot sigue igual. Edu se suma para decisiones y lecciones de largo plazo.
+- Los bots no pueden aprobar memoria canónica. Solo una persona aprueba, con una tarjeta en el chat.
+- Si `edu` no está instalado, la app funciona igual, sin errores.
+
+- [ ] PR1: detectar `edu`, cerebro por bot y conexión MCP. En curso (Claude).
+- [ ] PR2: tarjetas para aprobar o rechazar propuestas de memoria.
+- [ ] PR3: el resumen de Edu entra al prompt de cada bot, y mensajes claros si algo falla.
+- [ ] PR4: Edu crew (plan, construir, revisar) como opción por bot, apagada por defecto.
+
 ## Cómo trabajamos
 
 - Regla de memoria (12 GB): máximo 2 agentes a la vez, el líder y 1 trabajador.
