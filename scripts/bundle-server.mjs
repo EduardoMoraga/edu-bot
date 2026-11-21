@@ -2,7 +2,7 @@
 // packaged app ships no node_modules. Entry points keep their exact relative
 // paths under dist-server, where the server locates each proxy by path.
 import { build } from "esbuild";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { serverLocalePlugin } from "./server-locale-plugin.mjs";

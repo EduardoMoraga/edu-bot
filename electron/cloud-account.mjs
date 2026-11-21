@@ -3,6 +3,7 @@ import { CLOUD_MACHINE_CONNECTABLE, cloudUnreachableText, parseCloudCredit, pars
 import { CLOUD_ID, CLOUD_SWATCHES, cleanCloudListName, ORGANIZATION_BLOCKS, otherOwnClouds, ownCloud, parseCloudList, parseCloudRenewal, parseOrganizations, releaseVersion } from "./cloud-list.mjs";
 import { planTeam, teamPlan } from "./cloud-team-plan.mjs";
 import { cleanCode, cleanEmail, failureKind, parseSignInStart, READ_WAIT_MS, resetOffered, retryAfterSeconds, settledWithin, SIGN_IN_START, SIGN_IN_TRIES, SIGN_IN_VERIFY, signInBlock, signInIdentity, startFailure, verifyFailure } from "./cloud-signin.mjs";
+import { managedCloudFetch } from "./managed-cloud.mjs";
 import nativeText from "./native-text.cjs";
 
 const { englishText } = nativeText;
@@ -97,7 +98,7 @@ function addOffer(result) {
 }
 
 export function createCloudAccountClient({ store, openBrowser, platform, deviceName, appVersion,
-  origin = CLOUD_ORIGIN, fixture = false, fetch: fetcher = globalThis.fetch, now = Date.now, onState = () => {},
+  origin = CLOUD_ORIGIN, fixture = false, fetch: fetcher = fixture ? globalThis.fetch : managedCloudFetch(), now = Date.now, onState = () => {},
   setTimer = setTimeout, clearTimer = clearTimeout, warn = message => console.warn(message), awaitingWake = () => false, t = englishText.t, readWaitMs = READ_WAIT_MS }) {
   origin = cloudOrigin(origin, fixture);
   const staging = origin === STAGING_CLOUD_ORIGIN;

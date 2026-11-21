@@ -18,6 +18,7 @@ const OWN = "https://omb-c-a.fly.dev";
 
 const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "" }));
 
+vi.mock("./desktop-updates.mjs", () => ({ DESKTOP_AUTO_UPDATE: true }));
 vi.mock("electron", () => ({
   app: { isPackaged: true, getPath: () => fixture.home, getVersion: () => "1.0.0", hide: vi.fn() },
   clipboard: { writeText: vi.fn() },

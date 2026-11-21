@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { managedCloudConfigured } from "./managed-cloud.mjs";
 import { CLOUD_ORIGIN, STAGING_CLOUD_ORIGIN, checkoutDestination, cloudOrigin, cloudTarget, createCloudAccountClient } from "./cloud-account.mjs";
 
 const accessToken = `omc_${"S".repeat(43)}`;
@@ -79,4 +80,21 @@ test("main keeps each Admin's sign-in, saved servers, Files state and Cloud name
   assert.match(main, /createCloudAccountStore\(\{ file: path\.join\(app\.getPath\("userData"\), cloudTarget\(process\.env\)\.saved\)/);
   assert.match(ensure, /origin: cloudTarget\(process\.env\)\.origin,/);
   assert.equal(main.includes('"cloud-account.bin"'), false, "no second, fixed token file");
+});
+
+test("without OMB_CLOUD_ACCOUNT=1 or OMB_CLOUD_STAGING=1 the client never reaches MausBot Cloud", async () => {
+  assert.equal(managedCloudConfigured({}), false);
+  for (const value of ["0", "true", " 1", ""]) assert.equal(managedCloudConfigured({ OMB_CLOUD_ACCOUNT: value }), false, JSON.stringify(value));
+  assert.equal(managedCloudConfigured({ OMB_CLOUD_ACCOUNT: "1" }), true);
+  assert.equal(managedCloudConfigured({ OMB_CLOUD_STAGING: "1" }), true);
+  if (managedCloudConfigured()) return;
+  const real = globalThis.fetch, reached = [];
+  globalThis.fetch = async url => { reached.push(String(url)); return new Response("{}"); };
+  const client = createCloudAccountClient({ deviceName: "Mac", platform: "darwin", store: { read: async () => null, write: async () => {} }, openBrowser: async () => {}, setTimer: () => 1, clearTimer: () => {} });
+  try {
+    await client.start();
+    assert.equal(await client.offer(), null);
+    assert.equal((await client.emailStart("person@example.test")).outcome === "sent", false);
+    assert.deepEqual(reached, []);
+  } finally { client.close(); globalThis.fetch = real; }
 });
