@@ -70,6 +70,8 @@ export default defineConfig({
     // Node 25+ defines its own globalThis.localStorage (undefined without --localstorage-file), which hides
     // happy-dom's Storage in DOM tests.
     execArgv: ["--no-experimental-webstorage"],
+    // GitHub-hosted runners use UTC; a local zone with a daylight-saving change makes local-time date arithmetic differ.
+    env: { TZ: "UTC" },
     // Doubled on Windows, whose runners are about 1.45x slower.
     testTimeout: hostTimeout(20_000),
     hookTimeout: hostTimeout(30_000),

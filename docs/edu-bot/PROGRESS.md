@@ -7,7 +7,7 @@ Hecho = verificado. Cada línea dice cómo se probó.
 | Hito | Qué es | Estado |
 | --- | --- | --- |
 | M0 | El repo instala, compila y pasa tests en Linux | En curso |
-| M1 | Nombre Edu Bot, licencias, sin telemetría, sin `enterprise/` | En curso (plan listo) |
+| M1 | Nombre Edu Bot, licencias, sin telemetría, sin `enterprise/` | En pausa hasta cerrar M0 (plan listo) |
 | M2 | Memoria Edu en cada bot, con aprobaciones | Pendiente |
 | M3 | Organización, áreas y bots en archivos | Pendiente |
 | M4 | Conector SQL, permisos por bot, registro de auditoría | Pendiente |
@@ -23,13 +23,24 @@ Hecho = verificado. Cada línea dice cómo se probó.
 - [x] Build (`pnpm build`): pasa en 47 s. Antes fallaba por falta de memoria de Node
   (límite 2 GB en este equipo). Arreglo: el build usa 4 GB, igual que el release. PR #1.
 - [x] Electron no se había descargado al instalar. Se bajó con `node install.js` del paquete electron.
-- [ ] Tests unitarios (`vitest run`): corren en 8 partes, una tras otra, para no llenar la memoria.
-  Hallazgo: `/tmp` vive en la RAM. Los tests dejaron 4,7 GB ahí. Eso causó gran parte del corte.
-  Ahora los tests usan una carpeta temporal en disco (`TMPDIR=~/.cache/edubot-test-tmp`).
+- [x] Tests (`vitest`). En CI todo verde: Ubuntu y Windows (16 partes), smokes de macOS, paquete Ubuntu.
+  2 partes fallaron 1 test cada una por carrera de tiempos (no por nuestro cambio). Al re-correr, pasaron.
+  CI es la referencia del suite completo.
+- Hallazgo: `/tmp` vive en la RAM. Los tests dejaron 4,7 GB ahí. Eso causó gran parte del corte.
+  Para correr tests aquí usar `TMPDIR=/var/tmp/edubot-tests` (en disco, sin punto, fuera de HOME).
+- Fallos que solo pasan en este PC (Arch), no en CI. Grok los revisó:
+  - e2e de "cloud/team": aquí bubblewrap funciona; en Ubuntu 24.04 no. Upstream lo sabe (`ci.yml`).
+  - `linux-after-install`: el script exige que la prueba viva en `/tmp`.
+  - Con `TMPDIR` en carpeta oculta o dentro de HOME fallan 2 archivos más. Con `/var/tmp` pasan.
+  - Un test de gráficos fallaba por el cambio de horario de Chile. Arreglo: los tests corren en UTC,
+    igual que CI (`vite.config.ts`). Comprobado: sin UTC falla, con UTC pasa.
 - [x] Con Node 26, 2 archivos de tests de interfaz fallaban: Node trae su propio `localStorage` vacío.
   Arreglo en `vite.config.ts` (`--no-experimental-webstorage`). Los 15 tests pasan.
-- [ ] La app abre en Linux.
-- [ ] Auditoría de otro proveedor.
+- [x] La app abre en Linux (Omarchy, Wayland), con HOME y datos temporales, sin tocar datos reales.
+  Ventana "MausBot". Se pasó la bienvenida con clic y cargó la pantalla principal.
+  Cero errores en los logs. Capturas y logs en `~/Projects/edu-bot-wt/reports/m0-shots/`.
+- [ ] Auditoría de otro proveedor. Grok, ronda 1: pidió 3 arreglos (estado de M1, explicación de fallos,
+  prueba de apertura). Hechos. Ronda 2 en curso.
 
 ## Cómo trabajamos
 
