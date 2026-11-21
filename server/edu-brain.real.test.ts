@@ -129,4 +129,18 @@ describe.skipIf(!cli)("the installed Edu binary", () => {
     }
     expect(filesUnder(join(victim, ".edu", "brain")).some((file) => file.endsWith("written-through-the-link.md"))).toBe(true);
   });
+
+  it("does not mount a brain whose .edu/brain was swapped for a link to another brain", async () => {
+    const linked = { id: "bot-nested", name: "Rio" };
+    const victim = join(root, "victim-nested");
+    mkdirSync(victim);
+    execFileSync(process.execPath, [cli!, "--cwd", victim, "init", "--name", "Victim"], { env: { ...env, EDU_HOME: eduRegistryHome(dataDir) } });
+    expect(await brains.integration(linked, { local: true })).not.toBeNull();
+    const folder = join(dataDir, "brains", linked.id);
+    renameSync(join(folder, ".edu", "brain"), join(root, "parked-nested"));
+    symlinkSync(join(victim, ".edu", "brain"), join(folder, ".edu", "brain"));
+
+    expect(await brains.integration(linked, { local: true })).toBeNull();
+    expect(await brains.status(linked)).toMatchObject({ state: "broken", reason: expect.stringMatching(/\.edu\/brain is a link/) });
+  });
 });

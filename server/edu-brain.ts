@@ -85,7 +85,8 @@ export interface EduFolderLimits {
 }
 
 /** Security: a bot's brain folder, symlinks resolved, is never the global brain or inside it, never in Edu Bot's data
- * folder except the bot's own brain, and its `.edu` is never a symlink (Edu would write through it into another brain). */
+ * folder except the bot's own brain, its `.edu` is never a symlink, and its `.edu/brain` never resolves outside the
+ * folder (Edu 6.0.0 writes through either link into another brain). */
 export function eduFolderRefusal(folder: string, limits: EduFolderLimits): string | null {
   const real = resolveThroughLinks(folder);
   const globalHome = resolveThroughLinks(limits.globalHome);
@@ -97,6 +98,8 @@ export function eduFolderRefusal(folder: string, limits: EduFolderLimits): strin
     return "This folder is inside Edu Bot's data folder; pick a folder outside it";
   }
   if (isSymlink(join(real, ".edu"))) return "This folder's .edu is a link to another place; use a real .edu folder";
+  const notes = join(real, ".edu", "brain");
+  if (existsSync(notes) && !isInside(resolveThroughLinks(notes), real)) return "This folder's .edu/brain is a link to another place; use a real brain folder";
   return null;
 }
 

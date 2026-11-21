@@ -184,6 +184,24 @@ describe("createEduBrains", () => {
     expect(brains.folderRefusal(bot, join(dataDir, "brains", "b1"))).toBeNull();
   });
 
+  it("never mounts a brain whose .edu/brain is a link out of the folder, and keeps one that stays inside", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { brains } = setup();
+    const folder = temp();
+    const victim = temp();
+    mkdirSync(join(victim, "brain"), { recursive: true });
+    mkdirSync(join(folder, ".edu"), { recursive: true });
+    symlinkSync(join(victim, "brain"), join(folder, ".edu", "brain"));
+    const linked = { ...bot, eduBrain: { mode: "folder" as const, path: folder } };
+    expect(brains.folderRefusal(linked, folder)).toMatch(/\.edu\/brain is a link/);
+    expect(await brains.integration(linked, { local: true })).toBeNull();
+    expect(await brains.status(linked)).toMatchObject({ state: "broken", reason: expect.stringMatching(/\.edu\/brain is a link/) });
+    rmSync(join(folder, ".edu", "brain"));
+    mkdirSync(join(folder, "notes"));
+    symlinkSync(join(folder, "notes"), join(folder, ".edu", "brain"));
+    expect(brains.folderRefusal(linked, folder)).toBeNull();
+  });
+
   it("attaches only for an engine that mounts Edu and a turn on this computer", async () => {
     const { brains } = setup();
     const turn = async (capabilities: { eduMcp?: boolean }, where: { computer?: string | null; confined?: boolean }, hostLocal = brains) => {
