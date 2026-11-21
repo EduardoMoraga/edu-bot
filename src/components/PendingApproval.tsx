@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { t, tFromServer } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { SkillRequestPreview } from "@/components/SkillRequestPreview";
-import { titledCard, titledCardAction, toolLabel } from "./ApprovalCard";
+import { titledCard, titledCardAction, titledCardTitle, toolLabel } from "./ApprovalCard";
 import { ASK_QUIET_ANSWER, ASK_QUIET_BUTTON, ASK_SECONDARY_BUTTON, AskDetail, AskHeader, askPrimary, type Asker } from "./AskCard";
 import { approvalDetailText, outboundSummary } from "@/lib/approval-summary";
 import { reviewedSkillSha256 } from "../../shared/skill-request";
@@ -69,7 +69,7 @@ export function spokenApprovalPrompt(pending: Pending, requester: string): strin
   const card = pending.message.card;
   if (card && titledCard(card)) return t("approval.voice.titled", {
     requester,
-    title: card.title,
+    title: titledCardTitle(card, requester),
     allow: titledCardAction(card),
     cancel: t("approval.action.cancel"),
   });
@@ -93,9 +93,9 @@ export function spokenApprovalPrompt(pending: Pending, requester: string): strin
   return t("approval.voice.command", { requester, tool: toolLabel(pending.tool), detail: card ? approvalDetailText(card) : pending.detail });
 }
 
-function label(pending: Pending): string {
+function label(pending: Pending, botName?: string): string {
   const card = pending.message.card;
-  if (card && titledCard(card)) return card.title;
+  if (card && titledCard(card)) return titledCardTitle(card, botName ?? t("approval.someone"));
   if (isSkillApproval(pending)) {
     return pending.message.card?.skillRequest?.action === "update"
       ? t("approval.label.updateSkill")
@@ -135,8 +135,9 @@ function approvalWords(pending: Pending, botName?: string): { line: string; summ
   const detail = (pending.commandAllowlist?.command ?? ask?.detail ?? (card ? approvalDetailText(card) : pending.detail)).trim();
   if (outbound) return { line: outbound.headline, ...(outbound.summary ? { summary: outbound.summary } : {}), detail };
   if (ask) return { line: ask.line, detail };
+  if (card?.eduProposal) return { line: label(pending, botName), inline: detail, detail };
   if (card?.mcpRequest || card?.lendingLift) return { line: card.title, inline: detail, detail };
-  if (isDurable(pending)) return { line: label(pending), detail };
+  if (isDurable(pending)) return { line: label(pending, botName), detail };
   const action = COMMAND_TOOLS.has(pending.tool) ? t("approval.tool.runCommand") : toolLabel(pending.tool);
   return { line: botName ? t("approval.card.namedWantsTo", { name: botName, action }) : label(pending), inline: detail, detail };
 }
@@ -341,7 +342,8 @@ export function PendingApprovalActions({
       autoFocus={titled}
       className={ASK_SECONDARY_BUTTON}
     >
-      {pending.message.card?.lendingLift ? pending.message.card.options[1] : isRoutineRequest || isProfileRequest || titled ? t("approval.action.cancel") : t("approval.action.deny")}
+      {pending.message.card?.lendingLift ? pending.message.card.options[1] : pending.message.card?.eduProposal ? t("server.edu.reject")
+        : isRoutineRequest || isProfileRequest || titled ? t("approval.action.cancel") : t("approval.action.deny")}
     </button>,
     <button
       key="allow"

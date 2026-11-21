@@ -170,7 +170,7 @@ describe("today's report", () => {
 });
 
 describe("needs you", () => {
-  const kinds = (items: NeedsYouItem[]) => items.map((item) => [item.kind, "instanceId" in item ? item.instanceId : "app" in item ? item.app : "place" in item ? item.place.state : "credit" in item ? item.credit : item.text]);
+  const kinds = (items: NeedsYouItem[]) => items.map((item) => [item.kind, "instanceId" in item ? item.instanceId : "app" in item ? item.app : "place" in item ? item.place.state : "credit" in item ? item.credit : "text" in item ? item.text : item.title]);
 
   function blocked() {
     const w = world();
