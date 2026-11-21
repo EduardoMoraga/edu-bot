@@ -12,7 +12,8 @@ import {
   PRODUCT_NAME,
 } from "../electron/app-identity.mjs";
 
-const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
+// Git on the Windows runners checks text files out with CRLF line endings.
+const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 const builder = parse(read("electron-builder.yml"));
 const pkg = JSON.parse(read("package.json"));
 
