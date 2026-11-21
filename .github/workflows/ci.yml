@@ -435,8 +435,8 @@ jobs:
   foss:
     needs: static
     if: contains(needs.static.outputs.jobs, '"foss"')
-    # Edu Bot ships no enterprise layer (LICENSING.md). Prove the server still
-    # reports the open-source edition, even with a licence key set.
+    # Edu Bot ships no enterprise layer. Prove the server still reports the
+    # open-source edition, even with a licence key set.
     name: open-source edition, no enterprise layer
     runs-on: ubuntu-latest
     timeout-minutes: 15

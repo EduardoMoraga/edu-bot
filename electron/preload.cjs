@@ -96,6 +96,9 @@ const HOME_PAGE = ["home", "onChatLink", "onPackageInstall", "exportDiagnostics"
 function updaterOffered() {
   try { return ipcRenderer.sendSync("update:offered") === true; } catch { return false; }
 }
+function updatesEnabled() {
+  try { return ipcRenderer.sendSync("update:enabled") === true; } catch { return false; }
+}
 function homePage() {
   try { return ipcRenderer.sendSync("home:page") === true; } catch { return false; }
 }
@@ -778,5 +781,5 @@ const bridge = {
 
 contextBridge.exposeInMainWorld(
   "ogb",
-  isLocalPage ? bridge : Object.fromEntries(Object.entries(bridge).filter(([key]) => remoteKeys.has(key))),
+  Object.fromEntries(Object.entries(bridge).filter(([key]) => (isLocalPage ? key !== "updater" || updatesEnabled() : remoteKeys.has(key)))),
 );

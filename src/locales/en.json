@@ -1347,6 +1347,7 @@
   "cloudAccount.restoreRetryKeyring": "This computer couldn't open its saved Cloud sign-in. Unlock your system keyring, and the app tries again by itself.",
   "cloudAccount.restoreRemoved": "This computer's Cloud sign-in couldn't be read, so it was removed. Sign in again.",
   "cloudAccount.signinFailed": "Cloud sign-in ended or could not be completed. Start again on this computer.",
+  "cloudAccount.notSetUp": "Cloud sign-in is not set up in this app.",
   "cloudAccount.savedStuck": "This computer still can't read its saved MausBot Cloud sign-in. Restarting the app may fix it. If it doesn't, clear it to sign in again. Your plan and My Cloud aren't affected.",
   "cloudAccount.savedStuckKeychain": "This computer still can't open its saved MausBot Cloud sign-in. Unlock your keychain or restart the app, and it may open again. If it doesn't, clear it to sign in again. Your plan and My Cloud aren't affected.",
   "cloudAccount.savedStuckKeyring": "This computer still can't open its saved MausBot Cloud sign-in. Unlock your system keyring or restart the app, and it may open again. If it doesn't, clear it to sign in again. Your plan and My Cloud aren't affected.",

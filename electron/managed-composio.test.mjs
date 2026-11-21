@@ -64,6 +64,9 @@ describe("managed Composio desktop registration", () => {
       }),
     ).toEqual({ PATH: "/usr/bin" });
     expect(
+      managedComposioChildEnvironment("https://broker.example", {}, { PATH: "/usr/bin", OMB_COMPOSIO_BROKER_TOKEN: "attacker-controlled" }),
+    ).toEqual({ PATH: "/usr/bin", OMB_COMPOSIO_BROKER_URL: "https://broker.example" });
+    expect(
       managedComposioChildEnvironment("http://[::1]:8787", credentials, { PATH: "/usr/bin" }),
     ).toEqual({
       PATH: "/usr/bin",

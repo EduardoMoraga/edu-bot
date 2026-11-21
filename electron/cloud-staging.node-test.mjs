@@ -90,11 +90,22 @@ test("without OMB_CLOUD_ACCOUNT=1 or OMB_CLOUD_STAGING=1 the client never reache
   if (managedCloudConfigured()) return;
   const real = globalThis.fetch, reached = [];
   globalThis.fetch = async url => { reached.push(String(url)); return new Response("{}"); };
-  const client = createCloudAccountClient({ deviceName: "Mac", platform: "darwin", store: { read: async () => null, write: async () => {} }, openBrowser: async () => {}, setTimer: () => 1, clearTimer: () => {} });
+  const opened = [];
+  const client = createCloudAccountClient({ deviceName: "Mac", platform: "darwin", store: { read: async () => null, write: async () => {} }, openBrowser: async url => { opened.push(url); }, setTimer: () => 1, clearTimer: () => {}, warn: () => {} });
   try {
     await client.start();
     assert.equal(await client.offer(), null);
-    assert.equal((await client.emailStart("person@example.test")).outcome === "sent", false);
+    assert.deepEqual(await client.emailStart("person@example.test"), { outcome: "not-set-up" });
+    assert.equal((await client.begin()).message, "not-set-up", "the sheet can say the Cloud is not set up, not that sign-in failed");
+    await assert.rejects(client.openDashboard(), /not set up/);
     assert.deepEqual(reached, []);
+    assert.deepEqual(opened, [], "no upstream Cloud page opens in the browser");
   } finally { client.close(); globalThis.fetch = real; }
+});
+
+test("Cloud offers (Add a Cloud, checkout, the product-updates question) need a configured Cloud", () => {
+  const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+  const rule = /function cloudOffersAllowed\(\) \{\n {2}return ([^\n]*);\n\}/.exec(main.replace(/\r\n/g, "\n"));
+  assert.ok(rule, "main.mjs keeps one cloudOffersAllowed rule");
+  assert.match(rule[1], /^managedCloudConfigured\(\) && /);
 });

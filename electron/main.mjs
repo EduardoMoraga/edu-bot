@@ -13,7 +13,7 @@ import { installTalk, isTalkPanel } from "./talk-main.mjs";
 import { openBlankTerminal } from "./terminal-launch.mjs";
 import { disableWaylandColorManager, linuxDisablesGpu, SOFTWARE_RENDERING_ARG } from "./linux-gpu.mjs";
 import { contextMenuTemplate, createMediaDownloads } from "./context-menu.mjs";
-import { attachUpdaterWindow, startUpdater, registerUpdaterIpc, sendUpdaterState, reopenedOutOfSight, quietSignals, unattendedUpdates } from "./updater.mjs"; import { installAlwaysOnHome } from "./always-on-home.mjs";
+import { attachUpdaterWindow, startUpdater, registerUpdaterIpc, sendUpdaterState, reopenedOutOfSight, quietSignals, unattendedUpdates } from "./updater.mjs"; import { DESKTOP_AUTO_UPDATE } from "./desktop-updates.mjs"; import { managedCloudConfigured } from "./managed-cloud.mjs"; import { installAlwaysOnHome } from "./always-on-home.mjs";
 import {
   appendDesktopCrashRecord,
   buildDiagnosticsReport,
@@ -830,7 +830,7 @@ async function readCloudOfferBrand() {
   refreshApplicationMenu();
 }
 function cloudOffersAllowed() {
-  return app.isPackaged && !desktopRemoteAccess && brandedBuild === false;
+  return managedCloudConfigured() && app.isPackaged && !desktopRemoteAccess && brandedBuild === false;
 }
 async function cloudOffersReady() {
   if (brandedBuild === null && serverReady) await readCloudOfferBrand();
@@ -2560,8 +2560,9 @@ const updaterPageOffered = event => {
   return cloudPageSenderAllowed(event, { contents, homeOrigin: savedCloudHomeOrigin(environmentsState), activeOrigin: activeEnvironment(environmentsState)?.origin });
 };
 ipcMain.on("update:offered", event => {
-  try { event.returnValue = updaterPageOffered(event) === true; } catch { event.returnValue = false; }
+  try { event.returnValue = DESKTOP_AUTO_UPDATE && updaterPageOffered(event) === true; } catch { event.returnValue = false; }
 });
+ipcMain.on("update:enabled", event => { event.returnValue = DESKTOP_AUTO_UPDATE; });
 installCloudPlanIpc({ ipcMain, pageSender: cloudPageSender, account: () => cloudAccount, client: () => ensureCloudAccount(), notices: () => cloudTrialNotices(), homePage: event => homeWindow.homePage(event), otherCloud: ownCloudPage });
 
 const savedWorkspace = id => {

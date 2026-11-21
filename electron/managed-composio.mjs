@@ -10,7 +10,7 @@ export function ownComposioKey(credentials, environment = process.env) {
   return Boolean((typeof saved === "string" && saved.trim()) || environment.COMPOSIO_API_KEY?.trim());
 }
 
-/** Only a broker the person configured (OMB_COMPOSIO_BROKER_URL, a cloudflare/composio-broker they run): none by default. */
+/** Only a broker the person configured with OMB_COMPOSIO_BROKER_URL: none by default. */
 export function managedComposioBrokerUrl(configured) {
   if (managedComposioBrokerOff()) return "";
   return normalizeManagedComposioBrokerUrl(typeof configured === "string" ? configured.trim() : "");
@@ -42,11 +42,10 @@ export function managedComposioChildEnvironment(brokerUrl, credentials, environm
   const next = { ...environment };
   delete next.OMB_COMPOSIO_BROKER_URL;
   delete next.OMB_COMPOSIO_BROKER_TOKEN;
+  const url = managedComposioBrokerOff() ? "" : normalizeManagedComposioBrokerUrl(brokerUrl);
+  if (url) next.OMB_COMPOSIO_BROKER_URL = url;
   const access = managedComposioAccess(brokerUrl, credentials);
-  if (access) {
-    next.OMB_COMPOSIO_BROKER_URL = access.url;
-    next.OMB_COMPOSIO_BROKER_TOKEN = access.token;
-  }
+  if (access) next.OMB_COMPOSIO_BROKER_TOKEN = access.token;
   return next;
 }
 

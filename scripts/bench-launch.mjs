@@ -116,7 +116,7 @@ async function startDevServers() {
 }
 const stopDevServers = () => { for (const child of devChildren) child.kill("SIGTERM"); };
 const staged = stage();
-if (!existsSync(join(paths.userData, "desktop-prefs.json"))) writeFileSync(join(paths.userData, "desktop-prefs.json"), JSON.stringify({ seen: [], analytics: false }));
+if (!existsSync(join(paths.userData, "desktop-prefs.json"))) writeFileSync(join(paths.userData, "desktop-prefs.json"), JSON.stringify({ seen: [] }));
 const seeded = seed();
 
 let logRead = 0;
