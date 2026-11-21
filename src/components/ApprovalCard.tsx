@@ -19,7 +19,7 @@ import { useCloudGuest } from "@/lib/cloud-guest";
 import { yourComputerAsk } from "@/lib/your-computer";
 import { computerAskWords } from "@/lib/computer-ask";
 import { mcpRequestActionLabel } from "@/lib/mcp-request-label";
-import { eduProposalOutcome, eduProposalTitle } from "@/lib/edu-proposal-words";
+import { eduProposalFields, eduProposalOutcome, eduProposalSummary, eduProposalTitle } from "@/lib/edu-proposal-words";
 import { TriggerCard } from "./TriggerCard";
 import { CardHint } from "./CardHint";
 
@@ -511,6 +511,17 @@ export function ApprovalCard({
       <div data-computer-ask={state} className="w-full">
         <CompactApprovalRow header={turnOn.line} summary={waiting ? turnOn.reason : undefined} detail="" showDetailInline={false} outcome={turnOn.outcome}
           allowed={state === "on" || state === "turning-on"} byVoice={byVoice} waiting={waiting} answeredBelow={waiting && !card.dismissed} />
+      </div>
+    );
+  }
+  const edu = card.eduProposal;
+  if (edu) {
+    const waiting = !settled && !expired;
+    return (
+      <div data-edu-proposal={waiting ? "pending" : "settled"} className="w-full">
+        <CompactApprovalRow header={waiting ? eduProposalTitle(edu, bot?.name ?? t("approval.someone")) : edu.title} summary={waiting ? edu.title : undefined}
+          detail={`${eduProposalSummary(edu, bot?.name)}\n\n${eduProposalFields(edu)}`} showDetailInline={false} outcome={outcome}
+          allowed={settled === "allow"} expired={expired} byVoice={byVoice} waiting={waiting} answeredBelow={waiting && Boolean(card.requestId)} />
       </div>
     );
   }

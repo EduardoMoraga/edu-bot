@@ -6,7 +6,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { EduBrainView, EduProposal } from "../shared/edu-brain.ts";
+import type { EduBrainView, EduDecideRights, EduProposal } from "../shared/edu-brain.ts";
+import { eduProposalSummary, eduProposalTitle, type EduSay } from "../shared/edu-proposal-words.ts";
 import type { NeedsYouItem } from "../shared/today.ts";
 import type { OptionCardData } from "../shared/wire.ts";
 import type { DecisionRow } from "./decision-log.ts";
@@ -34,6 +35,7 @@ export interface EduProposalDeps {
   store: {
     bot(id: string): Speaker | null | undefined;
     readonly bots: ReadonlyArray<Speaker & { threadId: string; hidden?: boolean }>;
+    readonly groups: ReadonlyArray<{ threadId: string; memberIds: readonly string[]; tasks?: ReadonlyArray<{ threadId: string }> }>;
     tasks(botId: string): ReadonlyArray<{ threadId: string }>;
     messagesFor(threadId: string): CardMessage[];
     appendMessage(threadId: string, message: { role: "bot"; kind: "options"; card: OptionCardData; from?: { botId: string; name: string; color: string } }): { id: string };
@@ -83,8 +85,8 @@ export function proposalBody(file: string): string | undefined {
 }
 
 /** Edu's listing as proposals of this brain or the global one; anything else, or an id that could pass for a flag, is
- * dropped. */
-export function parseProposals(stdout: string, folder: string, globalHome: string): EduProposal[] {
+ * dropped. `shared`: the bot names this brain's folder itself. */
+export function parseProposals(stdout: string, folder: string, globalHome: string, shared = false): EduProposal[] {
   const rows: unknown = JSON.parse(stdout);
   if (!Array.isArray(rows)) throw new Error("edu brain proposals did not print a list");
   const own = join(folder, ".edu");
@@ -99,7 +101,8 @@ export function parseProposals(stdout: string, folder: string, globalHome: strin
     const global = !isInside(real, own) && isInside(real, home);
     if (!global && !isInside(real, own)) continue;
     const body = proposalBody(real);
-    proposals.push({ id, title: text("title") || id, kind: text("kind"), band: text("band") || "unbanded", why: text("why"), brain: folder, global, ...(body ? { body } : {}) });
+    proposals.push({ id, title: text("title") || id, kind: text("kind"), band: text("band") || "unbanded", why: text("why"), brain: folder, global,
+      location: global ? globalHome : folder, ...(shared ? { shared: true } : {}), ...(body ? { body } : {}) });
   }
   return proposals;
 }
@@ -121,16 +124,12 @@ export const eduProposalKey = (proposal: Pick<EduProposal, "brain" | "id">) => `
 const openCard = (card: OptionCardData | undefined): card is OptionCardData & { eduProposal: EduProposal } =>
   Boolean(card?.eduProposal && card.requestId && !card.answered && !card.dismissed && !card.expired);
 
-/** A card's words in the conversation's language, for clients that do not word it from `eduProposal`. Edu's own kind,
- * band, reason and note stay as Edu wrote them. */
+/** A card's words in the conversation's language, for clients that do not word it from `eduProposal`. */
 export function proposalCardWords(proposal: EduProposal, botName: string, language?: string): { title: string; subtitle: string; options: string[] } {
-  const lines = [proposal.title, [proposal.kind, proposal.band, proposal.why].filter(Boolean).join(" · ")];
-  if (proposal.body) lines.push("", proposal.body);
-  lines.push("", serverLine(language, proposal.global ? "server.edu.globalBrain" : "server.edu.brain", { path: proposal.brain }));
-  if (proposal.global) lines.push(serverLine(language, "server.edu.globalWarning"));
+  const say: EduSay = (key, params) => serverLine(language, key, params);
   return {
-    title: proposal.global ? serverLine(language, "server.edu.titleGlobal") : serverLine(language, "server.edu.titleOwn", { name: botName }),
-    subtitle: lines.join("\n"),
+    title: eduProposalTitle(proposal, botName, say),
+    subtitle: eduProposalSummary(proposal, botName, say),
     options: [serverLine(language, "server.edu.approve"), serverLine(language, "server.edu.reject")],
   };
 }
@@ -140,6 +139,7 @@ export function createEduProposals(deps: EduProposalDeps) {
   const run = deps.run ?? nodeRun;
   const now = deps.now ?? Date.now;
   const mounted = new Map<string, { botId: string; folder: string }>();
+  const sweeping = new Map<string, Promise<void>>();
   const cache = new Map<string, { at: number; botId: string; proposals: EduProposal[] }>();
   const firstSeen = new Map<string, number>();
   const posted = new Map<string, { threadId: string; messageId: string }>();
@@ -154,10 +154,10 @@ export function createEduProposals(deps: EduProposalDeps) {
     return clean;
   }
 
-  async function list(folder: string, runtime: EduRuntime): Promise<EduProposal[]> {
+  async function list(folder: string, runtime: EduRuntime, bot: Pick<Speaker, "eduBrain">): Promise<EduProposal[]> {
     const result = await run([runtime.cli!, ...eduCommands.list(folder)], { env: eduEnv(runtime), timeoutMs: LIST_TIMEOUT_MS });
     if (result.code !== 0) throw new Error(result.stderr.trim().split("\n").at(-1) || `edu exited with ${result.code}`);
-    return parseProposals(result.stdout, folder, runtime.home);
+    return parseProposals(result.stdout, folder, runtime.home, bot.eduBrain?.mode === "folder");
   }
 
   function remember(botId: string, folder: string, proposals: EduProposal[]) {
@@ -165,15 +165,22 @@ export function createEduProposals(deps: EduProposalDeps) {
     for (const proposal of proposals) if (!firstSeen.has(eduProposalKey(proposal))) firstSeen.set(eduProposalKey(proposal), now());
   }
 
-  /** The conversations that may hold a card for this brain: the bots on it, and the room threads cards went to. */
+  /** The conversations that may hold a card for this brain: those of the bots on it, and the rooms they are in. */
   function cardThreads(folder: string, extra?: string): string[] {
     const threads = new Set<string>(extra ? [extra] : []);
     const real = resolveThroughLinks(folder);
+    const onBrain = new Set<string>();
     for (const bot of deps.store.bots) {
       const own = deps.brains.brainFolder(bot);
       if (!own || resolveThroughLinks(own) !== real) continue;
+      onBrain.add(bot.id);
       threads.add(bot.threadId);
       for (const task of deps.store.tasks(bot.id)) threads.add(task.threadId);
+    }
+    for (const group of deps.store.groups) {
+      if (!group.memberIds.some((id) => onBrain.has(id))) continue;
+      threads.add(group.threadId);
+      for (const task of group.tasks ?? []) threads.add(task.threadId);
     }
     for (const [key, at] of posted) if (key.startsWith(`${folder}\0`)) threads.add(at.threadId);
     return [...threads];
@@ -209,12 +216,22 @@ export function createEduProposals(deps: EduProposalDeps) {
   }
 
   /** After a turn that had the brain mounted: a card for each new proposal in the bot's own brain, and open cards of
-   * proposals decided elsewhere become unavailable. Global proposals wait in Memory settings and Needs you instead. */
-  async function sweep(threadId: string, botId: string, folder: string): Promise<void> {
+   * proposals decided elsewhere become unavailable. Global proposals wait in Memory settings and Needs you instead. One
+   * sweep of a brain at a time, so two bots on it never card the same proposal twice. */
+  function sweep(threadId: string, botId: string, folder: string): Promise<void> {
+    const before = sweeping.get(folder) ?? Promise.resolve();
+    const next = before.then(() => sweepNow(threadId, botId, folder));
+    const tail = next.catch(() => {});
+    sweeping.set(folder, tail);
+    void tail.then(() => { if (sweeping.get(folder) === tail) sweeping.delete(folder); });
+    return next;
+  }
+
+  async function sweepNow(threadId: string, botId: string, folder: string): Promise<void> {
     const bot = deps.store.bot(botId);
     const runtime = await deps.brains.detect();
     if (!bot || runtime.state !== "ready") return;
-    const proposals = await list(folder, runtime);
+    const proposals = await list(folder, runtime, bot);
     remember(botId, folder, proposals);
     const pending = new Set(proposals.map(eduProposalKey));
     const open = openCards(folder, threadId);
@@ -222,7 +239,8 @@ export function createEduProposals(deps: EduProposalDeps) {
     for (const proposal of proposals) if (!proposal.global && !open.has(eduProposalKey(proposal))) post(threadId, bot, proposal);
   }
 
-  async function decide(folder: string, id: string, approve: boolean): Promise<"accepted" | "rejected" | "gone" | { status: number; error: string }> {
+  async function decide(folder: string, id: string, approve: boolean, global: boolean): Promise<"accepted" | "rejected" | "gone" | { status: number; error: string }> {
+    if (!PROPOSAL_ID.test(id)) return { status: 400, error: "That isn't an Edu proposal id." };
     if (crewWorker()) return { status: 409, error: "Edu Bot is running inside an Edu crew job, so Edu won't let it decide proposals. Decide them in Edu itself." };
     const runtime = await deps.brains.detect();
     if (runtime.state !== "ready" || !runtime.cli) return { status: 503, error: "Edu isn't available right now. Check the Edu brain in this bot's Memory settings." };
@@ -230,8 +248,10 @@ export function createEduProposals(deps: EduProposalDeps) {
     const result = await run([runtime.cli, ...args], { env: eduEnv(runtime), timeoutMs: DECIDE_TIMEOUT_MS });
     const decision = decisionOf(result.stdout, id);
     if (typeof decision === "object") return { status: 502, error: `Edu couldn't decide this proposal: ${result.stderr.trim().split("\n").at(-1) || decision.error}` };
-    const cached = cache.get(folder);
-    if (cached) cache.set(folder, { ...cached, proposals: cached.proposals.filter((proposal) => proposal.id !== id) });
+    for (const [key, cached] of cache) {
+      if (key !== folder && !global) continue;
+      cache.set(key, { ...cached, proposals: cached.proposals.filter((proposal) => proposal.id !== id || (key !== folder && !proposal.global)) });
+    }
     return decision;
   }
 
@@ -256,12 +276,12 @@ export function createEduProposals(deps: EduProposalDeps) {
       seen.add(folder);
       const brain = await deps.brains.brain(bot);
       if (!brain.ok) continue;
-      try { remember(bot.id, brain.folder, await list(brain.folder, runtime)); } catch {}
+      try { remember(bot.id, brain.folder, await list(brain.folder, runtime, bot)); } catch {}
     }
   }
 
   deps.bus?.subscribe((event) => {
-    if (event.type !== "turn.completed") return;
+    if (event.type !== "turn.completed" && event.type !== "session.exited") return;
     const turn = mounted.get(event.threadId);
     if (!turn) return;
     mounted.delete(event.threadId);
@@ -272,9 +292,11 @@ export function createEduProposals(deps: EduProposalDeps) {
   return {
     sweep,
 
-    /** The turn in `threadId` has this bot's brain mounted; its proposals are checked when the turn completes. */
-    mounted(threadId: string, bot: { id: string }, folder: string): void {
-      mounted.set(threadId, { botId: bot.id, folder });
+    /** The turn starting in `threadId` has this bot's brain mounted (`null`: none); its proposals are checked when the turn
+     * ends, however it ends. */
+    mounted(threadId: string, bot: { id: string }, folder: string | null): void {
+      if (folder) mounted.set(threadId, { botId: bot.id, folder });
+      else mounted.delete(threadId);
     },
 
     /** Security: Edu lets only a person decide a proposal. A loopback service (a bot or script on a shared server) may
@@ -283,7 +305,17 @@ export function createEduProposals(deps: EduProposalDeps) {
     answerRefusal(auth: RequestAuth, threadId: string, requestId: string, behavior: string): string | null | undefined {
       const card = deps.store.messagesFor(threadId).find((message) => message.card?.requestId === requestId)?.card;
       if (!card?.eduProposal) return undefined;
-      return eduDecisionRefusal(auth, deps.desktop, behavior === "allow");
+      return eduDecisionRefusal(auth, deps.desktop, behavior !== "deny");
+    },
+
+    /** `GET /api/edu/rights`, and what Memory settings offers: the same rule as deciding. */
+    rights(auth: RequestAuth): EduDecideRights {
+      const crew = crewWorker();
+      return {
+        mayApprove: !crew && eduDecisionRefusal(auth, deps.desktop, true) === null,
+        mayReject: !crew && eduDecisionRefusal(auth, deps.desktop, false) === null,
+        ...(crew ? { crewWorker: true } : {}),
+      };
     },
 
     /** The person's answer on a card; null when the request is not an Edu proposal card. */
@@ -291,8 +323,9 @@ export function createEduProposals(deps: EduProposalDeps) {
       const message = deps.store.messagesFor(threadId).find((candidate) => candidate.card?.requestId === requestId && candidate.card.eduProposal);
       const proposal = message?.card?.eduProposal;
       if (!message?.card || !proposal) return null;
+      if (behavior !== "allow" && behavior !== "deny") return { ok: false, status: 400, error: "Approve or reject an Edu proposal; it takes no other answer." };
       if (message.card.answered) return { ok: true, outcome: message.card.answered === "allow" ? "allowed-once" : message.card.answered === "deny" ? "rejected" : "unavailable", alreadySettled: true };
-      const decision = await decide(proposal.brain, proposal.id, behavior === "allow");
+      const decision = await decide(proposal.brain, proposal.id, behavior === "allow", proposal.global);
       if (typeof decision === "object") return { ok: false, ...decision };
       const bot = message.from?.botId ? deps.store.bot(message.from.botId) : deps.store.bots.find((candidate) => candidate.threadId === threadId || deps.store.tasks(candidate.id).some((task) => task.threadId === threadId));
       settleAll(proposal.brain, proposal.id, decision, { threadId, requestId, botId: bot?.id, botName: bot?.name, summary: message.card.subtitle });
@@ -308,7 +341,7 @@ export function createEduProposals(deps: EduProposalDeps) {
       const brain = await deps.brains.brain(bot);
       if (!brain.ok) return base;
       try {
-        const proposals = await list(brain.folder, brain.runtime);
+        const proposals = await list(brain.folder, brain.runtime, bot);
         remember(bot.id, brain.folder, proposals);
         const pending = new Set(proposals.map(eduProposalKey));
         for (const [key, cards] of openCards(brain.folder)) if (!pending.has(key)) for (const card of cards) settle(card.threadId, card.message, "unavailable");
@@ -323,7 +356,7 @@ export function createEduProposals(deps: EduProposalDeps) {
       if (!PROPOSAL_ID.test(id)) return { ok: false, status: 400, error: "That isn't an Edu proposal id." };
       const brain = await deps.brains.brain(bot);
       if (!brain.ok) return { ok: false, status: 409, error: `This bot has no Edu brain right now: ${brain.reason}` };
-      const proposals = await list(brain.folder, brain.runtime).catch(() => null);
+      const proposals = await list(brain.folder, brain.runtime, bot).catch(() => null);
       if (!proposals) return { ok: false, status: 502, error: "Edu couldn't list the proposals. Try again." };
       remember(bot.id, brain.folder, proposals);
       const proposal = proposals.find((candidate) => candidate.id === id);
@@ -331,7 +364,7 @@ export function createEduProposals(deps: EduProposalDeps) {
         settleAll(brain.folder, id, "gone", { threadId: "" });
         return { ok: true, outcome: "unavailable" };
       }
-      const decision = await decide(brain.folder, id, approve);
+      const decision = await decide(brain.folder, id, approve, proposal.global);
       if (typeof decision === "object") return { ok: false, ...decision };
       const threadId = posted.get(eduProposalKey(proposal))?.threadId ?? deps.store.bots.find((candidate) => candidate.id === bot.id)?.threadId ?? "";
       settleAll(brain.folder, id, decision, { threadId, botId: bot.id, botName: bot.name,

@@ -21,8 +21,8 @@ const bot = { id: "luna", name: "Luna", busy: false };
 const ready = (patch: Partial<EduBrainView> = {}): EduBrainView => ({
   state: "ready", mode: "own", version: "6.0.0", brain: "/data/brains/luna", home: "/home/edu/.edu", mayApprove: true,
   proposals: [
-    { id: "K-iso", title: "Use ISO dates", kind: "standard", band: "verified", why: "needs human confirmation", brain: "/data/brains/luna", global: false, body: "Dates as YYYY-MM-DD." },
-    { id: "K-short", title: "Short answers", kind: "preference", band: "inferred", why: "interpretation", brain: "/data/brains/luna", global: true },
+    { id: "K-iso", title: "Use ISO dates", kind: "standard", band: "verified", why: "needs human confirmation", brain: "/data/brains/luna", global: false, location: "/data/brains/luna", body: "Dates as YYYY-MM-DD." },
+    { id: "K-short", title: "Short answers", kind: "preference", band: "inferred", why: "interpretation", brain: "/data/brains/luna", global: true, location: "/home/edu/.edu" },
   ],
   ...patch,
 });
@@ -52,6 +52,22 @@ it("shows Edu's version, the brain folders and each pending proposal, the global
   expect(rows()[0]!.textContent).toContain("Dates as YYYY-MM-DD.");
   expect(rows()[0]!.querySelector("[data-edu-global]")).toBeNull();
   expect(rows()[1]!.querySelector("[data-edu-global]")?.textContent).toBe("Approving changes your global Edu brain, which every coding CLI with Edu reads.");
+});
+
+it("words each proposal plainly and keeps Edu's own fields behind Details, a global one's path being the global brain", async () => {
+  await render();
+  expect(rows()[0]!.querySelector("[data-edu-facts]")?.textContent).toBe("Rule · Verified · Luna's Edu brain");
+  expect(rows()[1]!.querySelector("[data-edu-facts]")?.textContent).toBe("Preference · Inferred · Global Edu brain");
+  expect(rows()[0]!.textContent).not.toMatch(/standard|unbanded|needs human confirmation|\/data\/brains/);
+  await act(async () => (rows()[1]!.querySelector("[data-edu-details]") as HTMLButtonElement).click());
+  const fields = rows()[1]!.querySelector("pre")!.textContent!;
+  expect(fields).toBe("id: K-short\nkind: preference\nband: inferred\nwhy: interpretation\npath: /home/edu/.edu");
+});
+
+it("names a shared brain by its folder", async () => {
+  fixture.view = ready({ mode: "folder", proposals: [{ id: "K-a", title: "A", kind: "lexicon", band: "unbanded", why: "", brain: "/srv/team-notes", global: false, location: "/srv/team-notes", shared: true }] });
+  await render();
+  expect(rows()[0]!.querySelector("[data-edu-facts]")?.textContent).toBe("Term · Shared brain (team-notes)");
 });
 
 it("approves and rejects through the bot's Edu route, then reads the list again", async () => {

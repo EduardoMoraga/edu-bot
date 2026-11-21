@@ -53,7 +53,7 @@ describe.skipIf(!cli)("Edu proposals with the installed Edu binary", () => {
   const proposals = createEduProposals({
     brains,
     store: {
-      bots: [bot], bot: (id) => (id === bot.id ? bot : null), tasks: () => [],
+      bots: [bot], groups: [], bot: (id) => (id === bot.id ? bot : null), tasks: () => [],
       messagesFor: () => messages,
       appendMessage: (_threadId, message) => { messages.push({ id: `m${messages.length}`, card: message.card }); return { id: `m${messages.length - 1}` }; },
       patchMessage: (_threadId, id, patch) => { const at = messages.findIndex((message) => message.id === id); messages[at] = { ...messages[at]!, ...patch }; },
@@ -87,7 +87,7 @@ describe.skipIf(!cli)("Edu proposals with the installed Edu binary", () => {
 
   it("refuses to decide while Edu Bot carries a crew-worker guard, as Edu does", async () => {
     const guarded = createEduProposals({
-      brains, store: { bots: [bot], bot: () => bot, tasks: () => [], messagesFor: () => [], appendMessage: () => ({ id: "x" }), patchMessage: () => {} },
+      brains, store: { bots: [bot], groups: [], bot: () => bot, tasks: () => [], messagesFor: () => [], appendMessage: () => ({ id: "x" }), patchMessage: () => {} },
       inRoom: () => false, decide: () => {}, desktop: true, env: { ...env, EDU_CREW_JOB: "outer-job" },
     });
     const said = await propose((await brains.integration(bot, { local: true }))!, env, [

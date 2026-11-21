@@ -8,6 +8,9 @@ import { SkillRequestPreview } from "@/components/SkillRequestPreview";
 import { titledCard, titledCardAction, titledCardTitle, toolLabel } from "./ApprovalCard";
 import { ASK_QUIET_ANSWER, ASK_QUIET_BUTTON, ASK_SECONDARY_BUTTON, AskDetail, AskHeader, askPrimary, type Asker } from "./AskCard";
 import { approvalDetailText, outboundSummary } from "@/lib/approval-summary";
+import { eduProposalFields, eduRightsNote } from "@/lib/edu-proposal-words";
+import { useEduRights } from "@/lib/edu-brain";
+import { EduProposalLines } from "./EduProposalLines";
 import { reviewedSkillSha256 } from "../../shared/skill-request";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { useInboxOrigin } from "./InboxLine";
@@ -59,6 +62,15 @@ export function pendingApprovals(messages: Message[]): Pending[] {
       held: m.card!.held,
       heldCode: m.card!.heldCode,
     }));
+}
+
+/** An Edu proposal waits in its card and in Memory settings: no turn waits on it, so it never holds the composer, and a
+ * call never reads it out or takes a spoken yes for it. */
+export const waitsOnTurn = (pending: Pending): boolean => !pending.message.card?.eduProposal;
+
+/** The approvals a running turn waits on, which a call may put to the person. */
+export function turnApprovals(messages: Message[]): Pending[] {
+  return pendingApprovals(messages).filter(waitsOnTurn);
 }
 
 export function spokenApprovalPrompt(pending: Pending, requester: string): string {
@@ -135,7 +147,7 @@ function approvalWords(pending: Pending, botName?: string): { line: string; summ
   const detail = (pending.commandAllowlist?.command ?? ask?.detail ?? (card ? approvalDetailText(card) : pending.detail)).trim();
   if (outbound) return { line: outbound.headline, ...(outbound.summary ? { summary: outbound.summary } : {}), detail };
   if (ask) return { line: ask.line, detail };
-  if (card?.eduProposal) return { line: label(pending, botName), inline: detail, detail };
+  if (card?.eduProposal) return { line: label(pending, botName), detail: eduProposalFields(card.eduProposal) };
   if (card?.mcpRequest || card?.lendingLift) return { line: card.title, inline: detail, detail };
   if (isDurable(pending)) return { line: label(pending, botName), detail };
   const action = COMMAND_TOOLS.has(pending.tool) ? t("approval.tool.runCommand") : toolLabel(pending.tool);
@@ -217,6 +229,7 @@ export const PendingApprovalPanel = memo(function PendingApprovalPanel({
           </button>
         )}
       </div>
+      {pending.message.card?.eduProposal && <EduProposalLines proposal={pending.message.card.eduProposal} />}
       {summary && <p dir="auto" className="mt-1.5 break-words text-[15px] font-medium leading-[22px] text-ink">{summary}</p>}
       {inline && <AskDetail text={inline} mono label={t("approval.aria.reviewDetails")} />}
       {note && <p dir="auto" data-computer-ask-reason className="mt-1 break-words text-[13px] leading-[18px] text-ink-secondary">{note}</p>}
@@ -290,6 +303,7 @@ export function PendingApprovalActions({
   const marked = (action: string) => (tag ? { [`data-${tag}-action`]: action } : {});
   const showPrimary = part !== "more";
   const showMore = part !== "primary";
+  if (pending.message.card?.eduProposal) return showPrimary ? <EduProposalActions decide={decide} marked={marked} allow={allow} /> : null;
   const turnOn = computerAskWords(pending.message.card, bot?.name ?? t("approval.someone"));
   if (turnOn) {
     if (!showPrimary) return null;
@@ -342,8 +356,7 @@ export function PendingApprovalActions({
       autoFocus={titled}
       className={ASK_SECONDARY_BUTTON}
     >
-      {pending.message.card?.lendingLift ? pending.message.card.options[1] : pending.message.card?.eduProposal ? t("server.edu.reject")
-        : isRoutineRequest || isProfileRequest || titled ? t("approval.action.cancel") : t("approval.action.deny")}
+      {pending.message.card?.lendingLift ? pending.message.card.options[1] : isRoutineRequest || isProfileRequest || titled ? t("approval.action.cancel") : t("approval.action.deny")}
     </button>,
     <button
       key="allow"
@@ -370,5 +383,26 @@ export function PendingApprovalActions({
       {more}
       {primary}
     </div>
+  );
+}
+
+/** Reject and Approve, offered exactly as Memory settings offers them to this person, with its note when one is not. */
+function EduProposalActions({ decide, marked, allow }: {
+  decide: (behavior: "allow" | "deny") => void;
+  marked: (action: string) => Record<string, string>;
+  allow: ReturnType<typeof askPrimary>;
+}) {
+  const rights = useEduRights();
+  const note = rights ? eduRightsNote(rights) : undefined;
+  return (
+    <>
+      {note && <p data-edu-rights-note className="min-w-0 basis-full text-start text-[13px] leading-[18px] text-ink-secondary">{note}</p>}
+      <button key="deny" {...marked("deny")} type="button" disabled={!rights?.mayReject} onClick={() => decide("deny")} className={ASK_SECONDARY_BUTTON}>
+        {t("server.edu.reject")}
+      </button>
+      <button key="allow" {...marked("allow")} type="button" disabled={!rights?.mayApprove} onClick={() => decide("allow")} className={allow.className} style={allow.style}>
+        {t("server.edu.approve")}
+      </button>
+    </>
   );
 }

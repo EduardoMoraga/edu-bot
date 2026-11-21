@@ -9,15 +9,16 @@ type Bot = EduBot & { name: string; color: string };
 export interface EduRouteDeps {
   bot(id: string): Bot | null | undefined;
   status(bot: Bot): Promise<EduBrainStatus>;
-  proposals: Pick<EduProposals, "view" | "decideFor">;
+  proposals: Pick<EduProposals, "view" | "decideFor" | "rights">;
   /** The packaged desktop app. */
   desktop: boolean;
 }
 
 /** GET /api/bots/:id/edu: the bot's Edu brain and its pending proposals. POST /api/bots/:id/edu/proposals/:pid
- * `{action: "approve" | "reject"}`. */
+ * `{action: "approve" | "reject"}`. GET /api/edu/rights: what this caller may decide. */
 export function createEduRoutes(deps: EduRouteDeps): RouteHandler {
   return async ({ req, path, method, auth, res, json, readBody }) => {
+    if (path === "/api/edu/rights") return method === "GET" ? json(res, 200, deps.proposals.rights(auth)) : json(res, 405, { error: "method not allowed" });
     const view = path.match(/^\/api\/bots\/([\w-]+)\/edu$/);
     const decide = path.match(/^\/api\/bots\/([\w-]+)\/edu\/proposals\/([^/]+)$/);
     if (!view && !decide) return PASS;
@@ -30,7 +31,7 @@ export function createEduRoutes(deps: EduRouteDeps): RouteHandler {
       const body: EduBrainView = {
         state: status.state, mode: status.mode, home: status.home,
         ...(status.brain ? { brain: status.brain } : {}), ...(status.version ? { version: status.version } : {}), ...(status.reason ? { reason: status.reason } : {}),
-        ...(status.state === "ready" ? await deps.proposals.view(bot, eduDecisionRefusal(auth, deps.desktop, true) === null) : { proposals: [], mayApprove: false }),
+        ...(status.state === "ready" ? await deps.proposals.view(bot, deps.proposals.rights(auth).mayApprove) : { proposals: [], mayApprove: false }),
       };
       return json(res, 200, body);
     }

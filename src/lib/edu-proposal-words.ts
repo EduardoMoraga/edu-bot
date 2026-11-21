@@ -1,25 +1,25 @@
 import { t } from "@/lib/i18n";
-import type { EduProposal } from "../../shared/edu-brain";
+import type { EduDecideRights, EduProposal } from "../../shared/edu-brain";
+import * as words from "../../shared/edu-proposal-words";
 
-export function eduProposalTitle(proposal: Pick<EduProposal, "global">, botName: string): string {
-  return proposal.global ? t("server.edu.titleGlobal") : t("server.edu.titleOwn", { name: botName });
-}
+const say: words.EduSay = (key, params) => t(key, params);
 
-/** Edu's own kind, band and reason stay in Edu's words. */
-export function eduProposalFacts(proposal: Pick<EduProposal, "kind" | "band" | "why">): string {
-  return [proposal.kind, proposal.band, proposal.why].filter(Boolean).join(" · ");
-}
-
-export function eduProposalDetail(proposal: EduProposal): string {
-  const lines = [proposal.title, eduProposalFacts(proposal)];
-  if (proposal.body) lines.push("", proposal.body);
-  lines.push("", t(proposal.global ? "server.edu.globalBrain" : "server.edu.brain", { path: proposal.brain }));
-  if (proposal.global) lines.push(t("server.edu.globalWarning"));
-  return lines.join("\n");
-}
+export const eduProposalTitle = (proposal: EduProposal, botName: string): string => words.eduProposalTitle(proposal, botName, say);
+export const eduProposalFacts = (proposal: EduProposal): string => words.eduProposalFacts(proposal, say);
+export const eduProposalPlace = (proposal: EduProposal, botName: string): string => words.eduProposalPlace(proposal, botName, say);
+export const eduProposalSummary = (proposal: EduProposal, botName?: string): string => words.eduProposalSummary(proposal, botName, say);
+export const eduProposalFields = words.eduProposalFields;
 
 /** What a settled Edu proposal card says. */
 export function eduProposalOutcome(answered: string | undefined): string | undefined {
   if (!answered) return undefined;
   return t(answered === "allow" ? "eduBrain.status.approved" : answered === "deny" ? "eduBrain.status.rejected" : "eduBrain.status.gone");
+}
+
+/** Why this person can't press Approve or Reject here, in Memory settings' words; undefined when they can. */
+export function eduRightsNote(rights: EduDecideRights): string | undefined {
+  if (rights.crewWorker) return t("eduBrain.crewWorker");
+  if (!rights.mayApprove && rights.mayReject) return t("eduBrain.approveElsewhere");
+  if (!rights.mayApprove) return t("eduBrain.adminOnly");
+  return undefined;
 }

@@ -65,8 +65,8 @@ export interface EduBrainDeps {
   /** Runs the script with Node; defaults to this process's runtime. */
   run?(cli: string): Run;
   now?(): number;
-  /** A turn in `threadId` got this bot's brain in `folder` mounted. */
-  mounted?(threadId: string, bot: EduBot, folder: string): void;
+  /** A turn starting in `threadId` got this bot's brain in `folder` mounted, or none (`null`). */
+  mounted?(threadId: string, bot: EduBot, folder: string | null): void;
 }
 
 const RECHECK_MS = 30_000;
@@ -322,12 +322,10 @@ export function createEduBrains(deps: EduBrainDeps) {
 
     /** Adds the turn's `edu` server when the engine mounts one and the turn runs on this computer. */
     async attach(integrations: { edu?: EduStdioServer }, bot: EduBot, capabilities: { eduMcp?: boolean }, turn: EduTurn): Promise<void> {
-      if (capabilities.eduMcp !== true) return;
       const local = (deps.hostLocal?.() ?? true) && turn.computer !== "box" && turn.computer !== "vps" && !turn.confined;
-      const edu = await mount(bot, { local });
-      if (!edu) return;
-      integrations.edu = edu.server;
-      if (turn.threadId) deps.mounted?.(turn.threadId, bot, edu.folder);
+      const edu = capabilities.eduMcp === true ? await mount(bot, { local }) : null;
+      if (turn.threadId) deps.mounted?.(turn.threadId, bot, edu?.folder ?? null);
+      if (edu) integrations.edu = edu.server;
     },
 
     /** This bot's brain folder, created for an `own` brain, with the Edu that serves it; never throws. */

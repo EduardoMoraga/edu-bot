@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { t } from "@/lib/i18n";
 import { decideEduProposal, fetchEduBrain } from "@/lib/edu-brain";
-import { eduProposalFacts } from "@/lib/edu-proposal-words";
+import { eduProposalFields, eduProposalPlace } from "@/lib/edu-proposal-words";
+import { EduProposalLines } from "../EduProposalLines";
 import type { Bot } from "@/state/store";
 import type { EduBrainView, EduProposal } from "../../../shared/edu-brain";
 import { buttonCls, Card, ColRow, ItemRow, NoteRow } from "./rows";
@@ -25,6 +26,23 @@ function PathValue({ path }: { path: string }) {
 
 /** Bot settings, Memory: this bot's Edu brain and the canonical notes waiting for the person, wherever they were
  * proposed. */
+function ProposalFields({ proposal }: { proposal: EduProposal }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" aria-expanded={open} data-edu-details onClick={() => setOpen((value) => !value)}
+        className="mt-1 text-[13px] text-ink-secondary hover:text-ink">
+        {open ? t("approval.applied.hideDetails") : t("approval.applied.details")}
+      </button>
+      {open && (
+        <pre dir="ltr" tabIndex={0} className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-inset px-3 py-2 font-mono text-[12px] leading-[18px] text-ink-secondary">
+          {eduProposalFields(proposal)}
+        </pre>
+      )}
+    </>
+  );
+}
+
 export function EduBrainCard({ bot }: { bot: Pick<Bot, "id" | "name" | "busy"> }) {
   const [view, setView] = useState<EduBrainView | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
@@ -79,10 +97,8 @@ export function EduBrainCard({ bot }: { bot: Pick<Bot, "id" | "name" | "busy"> }
           {view.proposals.map((proposal) => (
             <ColRow key={`${proposal.global ? "g" : "b"}:${proposal.id}`} data-panel-row="edu-proposal">
               <div className="min-w-0">
-                <div dir="auto" className="break-words text-[14px] font-medium text-ink">{proposal.title}</div>
-                <div className="mt-px text-[13px] leading-[1.35] text-ink-secondary">{eduProposalFacts(proposal)}</div>
-                {proposal.body && <p dir="auto" className="mt-1.5 line-clamp-4 whitespace-pre-wrap break-words text-[13px] leading-[1.45] text-ink">{proposal.body}</p>}
-                {proposal.global && <p data-edu-global className="mt-1.5 text-[13px] leading-[1.35] text-warning">{t("server.edu.globalWarning")}</p>}
+                <EduProposalLines proposal={proposal} place={eduProposalPlace(proposal, bot.name)} titleClassName="mt-0 text-[14px] leading-5" />
+                <ProposalFields proposal={proposal} />
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <button type="button" data-edu-action="reject" className={buttonCls} disabled={busy !== null || view.crewWorker}

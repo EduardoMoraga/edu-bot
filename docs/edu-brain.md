@@ -26,9 +26,13 @@ Canonical notes can only be proposed. Accepting one is a person's decision (see 
 
 ## Approvals
 
-When a turn that had the brain mounted ends, Edu Bot runs `edu --cwd <brain> brain proposals --json` and posts a card in
-that conversation for each new proposal in the bot's own brain: its title, kind, band, Edu's reason, the note and the
-brain folder. Approve runs `edu --cwd <brain> brain approve <id> --yes --json`; Reject runs
+When a turn that had the brain mounted ends, however it ends, Edu Bot runs `edu --cwd <brain> brain proposals --json`
+(one listing of a brain at a time) and posts a card in that conversation for each new proposal in the bot's own brain
+that has no open card yet, in any conversation of the bots on that brain or a room they are in. The card says, in plain
+words, where the note goes ("Pepper's Edu brain", "Shared brain (team-notes)"), its title, its kind and band ("Rule ·
+Verified"; an unbanded note says no band) and the note; Edu's id, kind, band, reason and the full path are under
+Details. No turn waits on the card: the composer stays open, the conversation is not "Waiting for you", `wait` and
+the Bot API return the reply, and a call never reads it out. Approve runs `edu --cwd <brain> brain approve <id> --yes --json`; Reject runs
 `edu --cwd <brain> brain approve --reject <id> --reason "Rejected in Edu Bot" --yes --json`. Both run without
 `EDU_CREW_JOB`, and each answer is logged in the decision log. A proposal already decided elsewhere (in a terminal,
 another CLI or the settings below) turns its card to "Already decided elsewhere".
@@ -44,7 +48,11 @@ Who may decide:
   refused, because a bot's shell is one too. A local service (`OMB_LOOPBACK_TRUST=service`) may only reject.
 - Reject: also any local request. A paired device without the admin scope may do neither.
 - Nobody, when Edu Bot itself runs inside an Edu crew job: Edu refuses, and the settings say so.
-- Never by voice: on a Live call the card is reviewed on screen.
+- Never by voice: a call skips the card, and on a Live call it is reviewed on screen.
+- A card or the settings take only approve or reject; any other answer is refused (400).
+
+The chat card offers Approve exactly when the settings do (`GET /api/edu/rights`: `mayApprove`, `mayReject`,
+`crewWorker`), with the same note.
 
 `GET /api/bots/:id/edu` returns the status and the pending proposals; `POST /api/bots/:id/edu/proposals/:id` with
 `{"action": "approve" | "reject"}` decides one. Opening the settings creates a bot's own brain if its first turn has

@@ -34,6 +34,10 @@ export interface EduProposal {
   brain: string;
   /** The note is in the global brain every coding CLI with Edu reads, not in the bot's own brain. */
   global: boolean;
+  /** The brain folder the note joins: `brain` for the bot's own, Edu's global home for a global one. */
+  location: string;
+  /** The bot's brain is a folder it names (`mode: folder`), which other bots may share. */
+  shared?: boolean;
   /** The proposed note's text, shortened. */
   body?: string;
 }
@@ -60,5 +64,12 @@ export interface EduBrainView {
   /** Whether this caller may approve; anyone who may see the list may reject. */
   mayApprove: boolean;
   /** Edu Bot itself runs inside an Edu crew job, so Edu refuses every decision. */
+  crewWorker?: boolean;
+}
+
+/** `GET /api/edu/rights`: what this caller may do with an Edu proposal, by the same rule as `EduBrainView`. */
+export interface EduDecideRights {
+  mayApprove: boolean;
+  mayReject: boolean;
   crewWorker?: boolean;
 }

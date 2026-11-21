@@ -243,6 +243,13 @@ describe("needs you", () => {
     if (!title) expect(items[0]).not.toHaveProperty("textCode");
   });
 
+  it("leaves an Edu proposal card to its own Needs you row, not a question", () => {
+    const w = world();
+    w.say(w.atlas.threadId, { role: "bot", kind: "options", at: at(12), card: { title: "Save to Atlas's Edu brain?", subtitle: "Use ISO dates", options: ["Approve", "Reject"], requestId: "edu-1", tool: "edu_propose_canonical",
+      eduProposal: { id: "K-iso", title: "Use ISO dates", kind: "standard", band: "verified", why: "", brain: "/b", global: false, location: "/b" } } });
+    expect(todayReport(w.sources(), { ...ADMIN, asks: () => true }, MIDNIGHT, NOW).needsYou).toEqual([]);
+  });
+
   it("keeps a question nobody answered after its turn ends, until the person answers it, within the week", () => {
     const w = world();
     const mia = w.store.createBot({ name: "Mia" });
