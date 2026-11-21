@@ -125,24 +125,6 @@ await build({
   logLevel: "info",
 });
 
-// The enterprise layer (enterprise/LICENSE; delete the folder for pure OSS).
-// Shipped bundled to dist-server/enterprise/server/index.js, where the server
-// finds it; its own license travels with it.
-if (existsSync(join(root, "enterprise", "server", "index.ts"))) {
-  await build({
-    entryPoints: [join(root, "enterprise", "server", "index.ts")],
-    bundle: true,
-    platform: "node",
-    target: "node20",
-    format: "esm",
-    outfile: join(root, "dist-server", "enterprise", "server", "index.js"),
-    allowOverwrite: true,
-    logLevel: "info",
-    plugins: [serverLocalePlugin],
-  });
-  copyFileSync(join(root, "enterprise", "LICENSE"), join(root, "dist-server", "enterprise", "LICENSE"));
-}
-
 // The packaged desktop and the container launcher run this bootstrap to turn on Node's compile cache.
 // Copied, not bundled: esbuild would inline index.js into it.
 copyFileSync(join(root, "scripts", "desktop-server-entry.mjs"), join(root, "dist-server", "desktop-entry.mjs"));
