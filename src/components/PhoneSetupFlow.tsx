@@ -1047,7 +1047,7 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
       )}
       {!c.pairingExpired && manualCodeMode === "direct" && c.state?.pairing && (
         <div className="mt-4 w-full max-w-[320px] rounded-xl bg-inset px-4 py-3 text-[13px] text-ink-secondary">
-          <div>{t("phone.code.typeIntro", { app: productName() })}</div>
+          <div>{t("phone.code.typeIntro", { app: COMPANION_APP_NAME })}</div>
           <div className="mt-2 font-mono text-[22px] tracking-[0.25em] text-ink">
             {c.state.pairing.code}
           </div>

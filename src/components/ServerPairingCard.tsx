@@ -225,7 +225,7 @@ export function ServerPairingCard({ initialSession = null, initialPairingCodes =
                 {forComputer ? <p className="text-[14px] leading-5 text-ink">{t("devices.computers.typeCode", { app: productName() })}</p> : offer.url ? <>
                   <p className="text-[14px] leading-5 text-ink">{t("phone.code.installAndScan", { app: COMPANION_APP_NAME })}</p>
                   <p className="text-[12px] leading-4 text-ink-secondary">{t("phone.code.notCamera", { app: COMPANION_APP_NAME })}</p>
-                </> : <p className="text-[14px] leading-5 text-ink">{t("phone.code.typeThis", { app: productName() })}</p>}
+                </> : <p className="text-[14px] leading-5 text-ink">{t("phone.code.typeThis", { app: COMPANION_APP_NAME })}</p>}
               </div>
               {forOtherComputer && (
                 <div className="flex flex-col gap-1">
@@ -238,9 +238,9 @@ export function ServerPairingCard({ initialSession = null, initialPairingCodes =
                 <div className="text-[20px] font-medium leading-7 tracking-[0.08em] text-ink tabular-nums" data-pairing-code="">{offer.code}</div>
                 <div className="text-[12px] leading-4 text-ink-secondary">{codeUntil(offer.expiresAt)}</div>
               </div>
-              {forComputer && !cloudHome ? null : <p className="text-[12px] leading-4 text-ink-secondary">{t(cloudHome ? "phone.pair.cloudPersonal" : "remote.serverPairing.subtitle", { app: productName() })}</p>}
+              {forComputer && !cloudHome ? null : <p className="text-[12px] leading-4 text-ink-secondary">{t(cloudHome ? "phone.pair.cloudPersonal" : "remote.serverPairing.subtitle", { app: COMPANION_APP_NAME })}</p>}
               {secretNote ? <p data-pair-no-phone-secrets="" className="text-[12px] leading-4 text-ink-secondary">{secretNote}</p> : null}
-              {sameWifiOnly ? <p data-pair-same-wifi="" className="text-[12px] leading-4 text-ink-secondary">{t("remote.serverPairing.sameWifiOnly", { app: productName() })}</p> : null}
+              {sameWifiOnly ? <p data-pair-same-wifi="" className="text-[12px] leading-4 text-ink-secondary">{t("remote.serverPairing.sameWifiOnly", { app: COMPANION_APP_NAME })}</p> : null}
             </div>
           )}
           <div className="flex items-center justify-end gap-2">

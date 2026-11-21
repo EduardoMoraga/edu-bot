@@ -466,7 +466,7 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
       ) : (
         <SettingsGroup label={t("devices.paired")} block="paired" actions={pairButton}>
           {showTunnelRetiredNotice(c.account, state) && (
-            <p role="status" data-devices-notice="tunnel-retired" className="px-4 text-[12px] leading-4 text-warning">{t("remote.devices.retiredShort")}</p>
+            <p role="status" data-devices-notice="tunnel-retired" className="px-4 text-[12px] leading-4 text-warning">{t("remote.devices.retiredShort", { app: COMPANION_APP_NAME })}</p>
           )}
           {remoteBlocked && <p role="status" className="px-4 text-[12px] leading-4 text-ink-secondary">{remoteBlocked}</p>}
           {state.pairing && <SettingsRows><OpenCodeRow c={c} state={state} /></SettingsRows>}

@@ -80,7 +80,7 @@ export function TeamPhoneCard({ team, blocked }: { team: string; blocked?: strin
   }
 
   return (
-    <Card title={t("teamPhone.title")} subtitle={t("teamPhone.subtitle", { team })}>
+    <Card title={t("teamPhone.title")} subtitle={t("teamPhone.subtitle", { team, app: COMPANION_APP_NAME })}>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button type="button" data-phone-pairing-action onClick={() => void create()} disabled={busy || Boolean(blocked)} title={blocked ?? undefined} className="ui-button ui-button-primary">
           {busy ? t("remote.serverPairing.creating") : t("remote.serverPairing.create")}
