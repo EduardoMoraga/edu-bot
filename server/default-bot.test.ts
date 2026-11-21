@@ -51,6 +51,27 @@ describe("MausBot, every person's helper", () => {
     expect(store.bot(custom.id)?.name).toBe("Edu");
   });
 
+  it("never adopts a user's own oldest bot because it is named Edu", () => {
+    const store = new Store(selection);
+    const own = store.createBot({ name: "Edu", color: "blue" });
+    store.patchBot(own.id, { createdAt: 1 });
+    const helper = boot(store)!;
+    expect(helper.id).not.toBe(own.id);
+    expect(helper).toMatchObject({ name: "Edu 2", defaultBot: {} });
+    expect(store.bot(own.id)).toMatchObject({ name: "Edu", color: "blue" });
+    expect(store.bot(own.id)?.defaultBot).toBeUndefined();
+  });
+
+  it("names a Team Cloud member's helper apart from the bots that member sees, not from bots only others see", () => {
+    const store = new Store(selection);
+    store.seedIfEmpty({ defaultBot: false });
+    store.createBot({ name: "Edu" });
+    store.createBot({ name: "Edu 2", visibility: { people: ["bob@acme.test"] } });
+    const own = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "ada@acme.test", team: "Acme" })!;
+    expect(own).toMatchObject({ name: "Edu 2", defaultBot: { person: "ada@acme.test" } });
+    expect(store.bots.filter((bot) => bot.name === "Edu")).toHaveLength(1);
+  });
+
   it("gives a fresh install one MausBot, its Chief, in chrome, introduced once", () => {
     const store = new Store(selection);
     store.seedIfEmpty();

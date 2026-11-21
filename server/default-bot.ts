@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { writeFileAtomic } from "./atomic.ts";
+import { SEES_EVERYTHING, viewerSees, type Viewer } from "./bot-visibility.ts";
 import { DEFAULT_BOT_COLOR, DEFAULT_BOT_NAME, defaultBotPerson } from "../shared/default-bot.ts";
 import { takeImportName } from "../shared/import-name.ts";
 import type { BotRecord, Message, Store } from "./store.ts";
@@ -81,7 +82,7 @@ export function forgetDefaultBot(dataDir: string, person: string): void {
 export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined {
   const oldest = bots.reduce<BotRecord | undefined>((first, bot) => !first || bot.createdAt < first.createdAt ? bot : first, undefined);
   if (!oldest || oldest.hidden || oldest.movedTo || oldest.section?.trim() || oldest.installedPackage) return undefined;
-  return oldest.name === LEGACY_DEFAULT_BOT_NAME || oldest.name === DEFAULT_BOT_NAME || oldest.color === STARTER_COLOR ? oldest : undefined;
+  return oldest.name === LEGACY_DEFAULT_BOT_NAME || oldest.color === STARTER_COLOR ? oldest : undefined;
 }
 
 /** Puts the intro where its person sees it next: in its open conversation while nobody has written there, else at the
@@ -96,7 +97,8 @@ function introduce(store: DefaultBotStore, bot: BotRecord, team?: string | null)
 export type DefaultBotIntro = (bot: BotRecord) => Omit<Message, "id" | "at">;
 
 function takeDefaultName(store: DefaultBotStore, person: string, existingId?: string): string {
-  const taken = new Set(person ? [] : store.bots.filter(bot => bot.id !== existingId).map(bot => bot.name.trim().toLowerCase()));
+  const viewer: Viewer = person ? { kind: "member", email: person } : SEES_EVERYTHING;
+  const taken = new Set(store.bots.filter(bot => bot.id !== existingId && viewerSees(viewer, bot.visibility)).map(bot => bot.name.trim().toLowerCase()));
   return takeImportName(DEFAULT_BOT_NAME, taken);
 }
 

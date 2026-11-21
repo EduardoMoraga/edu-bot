@@ -1,6 +1,6 @@
 // Computer control's helper can die while the app runs. It is started again by itself a bounded number of times, and
 // what is true meanwhile is what readiness says.
-export const HELPER_RESTARTING = "Computer control stopped because its helper crashed. OpenMausBot is restarting it.";
+export const HELPER_RESTARTING = "Computer control stopped because its helper crashed. Edu Bot is restarting it.";
 export const HELPER_KEEPS_CRASHING =
   "Computer control's helper keeps crashing, so Edu Bot stopped restarting it. Quit and reopen Edu Bot to try again.";
 

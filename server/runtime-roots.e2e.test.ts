@@ -18,7 +18,7 @@ import { withAnswer } from "./testing/your-computer.ts";
 import { isTitleCall } from "./testing/title-call.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const RERUN_NOTE = "OpenMausBot restarted while your previous turn here was running";
+const RERUN_NOTE = "Edu Bot restarted while your previous turn here was running";
 const RERUN_CHIP = "Resuming after a restart";
 const SECRET_PROVIDED = "OpenMausBot credential update: the user securely provided";
 const CONNECTED = "OpenMausBot connection update: the user securely connected";
