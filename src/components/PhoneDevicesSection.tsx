@@ -1,4 +1,3 @@
-import { COMPANION_APP_NAME } from "@/lib/app-links";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { SettingsSkeletonCard } from "./settings/SettingsStates";
@@ -29,7 +28,7 @@ import { LearnMore, SettingRow, SettingsFoldRow, SettingsGroup, SettingsLinkRow,
 import { Layer } from "./Layer";
 import { DialogTitle } from "./settings/SettingsDialog";
 export { DialogTitle };
-import { productName } from "../lib/brand";
+import { COMPANION_APP_NAME, productName } from "../lib/brand";
 import { useStore } from "@/state/store";
 
 export {

@@ -1,4 +1,3 @@
-import { COMPANION_APP_NAME } from "@/lib/app-links";
 import { companionBridge } from "@/lib/companion-bridge";
 import {
   useCallback,
@@ -69,7 +68,7 @@ import {
 import { ConnectionDetail } from "./ConnectionDetail";
 import { PhonePairingQr } from "./PhonePairingQr";
 import { PhoneSetupSignInRoutes } from "./PhoneSetupSignInRoutes";
-import { productName } from "../lib/brand";
+import { COMPANION_APP_NAME, productName } from "../lib/brand";
 
 import type { CompanionBridge, CompanionState } from "../lib/companion-types";
 export type { CompanionBridge, CompanionRoute, CompanionState, PhoneDevice } from "../lib/companion-types";

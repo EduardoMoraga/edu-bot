@@ -4,7 +4,7 @@ import type { CloudAccountState } from "../../electron/cloud-account.mjs";
 import type { CloudOffer } from "../../electron/cloud-home.mjs";
 import { api, useStore } from "@/state/store";
 import { APP_REPOSITORY, appVersion } from "@/lib/app-links";
-import { announcementConditions, announcementPlan, announcementPlatform, announcementSurface, markLaunchAnnouncement, pickAnnouncement, rememberCardSeen, rememberSponsorDay,
+import { announcementConditions, announcementPlan, announcementPlatform, announcementSurface, markLaunchAnnouncement, pickAnnouncement, rememberCardSeen,
   useAnnouncementCards, type SeenRecord } from "@/lib/announcements";
 import { brandStatus } from "@/lib/brand";
 import { buyOfferAllowed, cloudNoticeKind, cloudPlanView, cloudTrialNotice, cloudTrialView, offerTrialDays } from "@/lib/cloud-plan";
@@ -225,8 +225,6 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     } else if (notice === ANNOUNCEMENT_NOTICE && announcement && announcementShown !== announcement.id) {
       setAnnouncementShown(announcement.id);
       markLaunchAnnouncement(announcement.id);
-      if (announcement.kind === "sponsor") rememberSponsorDay(seenRecord, now(), remembering);
-
     }
   }, [shownKey]);
 
@@ -258,7 +256,6 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
   if (notice === SIMPLE_MODE_NOTICE) {
     return SIMPLE_ONLY || advancedBack ? <NewLookNotice onClose={close} back={advancedBack} /> : <SimpleModePrompt onClose={close} />;
   }
-
 
   if (notice === UPDATES_CONSENT_NOTICE && consent.state) {
     const done = () => { setConsentDone(true); close(); };

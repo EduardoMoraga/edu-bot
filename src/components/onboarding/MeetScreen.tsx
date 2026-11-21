@@ -12,7 +12,7 @@ import { ConnectAiDialog } from "./ConnectAi";
 import { PILL, SignInPill, useSignInPill } from "./SignInPill";
 import { aiRuns, useWelcomeAi } from "./welcome-ai";
 
-const MASCOT_SIZE = 72;
+const APP_ICON_SIZE = 72;
 const PLACEHOLDER_MS = 700;
 const GRAPHEME_MS = 35;
 
@@ -58,7 +58,6 @@ function DemoComposer({ reduced }: { reduced: boolean }) {
 export function MeetScreen({ hosted, onNext }: { hosted: boolean; onNext: () => void }) {
   const { state } = useStore();
   const reduced = usePrefersReducedMotion();
-
   // An AI counts once it answered a test message (or cannot be sent one); OpenCode's free model only once picked here.
   const [chosen, setChosen] = useState<string | null>(null);
   const tested = useWelcomeAi(state.instances, !hosted, chosen);
@@ -96,8 +95,8 @@ export function MeetScreen({ hosted, onNext }: { hosted: boolean; onNext: () => 
       <h1 id="welcome-title" className="absolute left-1/2 top-[calc(50%-264px)] w-max max-w-[min(560px,calc(100%-32px))] -translate-x-1/2 text-[28px] font-normal leading-[34px] tracking-[-0.02em] text-ink">
         {t("onboarding.meet.title", { app: productName() })}
       </h1>
-      <span className="absolute left-1/2 top-[calc(50%-75px)] flex -translate-x-1/2 -translate-y-1/2" style={{ width: MASCOT_SIZE, height: MASCOT_SIZE }}>
-        <img src={logo ?? "/app-icon.svg"} alt="" width={MASCOT_SIZE} height={MASCOT_SIZE} className="size-full object-contain" />
+      <span className="absolute left-1/2 top-[calc(50%-75px)] flex -translate-x-1/2 -translate-y-1/2" style={{ width: APP_ICON_SIZE, height: APP_ICON_SIZE }}>
+        <img src={logo ?? "/app-icon.svg"} alt="" width={APP_ICON_SIZE} height={APP_ICON_SIZE} className="size-full object-contain" />
       </span>
       <DemoComposer reduced={reduced} />
       {hosted && (

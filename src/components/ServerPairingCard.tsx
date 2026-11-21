@@ -1,4 +1,3 @@
-import { COMPANION_APP_NAME } from "@/lib/app-links";
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -14,7 +13,7 @@ import { SettingRow, SettingsGroup, SettingsRows } from "./SettingsPrimitives";
 import { Layer } from "./Layer";
 import { DialogTitle, PairRow } from "./PhoneDevicesSection";
 import { Smartphone } from "lucide-react";
-import { productName } from "@/lib/brand";
+import { COMPANION_APP_NAME, productName } from "@/lib/brand";
 import { Select } from "./Select";
 import { cn } from "@/lib/cn";
 import { TeamPhoneCard } from "./TeamPhoneCard";

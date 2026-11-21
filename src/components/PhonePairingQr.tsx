@@ -1,4 +1,4 @@
-import { COMPANION_APP_NAME } from "@/lib/app-links";
+import { COMPANION_APP_NAME } from "@/lib/brand";
 import { useEffect, useState } from "react";
 import { Check, Lock, Minus } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";

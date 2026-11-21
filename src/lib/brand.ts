@@ -16,6 +16,7 @@ export interface BrandStatus {
 
 export const DEFAULT_BRAND: Brand = { name: "Edu Bot" };
 export const PRODUCT_NAME = "Edu Bot";
+export const COMPANION_APP_NAME = "MausBot";
 
 let current: BrandStatus = { brand: DEFAULT_BRAND, source: "default", file: "" };
 

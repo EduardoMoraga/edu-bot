@@ -4,7 +4,7 @@ import { CLOUD_SOURCES } from "@/lib/cloud-plan";
 import { cloudAccountBridge, cloudWebHop, openCloudOnWeb } from "./cloud-add-web";
 
 const away = { cloudHome: false };
-
+afterEach(() => vi.unstubAllGlobals());
 
 describe("Add a Cloud without the desktop's own sign-in", () => {
   it("never falls back to an upstream cloud or checkout", () => {

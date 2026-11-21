@@ -1,5 +1,4 @@
 export const APP_NAME = "Edu Bot";
-export const COMPANION_APP_NAME = "MausBot";
 export const APP_REPOSITORY = "https://github.com/EduardoMoraga/edu-bot";
 export const DOCS_URL = `${APP_REPOSITORY}/tree/main/docs`;
 export const HELP_CENTER_URL = DOCS_URL;
