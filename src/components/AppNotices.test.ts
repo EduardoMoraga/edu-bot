@@ -937,8 +937,8 @@ describe("cards from the announcements file", () => {
   });
 });
 
-describe("Update Edu Bot on your phone", () => {
-  const TITLE = "Update Edu Bot on your phone";
+describe("Update MausBot on your phone", () => {
+  const TITLE = "Update MausBot on your phone";
   const OLD = { id: "0f8c2a41-1111-4222-8333-444455556666", name: "Ada's iPhone", createdAt: 1, lastSeenAt: 1, cloudDesktopAccess: false };
   const NEW = { id: "5b5b5b5b-1111-4222-8333-444455556666", name: "Work phone", createdAt: 1, lastSeenAt: 1, cloudDesktopAccess: false, e2eAt: 2 };
   const OTHER = { ...OLD, id: "7c7c7c7c-1111-4222-8333-444455556666", name: "Old Android" };
@@ -955,7 +955,7 @@ describe("Update Edu Bot on your phone", () => {
   it("shows once this computer's link ended and a paired phone has an older app: the phone, what to do, Open Phone & devices and Not now", async () => {
     const shown = await launch();
     expect(shown).toContain(TITLE); expect(shown).toContain('data-notice="phone-update"');
-    for (const text of ["Ada&#x27;s iPhone has an older version of the Edu Bot app, which can no longer connect to this computer away from your Wi-Fi.",
+    for (const text of ["Ada&#x27;s iPhone has an older version of the MausBot app, which can no longer connect to this computer away from your Wi-Fi.",
       "Update the app on that phone, then open it once on the same Wi-Fi as this computer. If that doesn&#x27;t reconnect it, pair it again.",
       "Open Phone &amp; devices", "Not now"]) expect(shown).toContain(text);
     expect(shown).not.toContain("Work phone");
@@ -982,7 +982,7 @@ describe("Update Edu Bot on your phone", () => {
 
   it("names how many phones when more than one has an older app", async () => {
     devices = [OLD, OTHER]; bridgesOn();
-    expect(await launch()).toContain("2 of your phones have an older version of the Edu Bot app");
+    expect(await launch()).toContain("2 of your phones have an older version of the MausBot app");
   });
 
   it("never when no paired phone has an older app, nor when this computer's link was not ended", async () => {
