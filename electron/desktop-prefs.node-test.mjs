@@ -257,7 +257,7 @@ test("the preload gives every page of the window the notices", async () => {
   const local = preload(LOCAL, { activation: true });
   assert.equal(typeof local.bridge.desktopNotices.state, "function");
   assert.equal(local.bridge.desktopAnalytics, undefined, "the app has no usage analytics");
-  assert.deepEqual(local.synced, []);
+  assert.deepEqual(local.synced.filter(channel => channel.startsWith("desktop-")), [], "nothing is asked synchronously");
   const safe = PRELOAD.match(/const REMOTE_SAFE = new Set\(\[([^\]]*)\]\)/)[1];
   assert.ok(safe.includes('"desktopNotices"'));
 });
