@@ -673,6 +673,7 @@
   "cloudAccount.restoreRetryKeyring": "Bu bilgisayar kayıtlı Cloud girişini açamadı. Sistem anahtarlığınızın kilidini açın; uygulama kendiliğinden tekrar dener.",
   "cloudAccount.restoreRemoved": "Bu bilgisayarın Cloud girişi okunamadığı için kaldırıldı. Tekrar giriş yapın.",
   "cloudAccount.signinFailed": "Cloud girişi sonlandı veya tamamlanamadı. Bu bilgisayarda baştan başlayın.",
+  "cloudAccount.notSetUp": "Bu uygulamada bulut girişi ayarlanmamış.",
   "cloudAccount.actionFailed": "Bu Cloud işlemi tamamlanamadı. Bağlantınızı kontrol edip tekrar deneyin.",
   "cloudAccount.trialPlan": "{plan} ücretsiz deneme · MausBot Cloud tarafından doğrulandı",
   "cloudTrial.yourPlan": "planınız",

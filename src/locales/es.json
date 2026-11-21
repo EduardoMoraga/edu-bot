@@ -889,6 +889,7 @@
   "cloudAccount.restoreRetryKeyring": "Este equipo no pudo abrir su inicio de sesión de Cloud guardado. Desbloquea el anillo de claves del sistema y la app lo volverá a intentar sola.",
   "cloudAccount.restoreRemoved": "No se pudo leer el inicio de sesión de Cloud de este equipo, así que se quitó. Vuelve a iniciar sesión.",
   "cloudAccount.signinFailed": "El inicio de sesión en Cloud terminó o no se pudo completar. Vuelve a empezar en este equipo.",
+  "cloudAccount.notSetUp": "El inicio de sesión en Cloud no está configurado en esta app.",
   "cloudAccount.actionFailed": "No se pudo completar esta acción de Cloud. Revisa tu conexión e inténtalo de nuevo.",
   "cloudAccount.trialPlan": "Prueba gratis de {plan} · verificada por MausBot Cloud",
   "cloudTrial.yourPlan": "tu plan",

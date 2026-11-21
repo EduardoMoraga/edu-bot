@@ -673,6 +673,7 @@
   "cloudAccount.restoreRetryKeyring": "Máy tính này không thể mở thông tin đăng nhập Cloud đã lưu. Hãy mở khóa chùm chìa khóa hệ thống của bạn, và ứng dụng sẽ tự động thử lại.",
   "cloudAccount.restoreRemoved": "Không thể đọc thông tin đăng nhập Cloud của máy tính này nên thông tin đã bị gỡ. Hãy đăng nhập lại.",
   "cloudAccount.signinFailed": "Phiên đăng nhập Cloud đã kết thúc hoặc không thể hoàn tất. Hãy bắt đầu lại trên máy tính này.",
+  "cloudAccount.notSetUp": "Đăng nhập đám mây chưa được thiết lập trong ứng dụng này.",
   "cloudAccount.actionFailed": "Không thể hoàn tất hành động Cloud này. Kiểm tra kết nối của bạn và thử lại.",
   "cloudAccount.trialPlan": "Dùng thử {plan} miễn phí · xác thực bởi MausBot Cloud",
   "cloudTrial.yourPlan": "gói của bạn",

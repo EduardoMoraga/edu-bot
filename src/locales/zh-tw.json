@@ -1207,6 +1207,7 @@
   "cloudAccount.restoreRetryKeyring": "這台電腦無法開啟已儲存的 Cloud 登入。請解鎖你的系統金鑰圈，應用程式會自動重試。",
   "cloudAccount.restoreRemoved": "無法讀取這台電腦的 Cloud 登入，因此已將其移除。請重新登入。",
   "cloudAccount.signinFailed": "Cloud 登入已中止或未能完成。請在這台電腦上重新開始。",
+  "cloudAccount.notSetUp": "此應用程式中尚未設定雲端登入。",
   "cloudAccount.actionFailed": "無法完成此 Cloud 操作。請檢查網路連線後再試一次。",
   "cloudAccount.keepHere.title": "將這台電腦的機器人保留在這台電腦上",
   "cloudAccount.keepHere.line": "這台電腦的機器人、聊天和自動化會留在這裡，而不是移到「我的 Cloud」。",

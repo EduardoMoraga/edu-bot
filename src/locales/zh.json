@@ -1322,6 +1322,7 @@
   "cloudAccount.restoreRetryKeyring": "这台电脑无法打开已保存的 Cloud 登录。请解锁你的系统密钥环，应用会自动重试。",
   "cloudAccount.restoreRemoved": "无法读取这台电脑的 Cloud 登录，因此已将其移除。请重新登录。",
   "cloudAccount.signinFailed": "Cloud 登录已中止或未能完成。请在这台电脑上重新开始。",
+  "cloudAccount.notSetUp": "此应用中未设置云端登录。",
   "cloudAccount.actionFailed": "无法完成此 Cloud 操作。请检查网络连接后重试。",
   "cloudAccount.keepHere.title": "把这台电脑的机器人留在这台电脑上",
   "cloudAccount.keepHere.line": "这台电脑上的机器人、聊天和自动化会留在这里，而不会迁移到 My Cloud。",

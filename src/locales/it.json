@@ -961,6 +961,7 @@
   "cloudAccount.restoreRetryKeyring": "Questo computer non è riuscito ad aprire l'accesso al Cloud salvato. Sblocca il portachiavi di sistema e l'app riprova da sola.",
   "cloudAccount.restoreRemoved": "L'accesso al Cloud di questo computer non si è potuto leggere, quindi è stato rimosso. Accedi di nuovo.",
   "cloudAccount.signinFailed": "L'accesso al Cloud si è interrotto o non è stato completato. Ricomincia su questo computer.",
+  "cloudAccount.notSetUp": "L'accesso a Cloud non è configurato in questa app.",
   "cloudAccount.actionFailed": "Non è stato possibile completare questa azione del Cloud. Controlla la connessione e riprova.",
   "cloudAccount.keepHere.title": "Tieni i bot di questo computer su questo computer",
   "cloudAccount.keepHere.line": "I bot, le chat e le automazioni di questo computer restano qui invece di passare a My Cloud.",

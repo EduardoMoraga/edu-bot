@@ -1083,6 +1083,7 @@
   "cloudAccount.restoreRetryKeyring": "このコンピューターで保存済みの Cloud サインイン情報を開けませんでした。システムのキーリングをロック解除すると、アプリが自動で再試行します。",
   "cloudAccount.restoreRemoved": "このコンピューターの Cloud サインイン情報を読み取れなかったため、削除しました。もう一度サインインしてください。",
   "cloudAccount.signinFailed": "Cloud のサインインが終了したか、完了できませんでした。このコンピューターでもう一度始めてください。",
+  "cloudAccount.notSetUp": "このアプリではクラウドへのサインインが設定されていません。",
   "cloudAccount.actionFailed": "この Cloud 操作を完了できませんでした。接続を確認して、もう一度お試しください。",
   "cloudAccount.keepHere.title": "このコンピューターのボットをこのコンピューターに保持",
   "cloudAccount.keepHere.line": "このコンピューターのボット、チャット、自動化は My Cloud に移動せず、ここに残ります。",

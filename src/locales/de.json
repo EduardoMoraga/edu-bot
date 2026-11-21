@@ -590,6 +590,7 @@
   "cloudAccount.reauthEnded": "Dieser Computer ist nicht mehr bei MausBot Cloud angemeldet, zum Beispiel weil er auf deiner Tarifseite entfernt wurde. Melde dich erneut an, um die Cloud hier zu nutzen. Dein Tarif ist davon nicht betroffen.",
   "cloudAccount.unavailable": "MausBot Cloud ist gerade nicht erreichbar, daher kann diese App deinen Tarif nicht prüfen. An deinem Tarif hat sich nichts geändert; die App versucht es weiter.",
   "cloudAccount.restoreRemoved": "Die Cloud-Anmeldung dieses Computers konnte nicht gelesen werden und wurde deshalb entfernt. Melde dich erneut an.",
+  "cloudAccount.notSetUp": "Die Cloud-Anmeldung ist in dieser App nicht eingerichtet.",
   "cloudAccount.trialPlan": "{plan} kostenlose Testphase · bestätigt von MausBot Cloud",
   "cloudTrial.yourPlan": "dein Tarif",
   "cloudTrial.endsOn": "Deine kostenlose Testphase endet am {date}",

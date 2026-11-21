@@ -968,6 +968,7 @@
   "cloudAccount.restoreRetryKeyring": "Ten komputer nie mógł otworzyć zapisanego logowania do Chmury. Odblokuj systemowy pęk kluczy, a aplikacja spróbuje ponownie sama.",
   "cloudAccount.restoreRemoved": "Nie udało się odczytać logowania tego komputera do Chmury, więc zostało usunięte. Zaloguj się ponownie.",
   "cloudAccount.signinFailed": "Logowanie do Chmury zakończyło się lub nie mogło zostać ukończone. Zacznij ponownie na tym komputerze.",
+  "cloudAccount.notSetUp": "Logowanie do chmury nie jest skonfigurowane w tej aplikacji.",
   "cloudAccount.actionFailed": "Nie udało się ukończyć tej czynności w Chmurze. Sprawdź połączenie i spróbuj ponownie.",
   "cloudAccount.keepHere.title": "Zatrzymaj boty tego komputera na tym komputerze",
   "cloudAccount.keepHere.line": "Boty, czaty i automatyzacje tego komputera zostają tutaj zamiast przenosić się do My Cloud.",
