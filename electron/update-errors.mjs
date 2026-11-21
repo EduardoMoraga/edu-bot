@@ -7,7 +7,7 @@ export const UPDATE_TEXT = Object.freeze({
   feed: "The update files are missing or invalid. Check the official release page, or try again later.",
   network: "The update download was interrupted or the server is unavailable. Check your connection and try again.",
   prepareTimeout: "Preparing the update took too long.",
-  slowRestart: "Restart is taking longer than expected. Quit and reopen OpenMausBot to finish the update.",
+  slowRestart: "Restart is taking longer than expected. Quit and reopen Edu Bot to finish the update.",
   unavailable: "updater unavailable",
 });
 const NEEDS_PERSON = new Set(["integrity", "disk", "permission", "busy"]);

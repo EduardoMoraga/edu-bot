@@ -1,3 +1,4 @@
+import { COMPANION_APP_NAME } from "@/lib/app-links";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "@/lib/i18n";
 import { SettingsSkeletonCard } from "./settings/SettingsStates";
@@ -535,7 +536,7 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
  * desktop app never opens a store or a download. The code itself, and "scan this code", appear only in the dialog. */
 export function PairRow({ reason, children }: { reason?: string | null; children: React.ReactNode }) {
   return (
-    <SettingRow title={t("phone.pair.rowTitle")} subtitle={t("phone.pair.rowLine", { app: productName() })} message={reason ?? undefined}>
+    <SettingRow title={t("phone.pair.rowTitle")} subtitle={t("phone.pair.rowLine", { app: COMPANION_APP_NAME })} message={reason ?? undefined}>
       {children}
     </SettingRow>
   );

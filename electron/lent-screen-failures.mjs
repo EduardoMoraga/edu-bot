@@ -21,7 +21,7 @@ export function cuaUnavailable(reason, platform = process.platform, t = nativeTe
   if (/Accessibility|Screen Recording|permission/i.test(why)) {
     return "Computer control needs permission on this computer: allow Accessibility and Screen Recording for OpenMausBot in System Settings → Privacy & Security, then restart OpenMausBot.";
   }
-  return "Computer control is not running on this computer. Open OpenMausBot on it, check that computer control is on in Settings, then try again.";
+  return "Computer control is not running on this computer. Open Edu Bot on it, check that computer control is on in Settings, then try again.";
 }
 
 const PANES = Object.freeze(["accessibility", "screen"]);
