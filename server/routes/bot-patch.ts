@@ -40,6 +40,8 @@ import { refusalBody, userError } from "../user-errors.ts";
 import { pinnedClientThreadGuard } from "./pinned-client-thread.ts";
 import type { ModelSelectionCheck } from "./bots-create.ts";
 import { PASS, type RouteHandler } from "./table.ts";
+import { eduBrainWidens, parseEduBrainSetting } from "../edu-brain.ts";
+import type { EduBrainSetting } from "../../shared/edu-brain.ts";
 
 export interface BotPatchRouteDeps {
   store: Store;
@@ -325,6 +327,11 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
           return json(res, 409, { error: "stop this bot's turn before changing its memory setting" });
         }
         patch.memoryEnabled = body.memoryEnabled;
+      }
+      if (body.eduBrain !== undefined) {
+        const parsed = parseEduBrainSetting(body.eduBrain);
+        if (!parsed.ok) return json(res, 400, { error: parsed.error });
+        patch.eduBrain = parsed.value;
       }
       // null drops the per-tool grants; {} means no tools.
       if (body.connectorTools !== undefined) {
@@ -622,6 +629,7 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
         loosened.push("mcpServers");
       }
       if (Object.hasOwn(body, "toolScope") && toolScopeWidens(existingBot?.toolScope, patch.toolScope)) loosened.push("toolScope");
+      if (body.eduBrain !== undefined && eduBrainWidens(existingBot?.eduBrain, patch.eduBrain as EduBrainSetting | undefined)) loosened.push("eduBrain");
       const browserOrigin = typeof req.headers.origin === "string" && req.headers.origin.trim() !== "";
       if (loosened.length && auth.kind === "loopback" && !DESKTOP_MANAGED && !browserOrigin) {
         if (store.bots.some((candidate) => candidate.busy)) {

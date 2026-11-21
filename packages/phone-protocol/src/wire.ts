@@ -4,7 +4,7 @@
 import type { PresenceFrame } from "./team-presence.ts";
 import type { DataBroadcast } from "./data-surface.ts";
 import type { ApprovalMode } from "./approval-mode.ts";
-import type { ToolScope } from "./tool-scope.ts"; import type { ToolGroup } from "./tool-groups.ts";
+import type { ToolScope } from "./tool-scope.ts"; import type { ToolGroup } from "./tool-groups.ts"; import type { EduBrainSetting } from "./edu-brain.ts";
 import type { CommandAllowlistCandidate } from "./command-allowlist.ts";
 import type { TurnDigest } from "./digest.ts";
 import type { BotAvatarCrop, MascotFaceColor } from "./bot-avatar.ts";
@@ -334,7 +334,7 @@ export interface WireBot extends DefaultBotFields, BotAccessFields {
    * Absent/false = off: the person turns it on per bot. */
   xResearch?: boolean; /** Team Cloud: an admin let it change the team's shared files from any chat. Absent: it reads them only. */ teamFilesEdit?: boolean;
   /** Whether this bot uses native memory. Absent/true = enabled. */
-  memoryEnabled?: boolean;
+  memoryEnabled?: boolean; /** This bot's Edu brain (edu-brain.ts). Absent: its own. */ eduBrain?: EduBrainSetting;
   /** Built-in tool groups turned off for this bot (shared/tool-groups.ts). Absent or empty: all on. */
   toolsOff?: ToolGroup[];
   /** Queue direct-chat messages behind outstanding delegated work. */

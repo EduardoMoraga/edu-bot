@@ -1,6 +1,8 @@
 // The relocation guard's scan is the only VPS call this route makes; the mocked scan stands in for SSH
 // and lets each test mutate the store mid-scan deterministically.
 import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -434,6 +436,32 @@ describe("PATCH /api/bots/:id while the bot works", () => {
 
     expect(widened.status).toBe(409);
     expect(store.bot(bot.id)?.mcpServers).toEqual(["notes"]);
+  });
+});
+
+describe("PATCH /api/bots/:id eduBrain", () => {
+  const owner = { headers: { origin: "http://localhost:5173" } };
+
+  it("stores off and a folder, resets with null, and refuses a relative folder", async () => {
+    const { store, bot, patch } = fixture();
+    expect((await patch(bot.id, { eduBrain: { mode: "off" } })).status).toBe(200);
+    expect(store.bot(bot.id)?.eduBrain).toEqual({ mode: "off" });
+    expect((await patch(bot.id, { eduBrain: { mode: "folder", path: "brains/bi" } })).status).toBe(400);
+    expect((await patch(bot.id, { eduBrain: null })).status).toBe(200);
+    expect(store.bot(bot.id)?.eduBrain).toBeUndefined();
+    const area = join(tmpdir(), "area-bi");
+    expect((await patch(bot.id, { eduBrain: { mode: "folder", path: area } })).status).toBe(200);
+    expect(store.bot(bot.id)?.eduBrain).toEqual({ mode: "folder", path: area });
+  });
+
+  it("refuses a local script that points a working bot at another brain, and still allows turning it off", async () => {
+    const { store, bot, patch } = fixture();
+    store.patchBot(bot.id, { busy: true });
+    expect((await patch(bot.id, { eduBrain: { mode: "folder", path: join(tmpdir(), "other") } })).status).toBe(409);
+    expect(store.bot(bot.id)?.eduBrain).toBeUndefined();
+    expect((await patch(bot.id, { eduBrain: { mode: "off" } })).status).toBe(200);
+    expect((await patch(bot.id, { eduBrain: { mode: "own" } })).status).toBe(409);
+    expect((await patch(bot.id, { eduBrain: { mode: "own" } }, owner)).status).toBe(200);
   });
 });
 
