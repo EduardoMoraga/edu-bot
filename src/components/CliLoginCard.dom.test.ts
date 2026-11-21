@@ -25,7 +25,7 @@ it("shows the terminal's code and what it would get, and Allow answers that one 
   const card = document.querySelector<HTMLElement>("[data-notice='cli-login']")!;
   expect(card.textContent).toContain("A terminal wants to control Edu Bot");
   expect(card.querySelector("[data-cli-login-code]")!.textContent).toBe("KQ7M-X2PD");
-  expect(card.textContent).toContain("Full control · openmausbot CLI on studio");
+  expect(card.textContent).toContain("Full control · edubot CLI on studio");
   const allow = [...card.querySelectorAll("button")].find((button) => button.textContent === "Allow")!;
   await act(async () => { allow.click(); });
   expect(fetchMock).toHaveBeenCalledWith("/api/auth/cli-login/req-1234567890abcdef/allow", expect.objectContaining({ method: "POST" }));

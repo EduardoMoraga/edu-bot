@@ -50,7 +50,7 @@ jobs:
           # The server answers /api/health before the CLI prints its "running" line, so wait for the line too.
           for i in $(seq 1 30); do grep -q "^Reach .*https://ci.example" serve.log && break; sleep 1; done
           grep -q "^Reach .*https://ci.example" serve.log
-          grep -q "Get a pairing code: openmausbot pair" serve.log
+          grep -q "Get a pairing code: edubot pair" serve.log
           OMB_PORT=18799 node cli.js account status | grep -q 'Server "ci"'
           OMB_PORT=18799 node cli.js pair --label "CI phone" | grep -q "Link           https://ci.example/pair#code="
           OMB_PORT=18799 node cli.js sessions | grep -q "no paired devices yet"
@@ -65,7 +65,7 @@ jobs:
           test ! -e enterprise && test ! -e dist-server/enterprise
           test -f LICENSE && test -f NOTICE
           if HOME=/tmp/omb-pack/home node cli.js serve --tunnel --port 18798 --data-dir /tmp/omb-pack/data2 > tunnel.log 2>&1; then echo "serve --tunnel should refuse without login"; exit 1; fi
-          grep -q "run openmausbot account login first" tunnel.log
+          grep -q "run edubot account login first" tunnel.log
           kill %1; wait %1 || true
       - name: Prove an npm install brings the Data engine's native modules
         working-directory: /tmp/omb-pack/package

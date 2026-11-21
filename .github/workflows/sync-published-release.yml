@@ -45,24 +45,24 @@ jobs:
           # npm attaches its lowercase tarball independently after publishing.
           # The legacy updater bridge mirrors only the desktop/feed assets.
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets \
-            --pattern '*.yml' --pattern 'OpenMausBot*' --pattern 'SHA256SUMS-ubuntu-x64.txt'
+            --pattern '*.yml' --pattern 'EduBot*' --pattern 'SHA256SUMS-ubuntu-x64.txt'
           required=(
             latest-linux.yml latest-mac.yml latest.yml
-            "OpenMausBot-$version-amd64.deb"
-            "OpenMausBot-$version-arm64.dmg"
-            "OpenMausBot-$version-arm64.dmg.blockmap"
-            "OpenMausBot-$version-arm64.zip"
-            "OpenMausBot-$version-arm64.zip.blockmap"
-            "OpenMausBot-$version-setup.exe"
-            "OpenMausBot-$version-setup.exe.blockmap"
-            "OpenMausBot-$version-x64.dmg"
-            "OpenMausBot-$version-x64.dmg.blockmap"
-            "OpenMausBot-$version-x64.zip"
-            "OpenMausBot-$version-x64.zip.blockmap"
-            "OpenMausBot-$version-x86_64.AppImage"
-            "OpenMausBot-$version-x86_64.rpm"
-            OpenMausBot-amd64.deb OpenMausBot-intel.dmg OpenMausBot-setup.exe OpenMausBot-x86_64.rpm
-            OpenMausBot.AppImage OpenMausBot.dmg SHA256SUMS-ubuntu-x64.txt
+            "EduBot-$version-amd64.deb"
+            "EduBot-$version-arm64.dmg"
+            "EduBot-$version-arm64.dmg.blockmap"
+            "EduBot-$version-arm64.zip"
+            "EduBot-$version-arm64.zip.blockmap"
+            "EduBot-$version-setup.exe"
+            "EduBot-$version-setup.exe.blockmap"
+            "EduBot-$version-x64.dmg"
+            "EduBot-$version-x64.dmg.blockmap"
+            "EduBot-$version-x64.zip"
+            "EduBot-$version-x64.zip.blockmap"
+            "EduBot-$version-x86_64.AppImage"
+            "EduBot-$version-x86_64.rpm"
+            EduBot-amd64.deb EduBot-intel.dmg EduBot-setup.exe EduBot-x86_64.rpm
+            EduBot.AppImage EduBot.dmg SHA256SUMS-ubuntu-x64.txt
           )
           for file in "${required[@]}"; do
             test -s "assets/$file" || { echo "::error::$TAG is missing $file"; exit 1; }
@@ -81,16 +81,16 @@ jobs:
           const sha512 = (file) => createHash("sha512").update(readFileSync(file)).digest("base64");
           const expected = new Map([
             ["latest-mac.yml", [
-              `OpenMausBot-${version}-x64.zip`,
-              `OpenMausBot-${version}-arm64.zip`,
-              `OpenMausBot-${version}-x64.dmg`,
-              `OpenMausBot-${version}-arm64.dmg`,
+              `EduBot-${version}-x64.zip`,
+              `EduBot-${version}-arm64.zip`,
+              `EduBot-${version}-x64.dmg`,
+              `EduBot-${version}-arm64.dmg`,
             ]],
-            ["latest.yml", [`OpenMausBot-${version}-setup.exe`]],
+            ["latest.yml", [`EduBot-${version}-setup.exe`]],
             ["latest-linux.yml", [
-              `OpenMausBot-${version}-x86_64.AppImage`,
-              `OpenMausBot-${version}-amd64.deb`,
-              `OpenMausBot-${version}-x86_64.rpm`,
+              `EduBot-${version}-x86_64.AppImage`,
+              `EduBot-${version}-amd64.deb`,
+              `EduBot-${version}-x86_64.rpm`,
             ]],
           ]);
           let bad = 0;
