@@ -20,13 +20,25 @@ Hecho = verificado. Cada línea dice cómo se probó.
 - [x] Dependencias instaladas con pnpm 10.33.0 y Node 26.
 - [x] Typecheck sin errores (`pnpm typecheck`).
 - [x] Lint sin errores (`pnpm lint`).
-- [ ] Build (`pnpm build`). Falló por falta de memoria de Node (límite 2 GB en este equipo).
-  Arreglo: el build usa 4 GB, igual que el release.
-- [ ] Tests unitarios (`vitest run`).
+- [x] Build (`pnpm build`): pasa en 47 s. Antes fallaba por falta de memoria de Node
+  (límite 2 GB en este equipo). Arreglo: el build usa 4 GB, igual que el release. PR #1.
+- [x] Electron no se había descargado al instalar. Se bajó con `node install.js` del paquete electron.
+- [ ] Tests unitarios (`vitest run`): corren en 8 partes, una tras otra, para no llenar la memoria.
+  Hallazgo: `/tmp` vive en la RAM. Los tests dejaron 4,7 GB ahí. Eso causó gran parte del corte.
+  Ahora los tests usan una carpeta temporal en disco (`TMPDIR=~/.cache/edubot-test-tmp`).
+- [x] Con Node 26, 2 archivos de tests de interfaz fallaban: Node trae su propio `localStorage` vacío.
+  Arreglo en `vite.config.ts` (`--no-experimental-webstorage`). Los 15 tests pasan.
 - [ ] La app abre en Linux.
 - [ ] Auditoría de otro proveedor.
 
 ## Cómo trabajamos
+
+- Regla de memoria (12 GB): máximo 2 agentes a la vez, el líder y 1 trabajador.
+  Auditorías de Grok y Agy, una después de la otra. Build y tests en primer plano con 4 GB.
+- El 21-11 a las 00:39 el sistema cortó todo por memoria. Se perdió el avance de Codex, Grok y Agy.
+  Su trabajo quedó guardado en sus carpetas. M1 queda en pausa hasta cerrar M0.
+- Cerré 7 agentes inactivos de otros proyectos para liberar memoria. Sus sesiones se pueden reabrir:
+  la lista está en `~/Projects/edu-bot-wt/reports/closed-idle-agents.txt`.
 
 - Líder: Claude (este agente). Backend: Claude. Interfaz: Codex. Auditores: Grok y Antigravity.
 - Cada agente tiene su copia del repo en `~/Projects/edu-bot-wt/<rol>`.
@@ -40,6 +52,14 @@ Hecho = verificado. Cada línea dice cómo se probó.
 - Carpeta de datos nueva: `~/.edubot`. Esquema de enlaces: `edubot://`.
 - El bot ayudante se llama "Edu".
 
+## GitHub Actions
+
+- Eduardo activó Actions en el fork (21-11).
+- Solo quedan activos 2 workflows: "CI" y "Stop CI for closed PRs".
+- Desactivé 18 workflows de upstream (Release, Docker, Promote to stable, npm, etc.).
+  No aplican aún o fallarían por secretos que no tenemos. Se reactivan en M5 con
+  `gh workflow enable <nombre>` cuando estén adaptados a Edu Bot.
+
 ## Para el lanzamiento (M5)
 
 - No incluir en los instaladores binarios con licencia que prohíbe redistribuir:
@@ -47,4 +67,6 @@ Hecho = verificado. Cada línea dice cómo se probó.
 
 ## Necesito de Eduardo
 
-Nada por ahora.
+1. **Memoria del equipo.** Con 12 GB y 5 agentes, el sistema corta los procesos largos.
+   Opcional: iniciar Claude Code con `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`,
+   o cerrar las otras sesiones de agentes que no uses.
