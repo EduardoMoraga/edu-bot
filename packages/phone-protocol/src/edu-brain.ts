@@ -29,13 +29,14 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /** Why `value` cannot be an edu-cloud address, or null: https, or http on this computer only, with no user, query or
- * fragment. */
+ * fragment, ending in /mcp. */
 export function eduCloudUrlProblem(value: string): string | null {
   let url: URL;
   try { url = new URL(value); } catch { return "must be a full https:// address"; }
   if (url.protocol !== "https:" && !(url.protocol === "http:" && LOOPBACK.has(url.hostname))) return "must be an https:// address (http:// only for this computer)";
   if (url.username || url.password) return "must not hold a user name or password";
   if (url.search || url.hash || value.includes("?") || value.includes("#")) return "must be a plain address, without ? or #";
+  if (!url.pathname.replace(/\/+$/, "").endsWith("/mcp")) return "must be the brain's /mcp address";
   return null;
 }
 

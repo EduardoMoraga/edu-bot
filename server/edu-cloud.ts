@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ServerResponse } from "node:http";
 
-import type { EduBrainSetting, EduCloudToken, EduCloudView, EduProposal } from "../shared/edu-brain.ts";
+import { eduCloudUrlProblem, type EduBrainSetting, type EduCloudToken, type EduCloudView, type EduProposal } from "../shared/edu-brain.ts";
 import { mcpStdioServer } from "./mcp-gate-config.ts";
 import { McpHttpError, RemoteMcpClient } from "./mcp-http.ts";
 import { AGENTS_NODE_FLAG } from "./proxy-paths.ts";
@@ -22,7 +22,7 @@ export type EduCloudTurn = { threadId?: string; generation?: string };
  * environment, where a bot's shell could read it and use it on edu-cloud's review routes. */
 export const EDU_CLOUD_RELAY_PATH = "/api/internal/edu/mcp";
 const RELAY_REQUEST_HEADERS = ["accept", "mcp-session-id", "mcp-protocol-version"] as const;
-const RELAY_RESPONSE_HEADERS = ["content-type", "mcp-session-id"] as const;
+const RELAY_RESPONSE_HEADERS = ["content-type", "mcp-session-id", "allow"] as const;
 const RELAY_TIMEOUT_MS = 120_000;
 
 const TIMEOUT_MS = 10_000;
@@ -152,6 +152,8 @@ export function createEduCloud(deps: EduCloudDeps) {
       if (request.method !== "POST" && request.method !== "DELETE") return refuse(405, "method not allowed", { allow: "POST, DELETE" });
       const setting = settingOf(bot);
       if (!setting) return refuse(409, "This bot has no edu-cloud brain any more.");
+      const addressProblem = eduCloudUrlProblem(setting.url);
+      if (addressProblem) return refuse(409, `This bot's edu-cloud address ${addressProblem}.`);
       const token = tokenOf(bot, setting);
       if (!token) return refuse(409, EDU_CLOUD_NO_TOKEN);
       if (request.method === "POST" && !isJsonRpc(request.body)) return refuse(400, "Only MCP JSON-RPC messages go to edu-cloud here.");
@@ -182,7 +184,7 @@ export function createEduCloud(deps: EduCloudDeps) {
       const setting = settingOf(bot);
       const token = setting && tokenOf(bot, setting);
       if (!setting || !token) throw new Error(EDU_CLOUD_NO_TOKEN);
-      const client = new RemoteMcpClient({ type: "http", url: setting.url, headers: { Authorization: `Bearer ${token}` } }, { fetch: requestTo });
+      const client = new RemoteMcpClient({ type: "http", url: setting.url, headers: { Authorization: `Bearer ${token}` } }, { fetch: (input, init) => requestTo(input, { ...init, redirect: "error" }) });
       const signal = AbortSignal.timeout(TIMEOUT_MS);
       try {
         await client.initialize("Edu Bot", signal);

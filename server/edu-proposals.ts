@@ -400,7 +400,7 @@ export function createEduProposals(deps: EduProposalDeps) {
       if (!message?.card || !proposal) return null;
       if (behavior !== "allow" && behavior !== "deny") return { ok: false, status: 400, error: "Approve or reject an Edu proposal; it takes no other answer." };
       if (message.card.answered) return { ok: true, outcome: message.card.answered === "allow" ? "allowed-once" : message.card.answered === "deny" ? "rejected" : "unavailable", alreadySettled: true };
-      const cardBot = message.from?.botId ?? deps.store.bots.find((candidate) => candidate.threadId === threadId)?.id;
+      const cardBot = message.from?.botId ?? deps.store.bots.find((candidate) => candidate.threadId === threadId || deps.store.tasks(candidate.id).some((task) => task.threadId === threadId))?.id;
       const decision = await decide(proposal.brain, proposal.id, behavior === "allow", proposal.global,
         proposal.cloud ? { cloudBot: cloudBotFor(proposal.brain, cardBot) } : { runtime: await runtimeOn(proposal.brain, cardBot) });
       if (typeof decision === "object") return { ok: false, ...decision };

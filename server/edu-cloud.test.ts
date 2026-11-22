@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { eduCloudUrlProblem } from "../shared/edu-brain.ts";
 import { cloudBase, createEduCloud, EDU_CLOUD_NO_TOKEN, usableCloudToken } from "./edu-cloud.ts";
 
 const TOKEN = "s".repeat(48);
@@ -101,6 +102,27 @@ describe("edu-cloud brains", () => {
       [{ method: "POST", headers: {}, body: [] }, 400],
     ] as const) expect((await cloud.relay(bot(), request)).status).toBe(status);
     expect((await createEduCloud({ token: () => null, fetch: fetcher }).relay(bot(), { method: "POST", headers: {}, body: call })).status).toBe(409);
+    expect((await cloud.relay(bot(), { method: "GET", headers: {} })).headers.get("allow")).toBe("POST, DELETE");
+    const reviewRoute = { id: "b1", eduBrain: { mode: "cloud" as const, url: "https://brain.example/team/api/v1/proposals/K-1/approve", token: { secret: "EDU_CLOUD_BI" } } };
+    expect((await cloud.relay(reviewRoute, { method: "POST", headers: {}, body: call })).status).toBe(409);
     expect(forwarded).toHaveLength(2);
+  });
+
+  it("only accepts the brain's /mcp address", () => {
+    expect(eduCloudUrlProblem("https://brain.example/team/mcp")).toBeNull();
+    expect(eduCloudUrlProblem("https://brain.example/mcp/")).toBeNull();
+    expect(eduCloudUrlProblem("http://127.0.0.1:8787/api/v1/proposals/K-1/approve")).toBe("must be the brain's /mcp address");
+    expect(eduCloudUrlProblem("https://brain.example/")).toBe("must be the brain's /mcp address");
+  });
+
+  it("never follows a redirect with the person's token when it reads the brief", async () => {
+    const seen: string[] = [];
+    const fetcher = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      seen.push(String(input));
+      if (init.redirect === "error") throw new TypeError("redirect refused");
+      return new Response(null, { status: 307, headers: { location: "https://brain.example/team/api/v1/proposals/C-1/approve" } });
+    }) as typeof fetch;
+    await expect(createEduCloud({ token: () => TOKEN, fetch: fetcher }).brief(bot())).rejects.toThrow();
+    expect(seen.every((url) => url.endsWith("/mcp"))).toBe(true);
   });
 });
