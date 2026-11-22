@@ -1,14 +1,14 @@
 // Runs only where Edu 6+ is installed (CI has none). Edu is real; its crew CLI is a fake `codex` on PATH, so no real
 // coding CLI, account or key is ever used. Every brain and folder is temporary.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import type { OptionCardData } from "../shared/wire.ts";
 import { createEduBrains, locateEduCli } from "./edu-brain.ts";
-import { createEduCrew } from "./edu-crew.ts";
+import { createEduCrew, type EduCrewDeps } from "./edu-crew.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
 const cli = locateEduCli({ PATH: process.env.PATH }, process.env.PATH ?? "");
@@ -21,11 +21,18 @@ afterAll(() => {
   expect(realMtime()).toBe(before);
 });
 
+const HANG_PIDS = join(root, "hang-pids.json");
 const FAKE_CODEX = `#!/usr/bin/env node
 const fs = require("fs");
 let input = "";
 process.stdin.on("data", (d) => { input += d; });
 process.stdin.on("end", () => {
+  if (input.includes("HANG_FOREVER")) {
+    const child = require("child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1e6)"], { stdio: "ignore" });
+    fs.writeFileSync(${JSON.stringify(HANG_PIDS)}, JSON.stringify({ codex: process.pid, child: child.pid }));
+    setInterval(() => {}, 1e6);
+    return;
+  }
   let text = "FAKE REVIEW: no findings";
   if (input.includes("Create a safe, concise execution plan")) text = JSON.stringify({ requirements: [{ id: "R-1", text: "hello.txt exists" }], checks: [], steps: [{ id: "s1", role: "builder", task: "Write hello.txt", dependsOn: [], parallelSafe: false }] });
   else if (input.includes('Return strict JSON {"verdict"')) text = JSON.stringify({ verdict: "pass", issues: [] });
@@ -47,16 +54,21 @@ describe.skipIf(!cli || process.platform === "win32")("Edu crew with the install
   const bot = { id: "bot-real", name: "Luna", color: "blue", threadId: "t-1", eduCrew: true };
   const threads = new Map<string, Array<{ id: string; card?: OptionCardData; eduCrew?: { status: string }; tool?: { name: string } }>>();
   let next = 0;
-  const crew = createEduCrew({
+  const linked = join(home, "Projects", "linked");
+  mkdirSync(linked, { recursive: true });
+  symlinkSync(join(home, ".edu"), join(linked, ".edu"));
+  const deps: EduCrewDeps = {
     dataDir, brains, env, path: () => path, desktop: true, decide: () => {},
-    folder: () => project, engine: () => "claude", pollMs: 200,
+    folder: (_botId, threadId) => (threadId === "t-linked" ? linked : project), engine: () => "claudeAgent",
+    turn: () => ({ room: false, hostLocal: true, confined: false, computer: "local" }), pollMs: 200,
     store: {
       bot: (id) => (id === bot.id ? bot : null),
       messagesFor: (threadId) => threads.get(threadId) ?? [],
       appendMessage: (threadId, message) => { const row = { ...message, id: `m${++next}` }; threads.set(threadId, [...(threads.get(threadId) ?? []), row as never]); return row; },
       patchMessage: (threadId, id, patch) => { threads.set(threadId, (threads.get(threadId) ?? []).map((row) => (row.id === id ? { ...row, ...patch } : row))); },
     },
-  });
+  };
+  const crew = createEduCrew(deps);
   afterAll(() => crew.stop());
 
   async function ask(body: object, threadId = "t-1") {
@@ -125,5 +137,37 @@ describe.skipIf(!cli || process.platform === "win32")("Edu crew with the install
     expect(answer.body.error).toBeUndefined();
     expect(answer.body.text).toContain("FAKE REVIEW: no findings");
     expect(line("t-4").eduCrew).toMatchObject({ status: "done", kind: "review", cli: "codex" });
+  }, 90_000);
+
+  it("refuses a work folder whose .edu links into the global brain, and writes nothing there", async () => {
+    mkdirSync(join(home, ".edu"), { recursive: true });
+    const answer = await ask({ action: "plan", goal: "Escape" }, "t-linked");
+    expect(answer.status).toBe(409);
+    expect(answer.body.error).toMatch(/global Edu brain|\.edu is a link/);
+    expect(existsSync(join(home, ".edu", "crew"))).toBe(false);
+  });
+
+  it("quitting cancels running jobs and ends their process trees; a crash leaves them for the next start", async () => {
+    const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    const answer = await ask({ action: "review", question: "HANG_FOREVER", wait_seconds: 0 }, "t-5");
+    expect(answer.body.error).toBeUndefined();
+    const jobId = /job ([a-f0-9-]{36})/.exec(answer.body.text!)![1]!;
+    await until(() => existsSync(HANG_PIDS));
+    const { codex, child } = JSON.parse(readFileSync(HANG_PIDS, "utf8")) as { codex: number; child: number };
+    const record = () => JSON.parse(readFileSync(join(dataDir, "brains", bot.id, ".edu", "crew", `${jobId}.json`), "utf8")) as { status: string; pid?: number };
+    const worker = record().pid;
+    expect([codex, child, ...(worker ? [worker] : [])].every(alive)).toBe(true);
+
+    crew.stop();
+    const next = createEduCrew(deps);
+    next.resume();
+    await next.tick();
+    expect(next.details(jobId)!.line.status).toBe("running");
+    await next.shutdown();
+    expect(next.details(jobId)!.line.status).toBe("cancelled");
+    expect(record().status).toBe("cancelled");
+    const deadline = Date.now() + 10_000;
+    while ([codex, child, ...(worker ? [worker] : [])].some(alive) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 200));
+    expect({ codex: alive(codex), child: alive(child), worker: worker ? alive(worker) : false }).toEqual({ codex: false, child: false, worker: false });
   }, 90_000);
 });

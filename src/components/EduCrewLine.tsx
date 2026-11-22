@@ -1,7 +1,7 @@
 // An Edu crew job's quiet line: what it is doing, with Cancel while it runs and Details for its spec and result. A failure
 // is this one line too, never an error card.
 import { Users } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { EduCrewDetails, EduCrewLine as Line } from "../../shared/edu-brain";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
@@ -26,16 +26,13 @@ export function EduCrewLine({ message, line }: { message: Message; line: Line })
       setBusy(false);
     }
   }
-  async function toggle() {
-    if (open) { setOpen(false); return; }
-    setOpen(true);
+  useEffect(() => {
+    if (!open) return;
+    let current = true;
     setFailed(null);
-    try {
-      setDetails(await api<EduCrewDetails>(path));
-    } catch {
-      setFailed(t("eduCrew.line.detailsFailed"));
-    }
-  }
+    api<EduCrewDetails>(path).then((loaded) => { if (current) setDetails(loaded); }, () => { if (current) setFailed(t("eduCrew.line.detailsFailed")); });
+    return () => { current = false; };
+  }, [open, path, line.status]);
   const words = message.tool?.name ?? line.title;
   return (
     <div data-edu-crew={line.status} className="min-w-0 py-0.5 pl-0.5 text-[12px]">
@@ -43,7 +40,7 @@ export function EduCrewLine({ message, line }: { message: Message; line: Line })
         <Users size={12} aria-hidden="true" className="shrink-0" />
         <span className="min-w-0 truncate" title={words}>{words}</span>
         <span aria-hidden="true">·</span>
-        <button type="button" data-edu-crew-details aria-expanded={open} onClick={() => { void toggle(); }}
+        <button type="button" data-edu-crew-details aria-expanded={open} onClick={() => setOpen(!open)}
           className="shrink-0 text-ink-secondary underline-offset-2 hover:underline">
           {t(open ? "eduCrew.line.hide" : "eduCrew.line.details")}
         </button>

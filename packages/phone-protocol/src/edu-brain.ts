@@ -142,7 +142,7 @@ export interface EduCrewView {
   folder?: string;
 }
 
-/** `GET /api/bots/:id/edu/crew/:jobId`: what the status line's Details shows. */
+/** `GET /api/edu/crew/:jobId`: what the status line's Details shows. */
 export interface EduCrewDetails {
   line: EduCrewLine;
   folder: string;

@@ -17,8 +17,8 @@ export interface AgentsConversation {
   /** Only bots or automation drive it (`botDrivenConversation`): no turn in it is a person's own message to pick a computer for. */
   botDriven?: boolean;
   /** `x`: a research credential is held (a treg key or a plan's); `research`: research works for it too; `appHosting`:
-   * the plan's included app hosting reaches this server; `edu`: Edu is ready on this computer for this server's turns. */
-  host: { skillAuthoring: boolean; sharedComputers: boolean; cloudHome: boolean; team: boolean; voiceNotes: boolean; x: boolean; research: boolean; imageGeneration: boolean; meetings?: boolean; appHosting?: boolean; localVm: boolean; edu?: boolean };
+   * the plan's included app hosting reaches this server; `eduCrew`: this conversation is offered Edu crew (`EduCrew.offered`). */
+  host: { skillAuthoring: boolean; sharedComputers: boolean; cloudHome: boolean; team: boolean; voiceNotes: boolean; x: boolean; research: boolean; imageGeneration: boolean; meetings?: boolean; appHosting?: boolean; localVm: boolean; eduCrew?: boolean };
 }
 
 /** What one turn may do. Its bearer carries this to the harness, which checks it on every call. */
@@ -52,7 +52,7 @@ export function agentsServerEnv(conversation: AgentsConversation, turn: AgentsTu
     OMB_IMAGE_GENERATION: flag(host.imageGeneration),
     OMB_MEETINGS: flag(host.meetings === true && !conversation.room),
     OMB_APP_HOSTING: flag(host.appHosting === true),
-    OMB_EDU_CREW: flag(host.edu === true && bot.eduCrew === true && !conversation.room),
+    OMB_EDU_CREW: flag(host.eduCrew === true && bot.eduCrew === true && !conversation.room),
     OMB_COMPUTER_SELECTION: flag(!conversation.room && bot.computer !== "off" && !conversation.teamComputer && !conversation.botDriven),
     OMB_LOCAL_VM: flag(host.localVm),
     [TOOLS_OFF_ENV]: (bot.toolsOff ?? []).join(","),

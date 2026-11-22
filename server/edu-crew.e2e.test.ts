@@ -14,12 +14,18 @@ import { removeTempDir } from "./testing/cleanup.ts";
 
 const cli = locateEduCli({ PATH: process.env.PATH }, process.env.PATH ?? "");
 
-const FAKE_CODEX = `#!/usr/bin/env node
+const fakeCodex = (pids: string) => `#!/usr/bin/env node
 const fs = require("fs");
 if (process.argv[2] !== "exec") { console.log("codex-cli 0.0.0-fake"); process.exit(0); }
 let input = "";
 process.stdin.on("data", (d) => { input += d; });
 process.stdin.on("end", () => {
+  if (input.includes("HANG_FOREVER")) {
+    const child = require("child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1e6)"], { stdio: "ignore" });
+    fs.writeFileSync(${JSON.stringify(pids)}, JSON.stringify({ codex: process.pid, child: child.pid }));
+    setInterval(() => {}, 1e6);
+    return;
+  }
   let text = "FAKE REVIEW: no findings";
   if (input.includes("Create a safe, concise execution plan")) text = JSON.stringify({ requirements: [{ id: "R-1", text: "hello.txt exists" }], checks: [], steps: [{ id: "s1", role: "builder", task: "Write hello.txt", dependsOn: [], parallelSafe: false }] });
   else if (input.includes('Return strict JSON {"verdict"')) text = JSON.stringify({ verdict: "pass", issues: [] });
@@ -64,15 +70,19 @@ async function until<T>(read: () => Promise<T | undefined>, ms = 60_000): Promis
 it.skipIf(!cli || process.platform === "win32")("a bot's Edu crew job waits at every gate for a person, builds in the project folder, and stops with the turn", async () => {
   const before = realBrainTimes();
   const scratch = mkdtempSync(join(tmpdir(), "edu-crew-e2e-"));
-  const eduHome = join(scratch, "edu-home"), crewBin = join(scratch, "bin"), project = join(scratch, "project"), calls = join(scratch, "calls.json"), release = join(scratch, "release");
+  const eduHome = join(scratch, "edu-home"), crewBin = join(scratch, "bin"), project = join(scratch, "project"), calls = join(scratch, "calls.json"), release = join(scratch, "release"), pids = join(scratch, "codex-pids.json");
   for (const dir of [eduHome, crewBin, project]) mkdirSync(dir, { recursive: true });
-  writeFileSync(join(crewBin, "codex"), FAKE_CODEX, { mode: 0o755 });
+  writeFileSync(join(crewBin, "codex"), fakeCodex(pids), { mode: 0o755 });
   execFileSync("git", ["init", "-q"], { cwd: project });
+  writeFileSync(join(project, "README.md"), "shop\n");
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", "add", "README.md"], { cwd: project });
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", "commit", "-qm", "start"], { cwd: project });
   const script = (value: unknown[]) => writeFileSync(calls, JSON.stringify(value));
   const plan = (goal: string) => ({ server: "agents", name: "edu_plan", input: { goal } });
   script([plan("Add a hello file")]);
   const fixture = await launchVerificationServer({ EDU_FIXTURE_HOME: eduHome, EDU_FIXTURE_CREW_BIN: crewBin, OMB_EDU_CLI: cli!, FAKE_CLAUDE_TOOL_CALLS_FILE: calls, FAKE_CLAUDE_RELEASE: release });
   const api = client(fixture);
+  let closed = false;
   const turn = async (botId: string, threadId: string, text: string) => {
     await runControlOmb(["send", "--bot", botId, "--task", threadId, "--text", text, "--url", fixture.info.url]);
     await runControlOmb(["wait", "--bot", botId, "--timeout", "90", "--url", fixture.info.url]);
@@ -136,9 +146,31 @@ it.skipIf(!cli || process.platform === "win32")("a bot's Edu crew job waits at e
 
     const decisions = ((await owner("GET", "/api/decisions")).body.decisions as any[]).filter((row) => row.tool === "edu_crew_gate");
     expect(decisions.map((row) => row.decision).sort()).toEqual(["card-shown", "card-shown", "card-shown", "user-approved", "user-approved"]);
+
+    const review = (input: object) => ({ server: "agents", name: "edu_review", input });
+    script([review({ reviewer: "claude" }), review({})]);
+    await turn(bot.id, bot.threadId, "Have another vendor review it");
+    const reviews = (await lines()).filter((row) => row.eduCrew.kind === "review");
+    expect(reviews.map((row) => row.eduCrew), "a Claude bot's review never goes to claude").toEqual([expect.objectContaining({ cli: "codex", status: "done" })]);
+    const reviewJob = JSON.parse(readFileSync(join(brain, ".edu", "crew", `${reviews[0]!.eduCrew.jobId}.json`), "utf8"));
+    expect(JSON.stringify(reviewJob)).toContain("hello.txt");
+
+    script([review({ question: "HANG_FOREVER", wait_seconds: 0 })]);
+    await turn(bot.id, bot.threadId, "One more review");
+    const hanging = await until(async () => (await lines()).find((row) => row.eduCrew.title === "HANG_FOREVER"));
+    await until(async () => (existsSync(pids) ? true : undefined));
+    const { codex, child } = JSON.parse(readFileSync(pids, "utf8")) as { codex: number; child: number };
+    const worker = JSON.parse(readFileSync(join(brain, ".edu", "crew", `${hanging.eduCrew.jobId}.json`), "utf8")).pid as number;
+    const alive = (pid: number) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    expect([worker, codex, child].map(alive)).toEqual([true, true, true]);
+    closed = true;
+    await fixture.close();
+    const deadline = Date.now() + 10_000;
+    while ([worker, codex, child].some(alive) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 200));
+    expect({ worker: alive(worker), codex: alive(codex), child: alive(child) }, "quitting the app ends its crew jobs' process trees").toEqual({ worker: false, codex: false, child: false });
   } finally {
     writeFileSync(release, "");
-    await fixture.close();
+    if (!closed) await fixture.close();
     await removeTempDir(scratch);
   }
   expect(realBrainTimes()).toBe(before);

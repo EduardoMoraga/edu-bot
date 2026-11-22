@@ -14,8 +14,10 @@ four tools: `edu_plan`, `edu_review`, `edu_crew_status` and `edu_crew_result`.
   this turn: a fix in one file, a rename, a short script.
 - **`edu_review`** when you want a second opinion from another vendor before
   you say work is done: a change you made, a risky diff, a design question.
-  It is read-only and returns the review. Pass `question`, `paths`, or `base`
-  (a git ref; with nothing else it reviews uncommitted changes).
+  It is read-only and returns the review. Pass `question`, `paths` (relative
+  to the working folder), or `base` (a git ref). With no arguments it reviews
+  the uncommitted changes against `HEAD`, new files included. If it says no
+  other vendor's CLI is installed, tell the person; there is no fallback.
 - **`edu_plan`** when the work is substantial and benefits from a written spec,
   separate builder steps, deterministic checks and an independent review:
   a feature across several files, a migration, a refactor with tests. Write
@@ -42,3 +44,5 @@ four tools: `edu_plan`, `edu_review`, `edu_crew_status` and `edu_crew_result`.
   project folder for this bot. Edu crew never works in the home folder or in
   Edu Bot's own data folder.
 - If the person stops your turn, the crew jobs of this chat stop too.
+- A chat runs at most 2 crew jobs at once. If a tool says the limit is
+  reached, wait for one to finish or ask the person to cancel one.

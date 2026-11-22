@@ -63,8 +63,8 @@ import { ChatMarkdown } from "./ChatMarkdown";
 import { LiveToolsContext, useLiveToolIds } from "@/hooks/use-live-tool-ids";
 import { VoiceNoteBubble, type VoiceNoteAttachment } from "./VoiceNoteBubble";
 import { RawMarkdownView, RawToggleAction } from "./RawMarkdownToggle";
-import { ThreadChip } from "./ThreadChip"; import { CheckBackLine } from "./CheckBackLine"; import { EduCrewLine } from "./EduCrewLine";
-import { HandoffChip } from "./HandoffReply"; import { TeammateChip } from "./TeammateChip"; import { useTeammates } from "@/state/team-people"; import type { MentionPeer } from "@/lib/mentions";
+import { quietLine } from "./QuietLine";
+import { HandoffChip } from "./HandoffReply"; import { useTeammates } from "@/state/team-people"; import type { MentionPeer } from "@/lib/mentions";
 import { NewConversationInstead } from "./NewConversationInstead";
 import { VerifyCard } from "./VerifyCard";
 import { askText, runSkill, runSteps, runSummary, showRun, skillPrompt } from "@/lib/verify-steps";
@@ -599,9 +599,9 @@ const ActivityChip = memo(function ActivityChip({ message, place = "auto" }: { m
   const { bots, dispatch, threadId } = useChatRows(), liveTools = use(LiveToolsContext);
   const tool = message.tool;
   if (!tool) return null;
-  if (message.threadRef) return <ThreadChip message={message} threadId={threadId} />; if (message.relay) return <TeammateChip message={message} />; if (message.checkBack) return <CheckBackLine line={message.checkBack} />; if (message.eduCrew) return <EduCrewLine message={message} line={message.eduCrew} />;
-  const comm = message.comm;
-  if (comm) return <RoomHandoffChip message={message} comm={comm} bots={bots} dispatch={dispatch} threadId={threadId} />;
+  const quiet = quietLine(message, threadId);
+  if (quiet) return quiet;
+  if (message.comm) return <RoomHandoffChip message={message} comm={message.comm} bots={bots} dispatch={dispatch} threadId={threadId} />;
   return <ToolActivity tool={tool} live={liveTools.has(message.id)} place={toolPlace(tool.name, place)} source={{ threadId, messageId: message.id }} />;
 });
 
