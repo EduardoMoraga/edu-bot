@@ -50,7 +50,12 @@ describe("catalog names on an open grant", () => {
     }
     expect(relationAllowed(table("orders"), {}, connection)).toBe(true);
     expect(relationAllowed(table("pragma_database_list"), { tables: ["pragma_database_list"] }, connection)).toBe(true);
-    expect(relationAllowed({ catalog: "", schema: "main", table: "pg_class" }, { schemas: ["main"] }, connection)).toBe(true);
+    for (const name of ["pragma_database_list", "pg_settings", "pg_class", "sqlite_master", "sqlite_temp_schema"]) {
+      expect(relationAllowed(table(name), { schemas: ["main"] }, connection), name).toBe(false);
+      expect(relationAllowed({ catalog: "", schema: "main", table: name }, { schemas: ["main"] }, connection), `main.${name}`).toBe(false);
+    }
+    expect(relationAllowed({ catalog: "", schema: "pg_catalog", table: "pg_class" }, { schemas: ["pg_catalog"] }, connection)).toBe(true);
+    expect(relationAllowed(table("orders"), { schemas: ["main"] }, connection)).toBe(true);
   });
 });
 
