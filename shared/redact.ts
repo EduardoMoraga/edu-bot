@@ -60,13 +60,19 @@ const KEY_VALUE =
  * is a credential whatever the value looks like, so no length floor. The
  * separator before `key` is what keeps `hotkey=` and `keyboard=` out. */
 const KEY_SUFFIX_ASSIGNMENT = /\b([A-Za-z][A-Za-z0-9_-]*[_-]key)s?(=)(["']?)([A-Za-z0-9._~+/=-]+)\3/gi;
+/** `password=hunter2` with no length floor. Runs before SECRET_FLAG so a value that flag already names is not masked twice. */
+const PASSWORD_VALUE = /\b((?:password|passwd|pwd)\s*=\s*)(["']?)([^\s"'«»]+)\2/gi;
 /** `--token abc`, `--password=abc`: the flag names a secret; the value is
  * whatever single token follows, never another flag. */
 const SECRET_FLAG = /(--(?:token|password|passwd|api-key|apikey|secret|access-key|auth-token)(?:=|\s+))(["']?)(?!-)([A-Za-z0-9._~+/=-]+)\2/gi;
 /** `scheme://user:secret@host` — the password in a URL's userinfo. */
 const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@'"]+:)([^\s/@'"«»]+)(@)/gi;
 /** A database URL is a credential end to end, host included. Masked before URL_USERINFO so the host does not remain. */
-const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql):\/\/\S+/gi;
+const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|sqlite|duckdb|mssql|sqlserver|mongodb(?:\+srv)?|rediss?|clickhouse|oracle):\/\/\S+/gi;
+/** ODBC-style `Driver=` / `DSN=` assignments. `Pwd=` is covered by PASSWORD_VALUE. */
+const ODBC_VALUE = /\b((?:driver|dsn)\s*=\s*)(["']?)([^\s"'«»;]+)\2/gi;
+/** `${DATABASE_URL}` and `$DATABASE_URL`. `$PATH`, `$HOME` and DuckDB `$1` do not match. */
+const ENV_SECRET = /\$\{[A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Za-z0-9_]*\}|\$[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Z0-9_]*/g;
 
 // A saved website password has no shape: it is known by value. The server
 // registers a scrubber for the values it holds, and every redaction below
@@ -102,9 +108,12 @@ export function redactSecretsInText(text: string): string {
   out = out.replace(BASIC_AUTH, (_m, lead: string, creds: string) => `${lead}${mask(creds)}`);
   out = out.replace(KEY_VALUE, (_m, key: string, sep: string, quote: string, value: string) => `${key}${sep}${quote}${mask(value)}${quote}`);
   out = out.replace(KEY_SUFFIX_ASSIGNMENT, (_m, key: string, sep: string, quote: string, value: string) => `${key}${sep}${quote}${mask(value)}${quote}`);
+  out = out.replace(PASSWORD_VALUE, (_m, key: string, quote: string, value: string) => `${key}${quote}${mask(value)}${quote}`);
   out = out.replace(SECRET_FLAG, (_m, flag: string, quote: string, value: string) => `${flag}${quote}${mask(value)}${quote}`);
+  out = out.replace(ODBC_VALUE, (_m, key: string, quote: string, value: string) => `${key}${quote}${mask(value)}${quote}`);
   out = out.replace(DATABASE_URL, (url) => mask(url));
   out = out.replace(URL_USERINFO, (_m, lead: string, secret: string, at: string) => `${lead}${mask(secret)}${at}`);
+  out = out.replace(ENV_SECRET, (name) => mask(name));
   return out;
 }
 

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
 import { DATA_TOOL_NAMES } from "../../shared/data-surface.ts";
 import { FakeDataDatabase } from "../testing/fake-data-database.ts";
 import { DATA_INSTRUCTIONS } from "./instructions.ts";
@@ -62,6 +63,17 @@ describe("dataRpc", () => {
     const unknown = await dataRpc({ method: "tools/call", params: { name: "data_drop" } }, deps) as { isError?: boolean; content: Array<{ text: string }> };
     expect(unknown.isError).toBe(true);
     expect(unknown.content[0]!.text).toContain("Unknown Data tool");
+    expect(checks()).toBe(0);
+    expect(database.calls).toEqual([]);
+  });
+
+  it("refuses a raw DSN before the schema check and does not echo it", async () => {
+    const { deps, database, checks } = harness();
+    const dsn = "postgres://bob:hunter2@db/shop";
+    const bad = await dataRpc({ method: "tools/call", params: { name: "data_sql", arguments: { on: dsn, sql: "SELECT 1" } } }, deps) as { isError?: boolean; structuredContent?: { code: string; message: string } };
+    expect(bad.isError).toBe(true);
+    expect(bad.structuredContent).toEqual({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
+    expect(JSON.stringify(bad)).not.toContain("hunter2");
     expect(checks()).toBe(0);
     expect(database.calls).toEqual([]);
   });

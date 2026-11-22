@@ -1,11 +1,13 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DATA_LIMITS, DATA_TOOL_NAMES, type DataColumn } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
 import { ConnectionStore } from "./connections.ts";
+import { flushDecisionLog } from "../decision-log.ts";
 import { resolveDataWrite } from "./writes.ts";
 import { FakeDataDatabase } from "../testing/fake-data-database.ts";
 import { DataSheetStore } from "./sheet.ts";
@@ -815,11 +817,15 @@ describe("runDataTool", () => {
 describe("named connections", () => {
   function shop(grant: { tables?: string[]; write?: "never" | "ask" } | undefined, behavior?: "allow" | "deny") {
     const base = context();
-    const file = join(base.dir, "shop.sqlite");
-    writeFileSync(file, "");
+    const root = freshDir();
+    const file = join(root, "shop.sqlite");
+    const db = new DatabaseSync(file);
+    db.exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, amount INTEGER); INSERT INTO orders VALUES (1, 42), (2, 7), (3, 8), (4, 9); CREATE TABLE secrets (note TEXT); INSERT INTO secrets VALUES ('hidden');");
+    db.close();
     const store = new ConnectionStore(base.dir, { secret: () => null });
-    store.addFolder(base.dir);
+    store.addFolder(root);
     store.add({ name: "shop", type: "sqlite", path: file });
+    const cards: string[] = [];
     base.ctx.named = {
       botId: "bot-1",
       threadId: "thread-1",
@@ -827,41 +833,58 @@ describe("named connections", () => {
       allowlist: () => (grant ? { shop: grant } : undefined),
       secret: () => null,
       postCard: (_text, card) => {
+        cards.push(card.subtitle);
         if (behavior) resolveDataWrite("thread-1", card.requestId, behavior);
       },
     };
-    return base;
+    return { ...base, file, cards };
   }
 
-  it("reads an allowlisted table through a read-only attach and caps the rows", async () => {
+  it("reads an allowlisted table, including main.table, and caps the rows", async () => {
     const { ctx, database } = shop({ tables: ["orders"] });
-    const seen: Array<{ timeoutMs?: number; extensions?: string[] }> = [];
-    database.onRun = (_sql, options) => { seen.push({ timeoutMs: options.timeoutMs, extensions: options.extensions }); return undefined; };
-    database.next = { columns: [{ name: "amount", type: "INTEGER" }], rows: [[1], [2], [3], [4]], rowCount: 4 };
-    const out = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders", limit: 2 });
-    expect(out.isError).toBeUndefined();
-    expect(out.structuredContent).toMatchObject({ table: null, rows: [[1], [2]], truncated: true, rowCount: 4 });
-    const sqls = database.calls.filter((call) => call.method === "run").map((call) => call.sql!);
-    expect(sqls[0]).toMatch(/^ATTACH '.*shop\.sqlite' AS "shop" \(TYPE sqlite, READ_ONLY\)$/);
-    expect(sqls[1]).toBe('SELECT amount FROM "shop"."main"."orders"');
-    expect(sqls[2]).toBe('DETACH "shop"');
-    expect(seen[0]).toMatchObject({ timeoutMs: DATA_LIMITS.sqlTimeoutMs, extensions: ["sqlite"] });
-    expect(JSON.stringify(sqls)).not.toContain("postgres://");
+    const out = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders ORDER BY amount", limit: 2 });
+    expect(out.isError, JSON.stringify(out.structuredContent)).toBeUndefined();
+    expect(out.structuredContent).toMatchObject({ table: null, rows: [["7"], ["8"]], truncated: true });
+    const qualified = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM main.orders WHERE id = 1" });
+    expect(qualified.structuredContent).toMatchObject({ rows: [["42"]] });
+    const owned = await runDataTool(ctx, "data_sql", { on: "shop", sql: 'SELECT amount FROM shop.main.orders WHERE id = 1' });
+    expect(owned.structuredContent).toMatchObject({ rows: [["42"]] });
+    expect(database.calls.filter((call) => call.sql?.includes("ATTACH"))).toEqual([]);
   });
 
-  it("refuses a table outside the allowlist, an unresolvable name, a missing grant, and an INSERT on data_sql", async () => {
+  it("refuses tables, scans and statements the grant does not allow, before any attach", async () => {
     const missed = shop({ tables: ["orders"] });
-    const other = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql: "SELECT note FROM secrets" });
-    expect(other.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(missed.database.calls).toEqual([]);
-    const fuzzy = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql: "SELECT * FROM mystery(orders)" });
-    expect(fuzzy.structuredContent).toMatchObject({ code: "write_refused" });
+    const otherFile = join(dirname(missed.file), "other.sqlite");
+    const other = new DatabaseSync(otherFile);
+    other.exec("CREATE TABLE secrets (note TEXT); INSERT INTO secrets VALUES ('TOP')");
+    other.close();
+    const escapes = [
+      "SELECT note FROM secrets",
+      "SELECT * FROM (SELECT note FROM secrets)",
+      "SELECT * FROM orders, secrets",
+      "WITH s AS (SELECT note FROM secrets) SELECT * FROM s",
+      "SELECT * FROM mystery(orders)",
+      `SELECT * FROM sqlite_scan('${otherFile}', 'secrets')`,
+      "SELECT * FROM read_csv('payroll.csv')",
+      "SELECT * FROM information_schema.tables",
+      "SELECT * FROM sqlite_master",
+      "SHOW TABLES",
+      "SELECT * FROM range(3)",
+      "INSERT INTO orders VALUES (9, 9)",
+    ];
+    for (const sql of escapes) {
+      const result = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql });
+      expect(result.structuredContent, sql).toMatchObject({ code: "write_refused" });
+      expect(JSON.stringify(result), sql).not.toContain("TOP");
+      expect(JSON.stringify(result), sql).not.toContain("hidden");
+    }
+    const multi = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql: "SELECT 1; SELECT 2" });
+    expect(multi.structuredContent).toMatchObject({ code: "invalid_input" });
+    expect(JSON.stringify(multi)).not.toContain("hidden");
     const none = shop(undefined);
     const denied = await runDataTool(none.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders" });
     expect(denied.structuredContent).toMatchObject({ code: "write_refused" });
-    const inserted = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql: "INSERT INTO orders VALUES (1)" });
-    expect(inserted.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(missed.database.calls.filter((call) => call.sql?.startsWith("ATTACH"))).toEqual([]);
+    expect(missed.database.calls.filter((call) => call.sql?.includes("ATTACH"))).toEqual([]);
   });
 
   it("refuses a raw DSN without repeating it", async () => {
@@ -875,22 +898,59 @@ describe("named connections", () => {
     }
   });
 
-  it("runs an approved write without READ_ONLY and runs nothing when the card is denied", async () => {
+  it("refuses a local statement that reads a file, and a sqlite load outside an allowed folder", async () => {
+    const { ctx, database } = context();
+    const read = await runDataTool(ctx, "data_sql", { sql: "SELECT * FROM read_csv('payroll.csv')" });
+    expect(read.structuredContent).toMatchObject({ code: "write_refused" });
+    expect(JSON.stringify(read.structuredContent)).toContain("allowed folder");
+    const created = await runDataTool(ctx, "data_sql", { sql: "CREATE TABLE stolen AS SELECT * FROM read_csv('payroll.csv')" });
+    expect(created.structuredContent).toMatchObject({ code: "write_refused" });
+    expect(database.calls.filter((call) => call.sql?.includes("read_csv"))).toEqual([]);
+    const file = join(freshDir(), "loose.sqlite");
+    writeFileSync(file, "");
+    const loaded = await runDataTool(ctx, "data_load", { source: file });
+    expect(loaded.structuredContent).toMatchObject({ code: "invalid_input" });
+    expect(JSON.stringify(loaded.structuredContent)).toContain("Allow the folder");
+  });
+
+  it("runs an approved write, logs it before a later failure, and shows the statement past a leading comment", async () => {
     const allowed = shop({ tables: ["orders"], write: "ask" }, "allow");
-    const wrote = await runDataTool(allowed.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (2, 7)" });
-    expect(wrote.isError).toBeUndefined();
-    const sqls = allowed.database.calls.filter((call) => call.method === "run").map((call) => call.sql!);
-    expect(sqls[0]).toMatch(/^ATTACH '.*shop\.sqlite' AS "shop" \(TYPE sqlite\)$/);
-    expect(sqls[0]).not.toContain("READ_ONLY");
-    expect(sqls[1]).toBe('INSERT INTO "shop"."main"."orders" VALUES (2, 7)');
-    expect(sqls[2]).toBe('DETACH "shop"');
+    const wrote = await runDataTool(allowed.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (5, 11)" });
+    expect(wrote.isError, JSON.stringify(wrote.structuredContent)).toBeUndefined();
+    const after = await runDataTool(allowed.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 5" });
+    expect(after.structuredContent).toMatchObject({ rows: [["11"]] });
+    expect(allowed.database.calls).toEqual([]);
     const denied = shop({ tables: ["orders"], write: "ask" }, "deny");
-    const refused = await runDataTool(denied.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders" });
+    const refused = await runDataTool(denied.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders WHERE id = 1" });
     expect(refused.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(denied.database.calls).toEqual([]);
+    const still = await runDataTool(denied.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
+    expect(still.structuredContent).toMatchObject({ rows: [["42"]] });
     const never = shop({ tables: ["orders"], write: "never" }, "allow");
-    const blocked = await runDataTool(never.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders" });
+    const blocked = await runDataTool(never.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders WHERE id = 1" });
     expect(blocked.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(never.database.calls).toEqual([]);
+    expect(never.cards).toEqual([]);
+    const commented = shop({ tables: ["orders"], write: "ask" }, "deny");
+    await runDataTool(commented.ctx, "data_write", { on: "shop", sql: "/* hide */\n-- note\nINSERT INTO orders VALUES (6, 12)" });
+    expect(commented.cards[0]).toMatch(/^INSERT /);
+    const spaced = shop({ tables: ["orders"], write: "ask" }, "allow");
+    const spaces = await runDataTool(spaced.ctx, "data_write", { on: "shop", sql: "INSERT\u00a0INTO orders VALUES (7, 1)" });
+    expect(spaces.structuredContent).toMatchObject({ code: "invalid_input" });
+    expect(spaced.cards).toEqual([]);
+    const dup = shop({ tables: ["orders"], write: "ask" }, "allow");
+    const failed = await runDataTool(dup.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (1, 1)" });
+    expect(failed.isError).toBe(true);
+    await flushDecisionLog(dup.dir);
+    const month = new Date().toISOString().slice(0, 7);
+    const log = readFileSync(join(dup.dir, "decisions", `${month}.ndjson`), "utf8");
+    expect(log).toContain('"decision":"user-approved"');
+    const using = shop({ tables: ["orders"], write: "ask" }, "allow");
+    const leaked = await runDataTool(using.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders USING secrets s WHERE orders.id = s.id" });
+    expect(leaked.structuredContent, JSON.stringify(leaked.structuredContent)).toMatchObject({ code: "write_refused" });
+    expect(using.cards).toEqual([]);
+    const nested = await runDataTool(using.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (99, (SELECT CASE WHEN (')' || (SELECT note FROM secrets LIMIT 1) || '(') != '' THEN 777 ELSE 0 END))" });
+    expect(nested.structuredContent).toMatchObject({ code: "write_refused" });
+    const kept = await runDataTool(using.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
+    expect(kept.structuredContent).toMatchObject({ rows: [["42"]] });
+    expect(JSON.stringify(kept)).not.toContain("hidden");
   });
 });

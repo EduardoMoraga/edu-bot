@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { t } from "@/lib/i18n";
 import { api } from "@/state/api";
+import { Select } from "../Select";
 import { SETTINGS_INPUT, SettingsEmptyRow, SettingsField, SettingsFormFoot, SettingsGroup, SettingsRows } from "../SettingsPrimitives";
 
 type ConnectionType = "postgres" | "sqlite" | "duckdb";
@@ -63,6 +64,16 @@ export function DataConnectionsSection() {
     }
   };
 
+  const removeFolder = async (path: string) => {
+    setStatus("");
+    try {
+      await api("/api/data-connections/folders", { method: "DELETE", body: JSON.stringify({ path }) });
+      await load();
+    } catch (error) {
+      setStatus(messageOf(error));
+    }
+  };
+
   const allowFolder = async () => {
     setBusy(true);
     setStatus("");
@@ -97,11 +108,11 @@ export function DataConnectionsSection() {
             <input className={SETTINGS_INPUT} value={name} autoComplete="off" spellCheck={false} onChange={(event) => setName(event.target.value)} />
           </SettingsField>
           <SettingsField label={t("settings.data.connectionType")}>
-            <select className={SETTINGS_INPUT} value={type} aria-label={t("settings.data.connectionType")} onChange={(event) => setType(event.target.value as ConnectionType)}>
+            <Select value={type} aria-label={t("settings.data.connectionType")} onChange={(event) => setType(event.target.value as ConnectionType)}>
               <option value="sqlite">sqlite</option>
               <option value="duckdb">duckdb</option>
               <option value="postgres">postgres</option>
-            </select>
+            </Select>
           </SettingsField>
           {type === "postgres" ? (
             <SettingsField label={t("settings.data.connectionSecret")}>
@@ -118,7 +129,12 @@ export function DataConnectionsSection() {
         </SettingsFormFoot>
       </SettingsRows>
       <SettingsRows>
-        {(listed?.folders ?? []).map((item) => <div key={item} className="truncate px-4 py-2 text-[13px] text-ink-secondary">{item}</div>)}
+        {(listed?.folders ?? []).map((item) => (
+          <div key={item} className="flex min-h-11 items-center gap-3 px-4 py-2">
+            <div className="min-w-0 flex-1 truncate text-[13px] text-ink-secondary">{item}</div>
+            <button type="button" className="settings-quiet cursor-pointer" onClick={() => void removeFolder(item)}>{t("settings.data.connectionRemove")}</button>
+          </div>
+        ))}
         <div className="p-4">
           <SettingsField label={t("settings.data.connectionFolder")}>
             <input className={SETTINGS_INPUT} value={folder} autoComplete="off" spellCheck={false} onChange={(event) => setFolder(event.target.value)} />

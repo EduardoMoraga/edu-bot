@@ -96,7 +96,8 @@ import { chosenPlace, pickComputer } from "./computer-selection.ts";
 import * as boat from "./boat.ts"; import { keyHint, keyStatus, nestedKeyStatus, withoutKeyHints } from "./key-hint.ts";
 import { cloudComputerRpc } from "./cloud-computer-tools.ts"; import { createBoatRecovery } from "./boat-recovery.ts"; import { CLOUD_COMPUTER_PERSON_LINES, CLOUD_COMPUTER_REPLACING, CLOUD_COMPUTER_RESTARTING, CLOUD_COMPUTER_RESTORING, CLOUD_COMPUTER_WAKING, RUN_COMPUTER_LINES } from "../shared/cloud-computer-recovery.ts"; import { boatReadiness } from "./boat-ready.ts"; import { createRunComputerGate } from "./host/cloud-computer-run-gate.ts"; import { cloudComputerDisk } from "./cloud-computer-disk.ts"; import { runComputerMemory } from "./host/cloud-computer-run-memory.ts";
 import { chartRenderer, compileChart, dataEngine, validateVegaLite } from "./data/deps.ts";
-import { DATA_INTERNAL_MCP_PATH, dataRpc } from "./data/rpc.ts";
+import { respondDataMcp } from "./data/internal-mcp.ts";
+import { DATA_INTERNAL_MCP_PATH } from "./data/rpc.ts";
 import { removeRetiredAppFiles } from "./retired-apps.ts"; import { createEmailRoutes } from "./routes/email.ts"; import { createEmailHost, EMAIL_INTERNAL_MCP_PATH, emailAccess } from "./email/host.ts"; import { createEmailService } from "./email/service.ts"; import { createPostizRoutes } from "./routes/postiz.ts"; import { createPostiz } from "./postiz/service.ts";
 import { createPhones } from "./host/phones.ts";
 import { NOT_THE_OWNER } from "./phones/owner.ts";
@@ -104,7 +105,6 @@ import { PHONE_INTERNAL_MCP_PATH } from "./phones/rpc.ts";
 import { isLongPollPath, phoneKey } from "./routes/phones.ts"; import { createPhoneActivityRoutes, createPhonePushRoutes } from "./routes/phone-push.ts"; import { PhoneActivity } from "./phone-activity.ts"; import { PhonePush, PhonePushAccessSource, phonePushEnabled } from "./phone-push.ts"; import { TUNNEL_CREDENTIALS_FILE } from "./tunnel.ts";
 import { createDataRoutes } from "./data/routes.ts";
 import { DataSheetRegistry } from "./data/sheet.ts";
-import { DataFailure } from "./data/types.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
 import { isEffortLevel, type AuthPairResponse, type CardAnswerer, type LoopbackSessionResponse, type SignedInSessionResponse, type PairResponse, type ResolvedSender, type ServerFrame, type SignInRequestCardData, type WireBot, type WireGroup, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard, shouldSettleRequestCard } from "../shared/ask-question.ts";
@@ -433,7 +433,7 @@ import { LocalVmLease, LocalVmLeasePool } from "./local-vm-lease.ts";
 import { LocalVmSeatPool, type LocalVmSeatHolder } from "./local-vm-seat-pool.ts";
 import { loopGuardSettings } from "./host/loop-guard.ts"; import { createUnattendedTurns, personDriven } from "./host/unattended-turns.ts"; import { createPersonFirst } from "./host/person-first.ts"; import { createRunOwners, runActorOf } from "./host/run-owner.ts";
 import { claudeUserSkillsEnabled } from "./turn-settings.ts";
-import { addHeldSecretScrubber, redactSecretsInText, scrubHeldSecrets } from "./redact.ts";
+import { addHeldSecretScrubber, redactSecretsInText } from "./redact.ts";
 import * as vps from "./vps-computer.ts";
 import { vpsConfigForBot, vpsSshAliasForBot } from "./vps-hosts.ts";
 import { ROUTINE_RESTARTED, RoutineManager, type Routine, type RoutineRun, type RoutineRunOn, type RoutineRunTrigger } from "./routines.ts"; import { routineModelRefusal, routineThreadModel, type RoutineModelChecks } from "./routine-input.ts"; import { routineHistoryFor, routineRunsFor } from "./routine-run-window.ts"; import { runTurnLive } from "./routine-turn-live.ts"; import { batchSaves, flushLaterSaves } from "./save-batch.ts";
@@ -6384,7 +6384,7 @@ bus.subscribe((event: RuntimeEvent) => {
           const existing = store.messagesFor(event.threadId).find((m) => m.id === messageId)?.tool;
           toolName = existing?.name ?? "tool";
           store.patchMessage(event.threadId, messageId, {
-            tool: { ...existing, name: toolName, ok: event.ok, output: event.output === undefined ? undefined : scrubHeldSecrets(event.output), ...mcpToolProblem(toolName, event.ok, event.output, Object.keys(cfg.mcpServers ?? {}), threadLanguage(event.threadId)) },
+            tool: { ...existing, name: toolName, ok: event.ok, output: event.output === undefined ? undefined : redactSecretsInText(event.output), ...mcpToolProblem(toolName, event.ok, event.output, Object.keys(cfg.mcpServers ?? {}), threadLanguage(event.threadId)) },
           }); void connectionHealth.toolStep({ threadId: event.threadId, generation: activeInternalGenerationByThread.get(event.threadId), tool: toolName, ok: event.ok, output: event.output }).catch(() => {});
           toolMessageByItem.delete(itemKey);
         }
@@ -6404,7 +6404,7 @@ bus.subscribe((event: RuntimeEvent) => {
         const message = pushMessage({
           role: "bot",
           kind: "activity",
-          tool: { name, spoken: narrateTool(name) ?? undefined, ...(event.step ? { step: event.step } : {}), summary: event.summary, input: event.input === undefined ? undefined : scrubHeldSecrets(event.input), itemId: event.itemId ?? event.eventId, ...teamConnections.toolWhose(event.threadId, activeInternalGenerationByThread.get(event.threadId), name, event.input) },
+          tool: { name, spoken: narrateTool(name) ?? undefined, ...(event.step ? { step: event.step } : {}), summary: event.summary, input: event.input === undefined ? undefined : redactSecretsInText(event.input), itemId: event.itemId ?? event.eventId, ...teamConnections.toolWhose(event.threadId, activeInternalGenerationByThread.get(event.threadId), name, event.input) },
           turnId: liveTurnId,
         });
         if (event.itemId) toolMessageByItem.set(`${event.threadId}:${event.itemId}`, message.id);
@@ -12028,6 +12028,7 @@ const botPatchRoutes = createBotPatchRoutes({ turnBots: directTurnBots,
   broadcast, wireBot, publicGroupState, audienceChanged, storedAvatarExists, requestedTaskBot, threadBusy, activeGroupTurnForBot,
   checkedModelSelection, engineSwitchNeedsAsk, currentBrowserSession, interruptAllDirectThreads, cancelGroupTurnOperations,
   revokeInternalCapabilitiesForThread, runningTurnInstance, closeOpenApprovals, assertTeamComputerChangeIdle, forgetTemporaryBrowser, levelOf, team: Boolean(CLOUD_TEAM), mainThreadTasks, chiefChanged: (changed) => chiefRooms.moved(changed), ...(personRooms.personMarkThread ? { personMarkThread: personRooms.personMarkThread, shownThread: (auth: RequestAuth, bot: BotRecord) => memberBot(wireBot(bot), visibleTo(viewerFor(auth))).threadId } : {}),
+  dataDir: DATA_DIR, connectionVault: logins,
 }); ROUTES.push(botPatchRoutes);
 ROUTES.push(createProfilesRoutes({
   dataDir: DATA_DIR, desktopManaged: DESKTOP_MANAGED, routes: () => ROUTES, mcpServers: () => ({ ...cfg.mcpServers }),
@@ -12408,7 +12409,10 @@ ROUTES.push(createDataRoutes({
   engine: dataEngine,
   sheets: dataSheets,
   compileChart, validateVegaLite, renderer: chartRenderer,
-  exportRoots: dataExportRoots, vault: logins, dataDir: DATA_DIR,
+  exportRoots: dataExportRoots,
+  vault: logins,
+  dataDir: DATA_DIR,
+  bots: () => store.bots,
 }));
 ROUTES.push(createLiveRoutes({
   calls: liveCalls, deviceRevoked: (device) => { phonePush.forget(`companion:${device}`); phoneActivity.forget(`companion:${device}`); },
@@ -12996,36 +13000,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           assertActive: requireActiveInternalCapability, recovery: boatRecovery, disk: cloudComputerDisk, settled: (answered) => runComputers.callSettled(internalCapability.botId, internalCapability.threadId, answered), reclaim: (replaced, until, signal) => reclaimAutoVm(autoVmClaims, internalCapability, replaced, until, signal), waiting: () => broadcast({ kind: "computer", botId: internalCapability.botId, state: "waking", place: "cloud" }),
         }) });
       }
-      // DuckDB runs here on the bot's own database; the agent process holds only the turn's capability.
-      if (method === "POST" && path === DATA_INTERNAL_MCP_PATH) {
-        const body = await readInternalBody();
-        const unavailable = dataEngine.unavailable();
-        if (unavailable !== null) return json(res, 503, { error: `Data tools are unavailable: ${unavailable}` });
-        const abort = new AbortController();
-        res.once("close", () => { if (!res.writableEnded) abort.abort(); });
-        let database;
-        try {
-          database = await dataEngine.forBot(internalSender.id);
-        } catch (error) {
-          if (error instanceof DataFailure) return json(res, 503, { error: error.message });
-          throw error;
-        }
-        requireActiveInternalCapability();
-        return json(res, 200, { result: await dataRpc(body, {
-          database, sheet: dataSheets.for(internalSender.id),
-          compileChart, validateVegaLite, renderer: chartRenderer,
-          exportRoots: () => dataExportRoots(internalSender), named: { botId: internalSender.id, threadId: internalCapability.threadId, dataDir: DATA_DIR, allowlist: () => store.bot(internalSender.id)?.dataConnections, secret: (id: string) => logins.secret(id)?.value ?? null, postCard: (text: string, card: { title: string; subtitle: string; options: string[]; requestId: string; tool: string; requestType: "permission" }) => { store.appendMessage(internalCapability.threadId, { role: "bot", kind: "options", text, card, ...(store.groupByThread(internalCapability.threadId) ? { from: { botId: internalSender.id, name: internalSender.name, color: internalSender.color } } : {}) }); } },
-          signal: abort.signal, assertActive: requireActiveInternalCapability,
-          onShow: (card) => {
-            store.appendMessage(internalCapability.threadId, {
-              role: "bot", kind: "activity", tool: { name: "data_show", ok: true },
-              dataResult: { botId: internalSender.id, cardId: card.id, title: card.title, kind: card.kind, sql: card.sql },
-              ...(store.groupByThread(internalCapability.threadId)
-                ? { from: { botId: internalSender.id, name: internalSender.name, color: internalSender.color } } : {}),
-            });
-          },
-        }) });
-      }
+      if (await respondDataMcp({
+        method, path, res, json, readBody: readInternalBody, dataEngine, sender: internalSender, threadId: internalCapability.threadId,
+        requireActive: requireActiveInternalCapability, store, secret: (id) => logins.secret(id)?.value ?? null, dataDir: DATA_DIR, sheets: dataSheets,
+        compileChart, validateVegaLite, renderer: chartRenderer, exportRoots: dataExportRoots,
+      })) return;
       // The mail passwords stay here; the agent process holds only the turn's capability, and every call gets the live bot's verdict.
       if (method === "POST" && path === EMAIL_INTERNAL_MCP_PATH) { return json(res, 200, { result: await emailHost.handle(await readInternalBody(), internalCapability, requireActiveInternalCapability) }); }
       if (method === "POST" && path === PHONE_INTERNAL_MCP_PATH) {

@@ -535,13 +535,32 @@ export class VaultStore {
 
   secretValues(): string[] {
     const data = this.read();
-    return [
+    const raw = [
       ...data.logins.flatMap((login) => [login.password, ...(login.totp ? [login.totp.secret] : [])]),
       ...(data.onePassword ? [data.onePassword.token] : []),
       ...(data.bitwarden ? [data.bitwarden.clientSecret, data.bitwarden.password] : []),
       ...(data.secrets ?? []).map((secret) => secret.value),
     ];
+    const pieces = new Set<string>();
+    for (const value of raw) {
+      pieces.add(value);
+      for (const extra of secretPieces(value)) if (extra !== value) pieces.add(extra);
+    }
+    return [...pieces];
   }
+}
+
+function secretPieces(value: string): string[] {
+  const found: string[] = [];
+  try {
+    const password = new URL(value).password;
+    if (password) found.push(decodeURIComponent(password));
+  } catch { /* a password that is not a URL stays one piece */ }
+  for (const match of value.matchAll(/\b(?:password|passwd|pwd)\s*=\s*("[^"]*"|'[^']*'|\S+)/gi)) {
+    const bare = (match[1] ?? "").replace(/^['"]|['"]$/g, "");
+    if (bare) found.push(bare);
+  }
+  return found;
 }
 
 // Saved secrets, passwords filled this run and recent one-time codes are masked wherever text crosses to a bot or a

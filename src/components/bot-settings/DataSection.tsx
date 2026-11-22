@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { t } from "@/lib/i18n";
+import { Select } from "../Select";
 import { api } from "@/state/api";
 import type { DataGrantMap } from "../../../shared/data-connections";
 import type { Bot } from "@/state/store";
@@ -79,10 +80,10 @@ export function DataSection({ bot }: { bot: Bot }) {
               </label>
               <label className="flex items-center justify-between gap-3 text-[13px] text-ink">
                 {t("botSettings.data.write")}
-                <select className="h-8 rounded-lg bg-app px-2" disabled={!row.allow} value={row.write} aria-label={t("botSettings.data.write")} onChange={(event) => setRow(name, { write: event.target.value as Row["write"] })}>
+                <Select disabled={!row.allow} value={row.write} aria-label={t("botSettings.data.write")} onChange={(event) => setRow(name, { write: event.target.value as Row["write"] })}>
                   <option value="never">{t("botSettings.data.writeNever")}</option>
                   <option value="ask">{t("botSettings.data.writeAsk")}</option>
-                </select>
+                </Select>
               </label>
             </div>
           );

@@ -281,6 +281,33 @@ describe("redactSecretsInText", () => {
     expect(redactSecretsInText("tool --token --verbose")).toBe("tool --token --verbose");
   });
 
+  it("masks short keyword passwords and every database URL scheme", () => {
+    expect(redactSecretsInText("host=db.internal password=hunter2 dbname=shop")).toBe("host=db.internal password=«redacted 7 chars» dbname=shop");
+    expect(redactSecretsInText("note passwd=secret1 here")).toBe("note passwd=«redacted 7 chars» here");
+    const urls = [
+      "mariadb://bob:hunter2@db/shop",
+      "sqlite:///tmp/shop.sqlite",
+      "duckdb:///tmp/notes.duckdb",
+      "mssql://bob:hunter2@db/shop",
+      "sqlserver://bob:hunter2@db/shop",
+      "mongodb+srv://bob:hunter2@cluster/shop",
+      "redis://:hunter2@localhost:6379",
+      "rediss://:hunter2@localhost:6379",
+      "clickhouse://bob:hunter2@db/shop",
+      "oracle://bob:hunter2@db/shop",
+    ];
+    for (const url of urls) expect(redactSecretsInText(`open ${url}`), url).toBe(`open «redacted ${url.length} chars»`);
+    expect(redactSecretsInText("curl https://bob:hunter2@db/shop")).toBe("curl https://bob:«redacted 7 chars»@db/shop");
+    expect(redactSecretsInText("see ${DATABASE_URL} and $DB_PASSWORD")).toBe("see «redacted 15 chars» and «redacted 12 chars»");
+    expect(redactSecretsInText("Driver=SQLite3;PWD=hunter2")).toBe("Driver=«redacted 7 chars»;PWD=«redacted 7 chars»");
+  });
+
+  it("does not treat a column named password or a shell path as a secret", () => {
+    expect(redactSecretsInText("SELECT password FROM t")).toBe("SELECT password FROM t");
+    expect(redactSecretsInText("echo $PATH $HOME")).toBe("echo $PATH $HOME");
+    expect(redactSecretsInText("SELECT $1")).toBe("SELECT $1");
+  });
+
   it("does not mask ordinary words near those rules", () => {
     for (const s of [
       "hotkey=cmd+k keyboard=qwerty monkey=business",

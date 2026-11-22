@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { closeSync, openSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
@@ -38,14 +38,17 @@ async function fixture() {
 
 it("answers an allowed sqlite table, refuses another, and writes only after the card", async () => {
   const { dataDir, url, server, api } = await fixture();
+  const allowed = join(dirname(dataDir), `shop-${process.pid}-${Date.now()}`);
+  mkdirSync(allowed);
   try {
     const { bot } = await runControlOmb(["new-bot", "--name", "Shop bot", "--url", url]) as { bot: { id: string; activeTaskId: string } };
     const threadId = bot.activeTaskId;
-    const file = join(dataDir, "shop.sqlite");
+    const file = join(allowed, "shop.sqlite");
     const db = new DatabaseSync(file);
     db.exec("CREATE TABLE orders (id INTEGER, amount INTEGER); INSERT INTO orders VALUES (1, 42); CREATE TABLE secrets (id INTEGER, note TEXT); INSERT INTO secrets VALUES (1, 'hidden');");
     db.close();
-    await api("POST", "/api/data-connections/folders", { path: dataDir }, 201);
+    await api("POST", "/api/data-connections/folders", { path: dataDir }, 400);
+    await api("POST", "/api/data-connections/folders", { path: allowed }, 201);
     const added = await api("POST", "/api/data-connections", { name: "shop", type: "sqlite", path: file }, 201);
     expect(added.where).toBe(file);
     expect(JSON.stringify(await api("GET", "/api/data-connections"))).not.toMatch(/postgres:\/\//);
@@ -89,6 +92,7 @@ it("answers an allowed sqlite table, refuses another, and writes only after the 
   } finally {
     await waitForExit(server, { signal: "SIGTERM" });
     rmSync(dataDir, { recursive: true, force: true });
+    rmSync(allowed, { recursive: true, force: true });
   }
 }, 180_000);
 

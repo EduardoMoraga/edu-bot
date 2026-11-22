@@ -27,6 +27,7 @@ export { visibleMessages } from "./snapshot-navigation";
 export { awayFromMainThread, botOpensTo, markedThread, openBot, openBotRow, openBotThread, openRoomThread, openThread, visibleNotificationThread, type ThreadTarget } from "./thread-navigation";
 import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
+import { optionalField } from "./optional-field";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
 import type { MausColor, MausMotion } from "@/lib/mascot";
 import type { BotAvatarCrop } from "../../shared/bot-avatar";
@@ -488,7 +489,8 @@ export type BotSettingsSection =
   | "voice"
   | "visibility"
   | "history"
-  | "usage" | "data";
+  | "usage"
+  | "data";
 
 export interface ModelVariantSession {
   instanceId: string;
@@ -1535,21 +1537,19 @@ function reduceApp(state: AppState, action: Action): AppState {
         applyToAllThreads: _allThreads,
         keepThreadModels: _keepThreadModels, threadId: _threadId, mainThreadChoice,
         computer,
-        connectorTools, dataConnections,
+        connectorTools,
+        dataConnections,
         connectorScopes, phoneApps,
         defaultBot,
         ...rest
       } = action.patch;
       const next = action.patch.chiefOfStaff ? { ...animated, bots: withOneChief(animated.bots, { ...target, ...rest, id: action.botId }) } : animated;
       const botPatch: Partial<Bot> = { ...rest, ...(phoneApps !== undefined && { phoneApps: phoneApps ?? undefined }), ...(typeof mainThreadChoice === "string" && { mainThreadId: mainThreadChoice }) };
-      if (computer === null) botPatch.computer = undefined;
-      else if (computer !== undefined) botPatch.computer = computer;
-      if (defaultBot === null) botPatch.defaultBot = undefined;
-      else if (defaultBot !== undefined) botPatch.defaultBot = defaultBot;
-      if (connectorTools === null) botPatch.connectorTools = undefined; else if (connectorTools !== undefined) botPatch.connectorTools = connectorTools;
-      if (dataConnections === null) botPatch.dataConnections = undefined; else if (dataConnections !== undefined) botPatch.dataConnections = dataConnections;
-      if (connectorScopes === null) botPatch.connectorScopes = undefined;
-      else if (connectorScopes !== undefined) botPatch.connectorScopes = connectorScopes;
+      optionalField(botPatch, "computer", computer);
+      optionalField(botPatch, "defaultBot", defaultBot);
+      optionalField(botPatch, "connectorTools", connectorTools);
+      optionalField(botPatch, "dataConnections", dataConnections);
+      optionalField(botPatch, "connectorScopes", connectorScopes);
       return updateBot(next, action.botId, (b) => ({ ...b, ...botPatch }));
     }
     case "threadActive": {

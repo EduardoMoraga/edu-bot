@@ -295,9 +295,24 @@ name: Helper
       ["a token on a brain that is not in the cloud", withBot("eduBrain: { mode: area, token: { secret: T } }"), ["areas/bi/bots/analyst.md, line 6: eduBrain.token is only for mode cloud"]],
       ["a reserved server key", { ...base(), "mcp/edu.md": mcp("transport: http\nurl: https://x.example/mcp").replace("key: notion", "key: edu") },
         ["mcp/edu.md, line 4: key is Edu Bot's own memory server; set eduBrain on a bot or area instead"]],
+      ["a reserved data connection", withBot("data:\n  data: {}\n  main: {}\n  memory: {}\n  temp: {}\n  system: {}"), [
+        "areas/bi/bots/analyst.md, line 7: data.data is reserved",
+        "areas/bi/bots/analyst.md, line 8: data.main is reserved",
+        "areas/bi/bots/analyst.md, line 9: data.memory is reserved",
+        "areas/bi/bots/analyst.md, line 10: data.temp is reserved",
+        "areas/bi/bots/analyst.md, line 11: data.system is reserved",
+      ]],
+      ["a data connection that is not a name", withBot("data:\n  Shop: {}"),
+        ["areas/bi/bots/analyst.md, line 7: data.Shop must be a lowercase connection name"]],
     ];
     it.each(cases)("%s", (_name, files, expected) => {
       expect(sentences(files)).toEqual(expected);
+    });
+
+    it("reads a data grant", () => {
+      const folder = check(withBot("data:\n  shop:\n    tables: [orders]\n    write: ask"));
+      expect(folder.problems).toEqual([]);
+      expect(folder.bots[0]).toMatchObject({ data: { shop: { tables: ["orders"], write: "ask" } } });
     });
   });
 

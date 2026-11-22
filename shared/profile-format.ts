@@ -9,6 +9,7 @@ import { bodyLineOf, fieldName, invisibleProblem, parseFrontMatter, Problems, va
 import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES } from "./skill-md.ts";
 import { TOOL_GROUPS, type ToolGroup } from "./tool-groups.ts";
 import { parseToolScope, type ToolScope } from "./tool-scope.ts";
+import { RESERVED_CONNECTION_NAMES } from "./data-connections.ts";
 import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "./wire.ts";
 
 export const PROFILE_VERSION = 1;
@@ -285,7 +286,10 @@ const dataGrantSchema = z.record(z.string(), z.object({
 }, { error: "must be { schemas, tables, write }" }).strict(), { error: "must map each connection name to its grant" }).superRefine((grants, context) => {
   const names = Object.keys(grants);
   if (names.length > 32) context.addIssue({ code: "custom", message: "must name at most 32 connections" });
-  for (const name of names) if (!/^[a-z][a-z0-9_]{0,31}$/.test(name)) context.addIssue({ code: "custom", path: [name], message: "must be a lowercase connection name" });
+  for (const name of names) {
+    if (RESERVED_CONNECTION_NAMES.has(name)) context.addIssue({ code: "custom", path: [name], message: "is reserved" });
+    else if (!/^[a-z][a-z0-9_]{0,31}$/.test(name)) context.addIssue({ code: "custom", path: [name], message: "must be a lowercase connection name" });
+  }
 });
 
 const inheritedShape = {

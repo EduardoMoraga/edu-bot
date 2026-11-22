@@ -1,12 +1,14 @@
 // Settings → Data. Mutations need the owner's admin scope: a bot's service trust cannot add a connection.
-import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
+import { NAMED_CONNECTION_SENTENCE, containsRawDsn, type DataGrantMap } from "../../shared/data-connections.ts";
 import type { RouteContext } from "../routes/table.ts";
 import { PASS } from "../routes/table.ts";
 import { ConnectionStore, type ConnectionVault } from "./connections.ts";
+import { syncConnectionGrants } from "./grants.ts";
 
 export interface ConnectionRouteDeps {
   dataDir?: string;
   vault?: ConnectionVault;
+  bots?: () => Array<{ id: string; dataConnections?: DataGrantMap }>;
 }
 
 const NAME = /^[a-z][a-z0-9_]{0,31}$/;
@@ -38,6 +40,7 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
         return;
       }
       ctx.json(ctx.res, 201, store.add({ name: String(body.name ?? ""), type, dsn: typeof body.dsn === "string" ? body.dsn : undefined, path: typeof body.path === "string" ? body.path : undefined }));
+      syncGrants(deps);
       return;
     }
     if (path === "/api/data-connections/folders" && method === "POST") {
@@ -59,12 +62,13 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
       return;
     }
     if (named[2] === "/test" && method === "POST") {
-      const result = store.test(named[1]!);
+      const result = await store.test(named[1]!);
       ctx.json(ctx.res, result.ok ? 200 : 422, result);
       return;
     }
     if (!named[2] && method === "DELETE") {
       store.remove(named[1]!);
+      syncGrants(deps);
       ctx.json(ctx.res, 200, { ok: true });
       return;
     }
@@ -73,6 +77,11 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
     const message = error instanceof Error ? error.message : "The connection could not be saved.";
     ctx.json(ctx.res, 400, { error: containsRawDsn(message) ? NAMED_CONNECTION_SENTENCE : message });
   }
+}
+
+function syncGrants(deps: ConnectionRouteDeps): void {
+  if (!deps.dataDir || !deps.vault || !deps.bots) return;
+  syncConnectionGrants(deps.vault, deps.dataDir, deps.bots());
 }
 
 async function read(ctx: RouteContext): Promise<Record<string, unknown> | undefined> {

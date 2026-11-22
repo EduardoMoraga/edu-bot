@@ -1,13 +1,11 @@
-// A named connection is attached for one statement and detached in the same lane turn. The attach string never
-// leaves this function: a failure that echoes it is replaced with a sentence that has no secret.
 import { randomUUID } from "node:crypto";
 
-import { DATA_LIMITS, DATA_RESULTS_SCHEMA } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn, type DataGrant, type DataGrantMap } from "../../shared/data-connections.ts";
 import { appendDecision } from "../decision-log.ts";
 import { ConnectionStore, type ConnectionType, type StoredConnection } from "./connections.ts";
-import { extractRelations, qualifyRelations, type Relation } from "./relations.ts";
-import { DataFailure, type BotDatabase, type DataConnection, type DataExtension, type RunResult } from "./types.ts";
+import { inspectSql, isPathTable, type SqlTable } from "./sql-shape.ts";
+import { runNamedRead, runNamedWrite, type PlanTable } from "./session.ts";
+import { DataFailure, type BotDatabase, type DataConnection, type RunResult } from "./types.ts";
 
 export interface DataWriteCard {
   title: string;
@@ -37,23 +35,46 @@ export interface NamedContext {
 const fail = (message: string) => new DataFailure({ code: "invalid_input", message });
 const refused = (message: string) => new DataFailure({ code: "write_refused", message });
 
+const CATALOG_SCHEMAS = new Set(["information_schema", "pg_catalog", "duckdb_catalog", "system"]);
+const CATALOG_TABLES = new Set([
+  "sqlite_master", "sqlite_schema", "sqlite_temp_master",
+  "duckdb_tables", "duckdb_views", "duckdb_schemas", "duckdb_columns",
+  "duckdb_databases", "duckdb_functions", "duckdb_settings",
+]);
+
 export function defaultSchema(type: ConnectionType): string {
   return type === "postgres" ? "public" : "main";
 }
 
+export interface OpenedConnection {
+  connection: StoredConnection;
+  grant: DataGrant;
+  target: string;
+}
+
 export async function queryNamed(ctx: NamedContext, input: { sql: string; on: string; limit: number }): Promise<RunResult & { elapsedMs: number }> {
   const started = Date.now();
-  let prepared;
-  try { prepared = prepare(ctx, input.on, input.sql, "read"); } catch (error) {
+  const named = ctx.named;
+  let opened: OpenedConnection;
+  try {
+    opened = openNamed(ctx, input.on, input.sql, "read");
+    const inspected = await inspectSql(input.sql, "named");
+    if (!inspected.ok) throw refused("This statement names something this bot cannot check, so it was not run.");
+    for (const table of inspected.tables) {
+      if (!relationAllowed(table, opened.grant, opened.connection)) throw refused(`This bot may not read ${table.table} on ${input.on}.`);
+    }
+  } catch (error) {
     if (error instanceof DataFailure) log(ctx, { tool: "data_sql", decision: "auto-denied", rule: input.on, summary: error.error.message });
     throw error;
   }
-  const result = await attached(ctx, prepared, input.sql, true, input.limit + 1);
-  log(ctx, { tool: "data_sql", decision: "auto-approved", rule: prepared.connection.name, summary: `read ${prepared.connection.name}` });
+  const result = await runNamedRead({
+    dataDir: named!.dataDir, connection: opened.connection, target: opened.target, sql: input.sql, maxRows: input.limit + 1, signal: ctx.signal,
+  });
+  log(ctx, { tool: "data_sql", decision: "auto-approved", rule: opened.connection.name, summary: `read ${opened.connection.name}` });
   return { ...result, elapsedMs: Date.now() - started };
 }
 
-export function prepare(ctx: NamedContext, on: string, sql: string, mode: "read" | "write"): { connection: StoredConnection; grant: DataGrant; relations: Relation[] } {
+export function openNamed(ctx: NamedContext, on: string, sql: string, mode: "read" | "write"): OpenedConnection {
   if (containsRawDsn(sql) || containsRawDsn(on)) throw fail(NAMED_CONNECTION_SENTENCE);
   const named = ctx.named;
   if (!named) throw fail("Named connections are not set up on this call.");
@@ -63,75 +84,58 @@ export function prepare(ctx: NamedContext, on: string, sql: string, mode: "read"
   const grant = named.allowlist()?.[on];
   if (!grant) throw refused(`This bot may not use ${on}.`);
   if (mode === "write" && grant.write !== "ask") throw refused(`This bot may not write to ${on}.`);
-  const scan = extractRelations(sql);
-  if (!scan.ok) throw refused("This statement names something this bot cannot check, so it was not run.");
-  for (const relation of scan.relations) {
-    if (!relationAllowed(relation, grant, connection)) throw refused(`This bot may not ${mode === "write" ? "write" : "read"} ${relation.table} on ${on}.`);
+  let target: string;
+  try {
+    target = store.target(connection);
+  } catch (error) {
+    throw fail(error instanceof Error && !containsRawDsn(error.message) ? error.message : "That connection could not be opened.");
   }
-  return { connection, grant, relations: scan.relations };
+  return { connection, grant, target };
 }
 
-export function relationAllowed(relation: Relation, grant: DataGrant, connection: StoredConnection): boolean {
-  if (relation.own && !relation.catalog) return true;
-  if (relation.catalog && relation.catalog.toLowerCase() !== connection.name) return false;
-  const schema = (relation.schema ?? defaultSchema(connection.type)).toLowerCase();
-  const table = relation.table.toLowerCase();
-  if (relation.schema?.toLowerCase() === "main" || relation.schema?.toLowerCase() === DATA_RESULTS_SCHEMA) {
-    if (!relation.catalog) return true;
+/** An empty catalog is the attached database. Catalog objects stay closed unless the grant names them. */
+export function relationAllowed(table: SqlTable, grant: DataGrant, connection: StoredConnection): boolean {
+  if (isPathTable(table.table)) return false;
+  const catalog = table.catalog.toLowerCase();
+  if (catalog && catalog !== connection.name.toLowerCase()) return false;
+  const schema = (table.schema || defaultSchema(connection.type)).toLowerCase();
+  const name = table.table.toLowerCase();
+  const catalogObject = CATALOG_SCHEMAS.has(schema) || CATALOG_TABLES.has(name);
+  if (catalogObject) {
+    const explicitSchema = grant.schemas?.some((item) => item.toLowerCase() === schema) ?? false;
+    const explicitTable = grant.tables?.some((item) => item.toLowerCase().split(".").filter(Boolean).at(-1) === name) ?? false;
+    if (!explicitSchema && !explicitTable) return false;
   }
   if (grant.schemas?.length && !grant.schemas.some((item) => item.toLowerCase() === schema)) return false;
   if (grant.tables?.length) {
     const listed = grant.tables.some((item) => {
       const parts = item.toLowerCase().split(".").filter(Boolean);
-      if (parts.length === 1) return parts[0] === table;
-      return parts[parts.length - 1] === table && parts[parts.length - 2] === schema;
+      if (parts.length === 1) return parts[0] === name;
+      return parts.at(-1) === name && parts.at(-2) === schema;
     });
     if (!listed) return false;
   }
   return true;
 }
 
-export async function attached(ctx: NamedContext, prepared: { connection: StoredConnection; relations: Relation[] }, sql: string, readOnly: boolean, maxRows: number): Promise<RunResult> {
+export function writeTableAllowed(table: PlanTable, grant: DataGrant, connection: StoredConnection): boolean {
+  return relationAllowed({ catalog: "", schema: table.schema, table: table.table }, grant, connection);
+}
+
+export async function explainNamedWrite(ctx: NamedContext, opened: OpenedConnection, sql: string): Promise<void> {
   const named = ctx.named!;
-  const store = openStore(named);
-  let target: string;
-  try { target = store.target(prepared.connection); } catch (error) {
-    throw fail(error instanceof Error && !containsRawDsn(error.message) ? error.message : "That connection could not be opened.");
-  }
-  const alias = prepared.connection.name;
-  const extension: DataExtension[] = prepared.connection.type === "duckdb" ? [] : [prepared.connection.type];
-  const rewritten = qualifyRelations(sql, prepared.relations, alias, () => defaultSchema(prepared.connection.type));
-  const attach = attachSql(alias, target, prepared.connection.type, readOnly);
-  const detach = `DETACH ${quoteIdent(alias)}`;
-  try {
-    return await ctx.database.exclusive(ctx.connection, { signal: ctx.signal, timeoutMs: DATA_LIMITS.sqlTimeoutMs, extensions: extension }, async (run) => {
-      await run(attach, 1);
-      try {
-        return await run(rewritten, maxRows);
-      } finally {
-        await run(detach, 1).catch(() => undefined);
-      }
-    });
-  } catch (error) {
-    if (error instanceof DataFailure) {
-      if (error.error.sql && containsRawDsn(error.error.sql)) delete error.error.sql;
-      if (containsRawDsn(error.error.message)) error.error.message = NAMED_CONNECTION_SENTENCE;
-      throw error;
-    }
-    const message = error instanceof Error ? error.message : String(error);
-    throw new DataFailure({ code: "sql_error", message: containsRawDsn(message) ? NAMED_CONNECTION_SENTENCE : message });
-  }
+  await runNamedWrite({
+    dataDir: named.dataDir, connection: opened.connection, target: opened.target, sql, signal: ctx.signal, dryRun: true,
+    allow: (table) => writeTableAllowed(table, opened.grant, opened.connection),
+  });
 }
 
-function attachSql(alias: string, target: string, type: ConnectionType, readOnly: boolean): string {
-  const name = quoteIdent(alias);
-  const literal = `'${target.replace(/'/g, "''")}'`;
-  if (type === "duckdb") return readOnly ? `ATTACH ${literal} AS ${name} (READ_ONLY)` : `ATTACH ${literal} AS ${name}`;
-  return `ATTACH ${literal} AS ${name} (TYPE ${type}${readOnly ? ", READ_ONLY" : ""})`;
-}
-
-function quoteIdent(name: string): string {
-  return `"${name.replace(/"/g, '""')}"`;
+export async function executeNamedWrite(ctx: NamedContext, opened: OpenedConnection, sql: string): Promise<void> {
+  const named = ctx.named!;
+  await runNamedWrite({
+    dataDir: named.dataDir, connection: opened.connection, target: opened.target, sql, signal: ctx.signal,
+    allow: (table) => writeTableAllowed(table, opened.grant, opened.connection),
+  });
 }
 
 export function openStore(named: NamedDataAccess): ConnectionStore {

@@ -1,7 +1,8 @@
 // The turn's capability must still be live before and after anything touches the database.
+import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
 import { DATA_INSTRUCTIONS } from "./instructions.ts";
 import type { DataCard } from "../../shared/data-surface.ts";
-import { DATA_TOOLS, dataErrorResult, dataToolCallProblem, runDataTool, type DataContext, type DataToolResult } from "./tools.ts";
+import { DATA_TOOLS, dataErrorResult, dataToolCallProblem, runDataTool, valuesContainDsn, type DataContext, type DataToolResult } from "./tools.ts";
 
 export const DATA_INTERNAL_MCP_PATH = "/api/internal/data/mcp";
 
@@ -23,6 +24,7 @@ export async function dataRpc(
   if (request?.method !== "tools/call") throw Object.assign(new Error("unsupported data method"), { status: 400 });
   const params = (request.params && typeof request.params === "object" ? request.params : {}) as { name?: unknown; arguments?: unknown };
   const args = params.arguments ?? {};
+  if (valuesContainDsn(args)) return dataErrorResult({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
   const problem = dataToolCallProblem(params.name, args);
   if (problem) return dataErrorResult({ code: "invalid_input", message: problem });
   deps.assertActive();

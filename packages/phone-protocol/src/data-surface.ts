@@ -88,7 +88,7 @@ export interface DataSource {
   name: string;
   /** A quoted identifier ready to paste into SQL; name remains the source identity. */
   sqlName?: string;
-  kind: "csv" | "parquet" | "json" | "xlsx" | "folder" | "url" | "postgres" | "mysql" | "sqlite" | "gsheet" | "connector" | "sql";
+  kind: "csv" | "parquet" | "json" | "xlsx" | "folder" | "url" | "postgres" | "mysql" | "sqlite" | "duckdb" | "gsheet" | "connector" | "sql";
   /** The path, URL or connection the table came from, with credentials removed. */
   source: string;
   options?: Record<string, string | number | boolean>;
