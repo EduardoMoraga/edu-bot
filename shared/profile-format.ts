@@ -74,6 +74,8 @@ export interface AreaProfile {
   defaults: InheritedFields;
   mcpServers: string[];
   maxApproval?: ProfileApproval;
+  /** The area's bots on an area brain leave the person's own global Edu brain out. */
+  personalBrain?: false;
 }
 
 export interface BotProfile {
@@ -124,6 +126,8 @@ export interface ResolvedBot extends InheritedFields {
   description?: string;
   soul: string;
   chief: boolean;
+  /** From the area: on an area brain the bot leaves the person's own global Edu brain out. */
+  personalBrain?: false;
   mcpServers: string[];
   skills: Array<{ name: string; file: string; enabled: boolean }>;
   /** Which level each inherited field came from. A field no level sets is absent: the app's own default applies. */
@@ -327,6 +331,7 @@ const areaSchema = z.object({
   chief: keySchema.optional(),
   stewards: z.array(z.string({ error: "must be an email address" }).regex(EMAIL, "must be an email address"), { error: "must be a list of email addresses" }).max(50).optional(),
   eduBrain: eduBrainSchema.optional(),
+  personalBrain: z.boolean({ error: "must be true or false" }).optional(),
   defaults: defaultsSchema.optional(),
   mcpServers: mcpServerNames.optional(),
   maxApproval: approvalSchema.optional(),
@@ -783,7 +788,7 @@ function parseProfile(file: string, source: string, role: Exclude<ProfileFileRol
     parsed.areas.set(role.area, {
       file, key: area.key, name: area.name.trim(), brief: body, ...(area.chief ? { chief: area.chief } : {}),
       stewards: [...new Set((area.stewards ?? []).map((email) => email.toLowerCase()))], defaults, mcpServers: area.mcpServers ?? [],
-      ...(area.maxApproval ? { maxApproval: area.maxApproval } : {}),
+      ...(area.maxApproval ? { maxApproval: area.maxApproval } : {}), ...(area.personalBrain === false ? { personalBrain: false as const } : {}),
     });
   } else if (role.role === "bot") {
     const bot = data as z.output<typeof botSchema>;
@@ -880,7 +885,7 @@ function resolveBots(parsed: Parsed, problems: Problems): ResolvedBot[] {
     resolved.push({
       id: `${bot.area}/${bot.key}`, area: bot.area, key: bot.key, file: bot.file, name: bot.name,
       ...(bot.was ? { was: bot.was } : {}), ...(bot.title !== undefined ? { title: bot.title } : {}), ...(bot.description !== undefined ? { description: bot.description } : {}),
-      soul: bot.soul, chief: area.chief === bot.key,
+      soul: bot.soul, chief: area.chief === bot.key, ...(area.personalBrain === false ? { personalBrain: false as const } : {}),
       mcpServers: [...new Set([...(parsed.org?.mcpServers ?? []), ...area.mcpServers, ...bot.mcpServers])],
       skills, ...(fields as InheritedFields), from,
     });

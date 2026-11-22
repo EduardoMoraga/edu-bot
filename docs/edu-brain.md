@@ -93,6 +93,18 @@ Each bot's `eduBrain` setting (`PATCH /api/bots/:id`):
 - `{ "mode": "folder", "path": "/abs/path" }`: the brain already in that folder (`/abs/path/.edu`), which several bots
   can share, for example one brain per company area. Edu Bot never creates a brain there: run `edu init` in the
   folder first. Without one the bot gets no Edu tools.
+- `{ "mode": "area", "area": "bi" }`: one brain shared by every bot of area `bi` on this computer, at
+  `<data folder>/brains/areas/bi/.edu`, created on first use like an own brain. Profiles set it from `area.md`.
+  With `"personalBrain": false` the bot does not read your global brain either: Edu Bot runs Edu with `EDU_HOME` set to
+  an empty folder, `<data folder>/edu-no-personal`, so the brief, `edu mcp` and the proposals list see only the area's
+  brain. Edu 6.0.0 has no switch of its own for this; it reads `EDU_HOME` as the global layer.
+- `{ "mode": "cloud", "url": "https://…/mcp", "token": { "secret": "EDU_CLOUD_BI" } }`: an
+  [edu-cloud](https://github.com/EduardoMoraga/edu-cloud) brain the team shares across computers. The turn mounts
+  edu-cloud's HTTP MCP as the `edu` server, through Edu Bot's remote MCP proxy, instead of `edu mcp`; the tools have
+  the same names, and the brief comes from edu-cloud's `edu_brief`. It needs no Edu install on this computer, and it
+  never reads your global brain. The token is yours: save it in **Settings → Vault** under the name in `secret` (or use
+  `{ "env": "NAME" }` for an environment variable of the app). Settings show only its name and what it may do there;
+  no route returns its value. `http://` is accepted only for this computer (`127.0.0.1`, `localhost`).
 - `{ "mode": "off" }`: no Edu brain.
 
 Deleting a bot keeps its brain folder: memory is worth more than the disk it takes. Remove
@@ -113,7 +125,26 @@ reports `state: "broken"` with the reason.
 A team backup carries each bot's `eduBrain` setting, not the brain itself. On import a `folder` setting is restored
 only for an import from the desktop app or a paired device; otherwise the restored bot's brain is `off`.
 
-The global Edu brain (`~/.edu`, or `EDU_HOME`) is read alongside each bot's brain. Writes go to the bot's brain.
+The global Edu brain (`~/.edu`, or `EDU_HOME`) is read alongside each bot's brain, except for an area brain with
+`personalBrain: false` and a cloud brain. Writes go to the bot's brain.
+
+### Cloud brain proposals
+
+An edu-cloud with per-person tokens gives each person a token with a scope: `member` (read and save notes) or `steward` (also
+approve and reject canonical proposals). Edu Bot asks `GET <base>/api/v1/whoami` what your token may do:
+
+- **steward:** the cloud brain's proposals become cards and Memory settings rows like a local brain's, and approving
+  or rejecting goes to edu-cloud's `POST <base>/api/v1/proposals/<id>/approve|reject` with your token. The same local
+  rule applies first: only the desktop app or a paired admin device approves.
+- **member:** Memory settings lists them read-only: only a steward of the area decides them.
+- **an older edu-cloud** (no `/api/v1/` routes): the brain works for memory; proposals are approved on the edu-cloud
+  server itself (`edu-cloud approve <id>`), and Memory settings says so.
+
+A bot's turn mounts edu-cloud with the same token, but approval is only an HTTP route, never an MCP tool, so a bot
+cannot approve. Open risk: a bot whose tools can read its engine's MCP configuration can read your token; give a bot
+with a shell a member token.
+
+Edu crew needs a local Edu brain, so a cloud brain bot has no crew.
 
 ## Settings
 
@@ -234,7 +265,8 @@ ACP and Pi keep Edu Bot's, and Codex mounts the custom one under another name.
 ## Verify
 
 ```sh
-pnpm exec vitest run server/edu-brain.test.ts server/edu-brief.test.ts server/drivers/team-tools.test.ts
+pnpm exec vitest run server/edu-brain.test.ts server/edu-brief.test.ts server/edu-cloud.test.ts server/drivers/team-tools.test.ts
+EDU_CLOUD_CLI=/path/to/edu-cloud/dist/cli.js pnpm exec vitest run server/edu-cloud-brain.e2e.test.ts   # skipped without it
 pnpm exec vitest run server/drivers/acp/failure-words.test.ts server/drivers/acp/deepseek.test.ts -t "MCP server|retryWithoutEdu"
 pnpm exec vitest run server/drivers/claude.test.ts -t "Edu brain"
 pnpm exec vitest run server/edu-proposals.test.ts src/components/bot-panel/EduBrainCard.dom.test.ts src/components/ApprovalCard.edu-proposal.test.ts

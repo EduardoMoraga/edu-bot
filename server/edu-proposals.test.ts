@@ -75,6 +75,7 @@ function setup(options: { listing?: unknown[]; decide?: (args: string[]) => stri
       detect: async () => runtime,
       brain: async (one) => ({ ok: true, folder: folderOf(one.id), runtime }),
       brainFolder: (one) => folderOf(one.id),
+      brainKey: (one) => folderOf(one.id),
     },
     store,
     inRoom: (threadId) => threadId.startsWith("t-room"),
