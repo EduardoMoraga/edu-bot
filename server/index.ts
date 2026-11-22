@@ -579,8 +579,7 @@ import { createHostedSlackRoutes } from "./routes/hosted-slack.ts";
 import { createBotPresetRoutes } from "./routes/bot-presets.ts"; import { createWorkspaceBannerRoutes, workspaceBannerStore, workspaceBannerSummary } from "./routes/workspace-banner.ts";
 import { createBotMemoryRoutes } from "./routes/bot-memory.ts";
 import { createEduBrains } from "./edu-brain.ts";
-import { createEduProposals } from "./edu-proposals.ts";
-import { createEduCloud } from "./edu-cloud.ts";
+import { createEduProposals } from "./edu-proposals.ts"; import { createEduCloud } from "./edu-cloud.ts";
 import { createEduCrew } from "./edu-crew.ts";
 import { isEduDecisionCard } from "../shared/edu-brain.ts";
 import { createEduRoutes } from "./routes/edu.ts";
@@ -779,9 +778,7 @@ let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 let companionMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 const FALLBACK_PUBLIC_URL = process.env.OMB_PUBLIC_URL?.trim().replace(/\/+$/, "") || null; const tailnetShare = createTailnetShare({ port: PORT, handle: (req, res) => handleRequest(req, res), attach: (listener, handle) => upgrades.attach(listener, handle), log: (line) => console.log(line) });
 const cfg = loadConfig();
-const eduCloud = createEduCloud({ token: (bot, ref) => "env" in ref ? process.env[ref.env] ?? null
-  : logins.usableSecret(ref.secret, bot.id, "ref", vaultReaders.turn(bot.threadId ?? store.bot(bot.id)?.threadId ?? ""))?.value ?? null });
-const eduBrains = createEduBrains({ dataDir: DATA_DIR, config: () => cfg.edu, hostLocal: () => CLOUD_HOME === null && !botBox.enabled(), cloud: eduCloud,
+const eduCloud = createEduCloud({ token: (bot, ref) => "env" in ref ? process.env[ref.env] ?? null : logins.usableSecret(ref.secret, bot.id, "ref", vaultReaders.turn(bot.threadId ?? store.bot(bot.id)?.threadId ?? ""))?.value ?? null }); const eduBrains = createEduBrains({ dataDir: DATA_DIR, config: () => cfg.edu, hostLocal: () => CLOUD_HOME === null && !botBox.enabled(), cloud: eduCloud,
   mounted: (threadId, bot, folder) => eduProposals.mounted(threadId, bot, folder) });
 const hostedModels = hostedModelPolicy(DATA_DIR);
 const providerConfigs = () => hostedModels ? hostedModels.configs() : instanceConfigs(cfg);
