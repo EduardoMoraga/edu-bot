@@ -327,6 +327,43 @@ name: Helper
       expect(JSON.stringify(folder)).not.toMatch(/AUDIT|0123456789token/);
     });
 
+    it.each([
+      "\u202a", "\u202b", "\u202c", "\u202d", "\u202e", "\u2066", "\u2067", "\u2068", "\u2069", "\u206a", "\u206f",
+      "\u061c", "\u034f", "\ufe00", "\ufff9", "\u0085", "\u000b", "\u000c", "\u00a0", "\u200a", "\r",
+    ].map((char) => [`U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`, char]))("finds a key broken by %s", (_name, char) => {
+      const folder = check(withBot("title: Analyst", `Hello sk-ant-AUDIT${char}KEY0123456789\n`));
+      expect(folder.problems.map(problemSentence)).toEqual([
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]);
+      expect(folder.bots).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("AUDIT");
+    });
+
+    it("finds a private key header broken by a format character", () => {
+      const folder = check(withBot("title: Analyst", "-----BEGIN PRIVATE\u2066 KEY-----\nMIIEvQIBADANBg\n-----END PRIVATE KEY-----\n"));
+      expect(folder.problems).toHaveLength(1);
+      expect(folder.bots).toEqual([]);
+    });
+
+    it("reads a password after the word secret in a front matter comment as a written secret", () => {
+      const folder = check(withBot("# secret: s3cretvalue99\ntitle: Analyst"));
+      expect(folder.problems.map(problemSentence)).toEqual([
+        "areas/bi/bots/analyst.md, line 6: has a key or password on this line; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]);
+      expect(JSON.stringify(folder)).not.toContain("s3cretvalue99");
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/mcp\nheaders: { Authorization: { secret: NOTION_TOKEN } }"))).toEqual([]);
+    });
+
+    it("finds a key wrapped twice in base64", () => {
+      const twice = btoa(btoa(KEY));
+      expect(twice).toBe("YzJzdFlXNTBMVUZWUkVsVVMwVlpNREV5TXpRMU5qYzRPUT09");
+      const folder = check(withBot("title: Analyst", `blob ${twice}\n`));
+      expect(folder.problems.map(problemSentence)).toEqual([
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]);
+      expect(folder.bots).toEqual([]);
+    });
+
     it("refuses the value after a flag that names a key, and a flag written with its value", () => {
       expect(sentences(withMcp("transport: stdio\ncommand: npx\nargs: [\"--token\", \"s3cretvalue99\", \"--api-key=abc\", \"--token-file\", \"x\"]"))).toEqual([
         "mcp/notion.md, line 7: args[1] is the value of --token, a flag that names a key or password; pass the key in env with a secret slot instead, such as env: { NOTION_TOKEN: { secret: NAME } }",
@@ -346,6 +383,14 @@ name: Helper
       ["a home path after =", "args: [\"--dir=~/keys/notion\"]", "args[0] holds an absolute or home path"],
       ["a path that climbs out", "args: [\"--dir\", \"../../keys\"]", "args[1] holds a path that climbs with .."],
       ["a command that climbs out", "env: { HOME_DIR: \"a:../b\" }", "env.HOME_DIR holds a path that climbs with .."],
+      ["a file: address after =", "args: [\"--config=file:///home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
+      ["a file: address with a host", "args: [\"file://localhost/home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
+      ["a file: address in capitals", "args: [\"FILE:///home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
+      ["a $HOME path", "args: [\"--config=$HOME/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
+      ["a ${HOME} path", "args: [\"--config=${HOME}/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
+      ["a %USERPROFILE% path", "args: ['--config=%USERPROFILE%\\.ssh\\id_rsa']", "args[0] holds an absolute or home path"],
+      ["a variable path in env", "env: { CONFIG: \"$XDG_CONFIG_HOME/notion\" }", "env.CONFIG holds an absolute or home path"],
+      ["a file: address as the url", "url: file:///home/ana/mcp.sock", "url must be an https:// address"],
     ];
     it.each(pathCases)("%s", (_name, lines, expected) => {
       const [sentence] = sentences(withMcp(`transport: stdio\ncommand: npx\n${lines}`));

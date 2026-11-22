@@ -178,6 +178,8 @@ const CREDENTIAL_NAME = /authorization|cookie|token|secret|passw|api[-_]?key|acc
 const PATH_START = String.raw`(?:^|[\s=,;:"'(\[{])`;
 const ABSOLUTE_PATH = new RegExp(String.raw`${PATH_START}(?:\/|~[\w.-]*(?:[/\\]|$|(?=[\s,;:"')\]}]))|[A-Za-z]:[\\/]|\\\\)`);
 const CLIMBING_PATH = new RegExp(String.raw`(?:^|[\s=,;:"'(\[{/\\])\.\.(?:[/\\]|$|(?=[\s,;:"')\]}]))`);
+const VARIABLE_PATH = new RegExp(String.raw`${PATH_START}(?:\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|%[A-Za-z_][A-Za-z0-9_]*%)[/\\]`);
+const FILE_ADDRESS = /(?<![a-z0-9+.-])file:/i;
 const ADDRESS = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]*/gi;
 const SECRET_ARG_FLAG = /^--?[A-Za-z0-9_-]*?(?:token|passw(?:or)?d|secret|api[-_]?key|access[-_]?key|private[-_]?key|credentials?)s?(?:=(.*))?$/is;
 const CI_KEY_FILE = /^\.secrets\/[A-Za-z0-9_-][A-Za-z0-9._-]*(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
@@ -582,9 +584,9 @@ function refusePathsAndKeys(doc: ParsedDoc, role: ProfileFileRole["role"], probl
         return;
       }
       if (problems.has(doc.file, field) || PROSE_FIELDS.has(String(path[0]))) return;
-      const plain = value.replace(ADDRESS, " ");
+      const plain = value.replace(ADDRESS, (address) => /^file:/i.test(address) ? address : " ");
       const runs = role === "mcp-server" && ["command", "args", "env"].includes(String(path[0]));
-      if (ABSOLUTE_PATH.test(plain)) {
+      if (ABSOLUTE_PATH.test(plain) || VARIABLE_PATH.test(plain) || FILE_ADDRESS.test(plain)) {
         problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds an absolute or home path; paths differ on each computer, so profiles never hold one" });
       } else if (runs && CLIMBING_PATH.test(plain)) {
         problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one" });

@@ -65,3 +65,16 @@ describe.skipIf(process.platform === "win32")("a bots folder swapped for a link 
     expect(JSON.stringify(loaded)).not.toContain("OUTSIDE_CANARY");
   });
 });
+
+describe("a bots folder that disappears between the open and the identity check", () => {
+  it("is refused with a plain problem, and the load does not throw", () => {
+    const folder = swappable();
+    const bots = join(folder.dir, "areas", "bi", "bots");
+    swap.at = join("areas", "bi", "bots", "analyst.md");
+    swap.before = () => {};
+    swap.after = () => renameSync(bots, `${bots}-gone`);
+    const loaded = loadProfileFolder(folder.dir);
+    expect(loaded.problems.map(problemSentence)).toContain("areas/bi/bots/analyst.md: is a link; profiles never follow links, so put the file itself in the folder");
+    expect(loaded.bots.map((bot) => bot.key)).not.toContain("analyst");
+  });
+});

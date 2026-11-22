@@ -143,10 +143,14 @@ function collectSkills(walk: Walk, dir: string): void {
 }
 
 function isFileAt(fd: number, full: string): boolean {
-  const opened = fstatSync(fd, { bigint: true });
-  if (realpathSync(full) !== full) return false;
-  const there = lstatSync(full, { bigint: true });
-  return opened.dev === there.dev && opened.ino === there.ino;
+  try {
+    const opened = fstatSync(fd, { bigint: true });
+    if (realpathSync(full) !== full) return false;
+    const there = lstatSync(full, { bigint: true });
+    return opened.dev === there.dev && opened.ino === there.ino;
+  } catch {
+    return false;
+  }
 }
 
 function readCapped(root: string, path: string): { bytes: Buffer } | { problem: string } {
