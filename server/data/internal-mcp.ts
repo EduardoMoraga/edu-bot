@@ -1,5 +1,4 @@
 import type { ServerResponse } from "node:http";
-import { join } from "node:path";
 
 import type { DataGrantMap } from "../../shared/data-connections.ts";
 import type { Store } from "../store.ts";
@@ -55,8 +54,6 @@ export async function respondDataMcp(input: {
     database, sheet: input.sheets.for(input.sender.id),
     compileChart: input.compileChart, validateVegaLite: input.validateVegaLite, renderer: input.renderer,
     exportRoots: () => input.exportRoots(input.sender),
-    workFolder: input.store.bot(input.sender.id)?.cwd ?? join(input.dataDir, "workspaces", input.sender.id),
-    dataDir: input.dataDir,
     named: {
       botId: input.sender.id, threadId: input.threadId, dataDir: input.dataDir, allowlist,
       secret: input.secret,

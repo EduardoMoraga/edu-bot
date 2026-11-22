@@ -43,8 +43,6 @@ function context(): DataContext {
     signal: new AbortController().signal,
     connection: "bot",
     by: "bot",
-    workFolder: work,
-    dataDir,
   };
 }
 
@@ -129,31 +127,6 @@ describe("escape attempts against real SQLite and DuckDB", () => {
       const result = await runDataTool(ctx, "data_sql", { on: "shop", sql });
       const text = JSON.stringify(result);
       for (const secret of SECRETS) expect(text, sql).not.toContain(secret);
-    }
-
-    const secretSql = secretFile.replaceAll("'", "''");
-    const local = [
-      `SELECT * FROM read_text('${secretSql}')`,
-      `SELECT content FROM read_text('${secretSql}')`,
-      `SELECT * FROM query('SELECT content FROM read_text(''${secretSql}'')')`,
-      `CREATE TABLE stolen AS SELECT * FROM read_csv('${outsideCsv.replaceAll("'", "''")}')`,
-      `SELECT * FROM read_csv('${outsideCsv.replaceAll("'", "''")}')`,
-    ];
-    for (const sql of local) {
-      const result = await runDataTool(ctx, "data_sql", { sql });
-      expect(result.isError, sql).toBe(true);
-      const text = JSON.stringify(result);
-      for (const secret of SECRETS) expect(text, sql).not.toContain(secret);
-    }
-
-    const fromData = await runDataTool({ ...ctx, workFolder: dataDir }, "data_load", { source: secretFile });
-    expect(JSON.stringify(fromData.structuredContent)).toContain("Edu Bot's data folder is not a place to load files from.");
-    const fromOutside = await runDataTool(ctx, "data_load", { source: outsideCsv });
-    expect(JSON.stringify(fromOutside.structuredContent)).toContain("Load files from this bot's working folder.");
-    const fromLink = await runDataTool(ctx, "data_load", { source: join(work, "linked.txt") });
-    expect(JSON.stringify(fromLink.structuredContent)).toContain("Load files from this bot's working folder.");
-    for (const result of [fromData, fromOutside, fromLink]) {
-      for (const secret of SECRETS) expect(JSON.stringify(result)).not.toContain(secret);
     }
 
     const again = await runDataTool(ctx, "data_load", { source: join(work, "more.csv"), name: "more" });

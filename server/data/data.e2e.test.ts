@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,8 +43,7 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
     const regions = ["north", "south", "west"];
     const lines = ["region,amount,day"];
     for (let i = 0; i < 300; i++) lines.push(`${regions[i % 3]},${(i % 17) + 1},2026-10-${String((i % 10) + 1).padStart(2, "0")}`);
-    const csv = join(dataDir, "workspaces", bot.id, "sales.csv");
-    mkdirSync(join(dataDir, "workspaces", bot.id), { recursive: true });
+    const csv = join(dataDir, "sales.csv");
     writeFileSync(csv, lines.join("\n") + "\n");
     mkdirSync(join(dataDir, "Downloads"), { recursive: true });
 
@@ -183,11 +182,7 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
       // A second instance proves cached extensions load again, without relying on the exporter's LOAD.
       const { bot: reader } = await runControlOmb(["new-bot", "--name", "Workbook reader", "--url", url]) as { bot: { id: string; activeTaskId: string } };
       const readerToken = await api("POST", "/api/testing/internal-capability", { botId: reader.id, threadId: reader.activeTaskId, kind: "data" }, 201, { "x-openmausbot-test-capability": CAPABILITY_KEY });
-      const readerWorkspace = join(dataDir, "workspaces", reader.id);
-      mkdirSync(readerWorkspace, { recursive: true });
-      const workbookCopy = join(readerWorkspace, "sales.xlsx");
-      copyFileSync(workbook.data.path, workbookCopy);
-      const reloaded = await call("data_load", { source: workbookCopy, name: "workbook_sales" }, readerToken.token);
+      const reloaded = await call("data_load", { source: workbook.data.path, name: "workbook_sales" }, readerToken.token);
       expect(reloaded.isError, reloaded.text).toBe(false);
       expect(reloaded.data.tables[0].rowCount).toBe(300);
 

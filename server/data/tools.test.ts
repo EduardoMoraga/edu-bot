@@ -432,9 +432,8 @@ describe("data_sql", () => {
   it("runs CREATE … AS and metadata statements directly", async () => {
     const { ctx, database } = context();
     const created = await runSql(ctx, { sql: "CREATE OR REPLACE TABLE paid AS SELECT * FROM orders WHERE paid" });
-    expect(database.calls.map((call) => call.method)).toEqual(["run", "run", "describe"]);
-    expect(database.calls[0]).toMatchObject({ sql: "SELECT * FROM orders WHERE paid", maxRows: 1 });
-    expect(database.calls[2]!.target).toBe("paid");
+    expect(database.calls.map((call) => call.method)).toEqual(["run", "describe"]);
+    expect(database.calls[1]!.target).toBe("paid");
     expect(created).toMatchObject({ table: "paid", rows: [], truncated: false, rowCount: 3 });
     database.calls.length = 0;
     const described = await runSql(ctx, { sql: "DESCRIBE orders" });
@@ -892,18 +891,19 @@ describe("named connections", () => {
     }
   });
 
-  it("refuses a local statement that reads a file, and a sqlite load outside an allowed folder", async () => {
-    const { ctx, database } = context();
-    const read = await runDataTool(ctx, "data_sql", { sql: "SELECT * FROM read_csv('payroll.csv')" });
-    expect(read.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(JSON.stringify(read.structuredContent)).toContain("allowed folder");
-    const created = await runDataTool(ctx, "data_sql", { sql: "CREATE TABLE stolen AS SELECT * FROM read_csv('payroll.csv')" });
-    expect(created.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(database.calls.filter((call) => call.sql?.includes("read_csv"))).toEqual([]);
-    const file = join(freshDir(), "loose.sqlite");
-    writeFileSync(file, "");
-    const loaded = await runDataTool(ctx, "data_load", { source: file });
-    expect(loaded.structuredContent).toMatchObject({ code: "invalid_input" });
-    expect(JSON.stringify(loaded.structuredContent)).toContain("Allow the folder");
+  it("blocks catalog objects on an open grant unless the grant names them", async () => {
+    const { ctx } = shop({});
+    for (const sql of [
+      "SELECT * FROM pragma_database_list",
+      "SELECT * FROM sqlite_temp_schema",
+      "SELECT * FROM pg_tables",
+      "SELECT * FROM duckdb_schemas",
+    ]) {
+      const result = await runDataTool(ctx, "data_sql", { on: "shop", sql });
+      expect(result.structuredContent, sql).toMatchObject({ code: "write_refused" });
+      expect(JSON.stringify(result), sql).not.toContain("hidden");
+    }
+    const orders = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
+    expect(orders.structuredContent).toMatchObject({ rows: [["42"]] });
   });
 });

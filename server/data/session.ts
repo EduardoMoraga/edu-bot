@@ -92,18 +92,12 @@ async function runCapped(connection: DuckDB.DuckDBConnection, sql: string, maxRo
       }),
     ]);
     const rows = reader.getRowsJson() as RunResult["rows"];
-    const columns = reader.columnNames().map((name, index) => ({ name, type: columnType(reader.columnTypeJson(index)) }));
+    const columns = reader.columnNames().map((name, index) => ({ name, type: reader.columnType(index).toString() }));
     return { columns, rows, rowCount: rows.length, truncated: !reader.done, elapsedMs: Date.now() - started };
   } finally {
     if (timer) clearTimeout(timer);
     signal?.removeEventListener("abort", onAbort);
   }
-}
-
-function columnType(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (value && typeof value === "object" && "id" in value && typeof (value as { id: unknown }).id === "string") return (value as { id: string }).id;
-  return "VARCHAR";
 }
 
 async function oneStatement(connection: DuckDB.DuckDBConnection, sql: string): Promise<void> {

@@ -87,7 +87,7 @@ export function relationAllowed(table: SqlTable, grant: DataGrant, connection: S
   if (catalog && catalog !== connection.name.toLowerCase()) return false;
   const schema = (table.schema || defaultSchema(connection.type)).toLowerCase();
   const name = table.table.toLowerCase();
-  const catalogObject = CATALOG_SCHEMAS.has(schema) || CATALOG_TABLES.has(name);
+  const catalogObject = CATALOG_SCHEMAS.has(schema) || CATALOG_TABLES.has(name) || /^(?:sqlite_|duckdb_|pragma_|pg_)/.test(name);
   if (catalogObject) {
     const explicitSchema = grant.schemas?.some((item) => item.toLowerCase() === schema) ?? false;
     const explicitTable = grant.tables?.some((item) => item.toLowerCase().split(".").filter(Boolean).at(-1) === name) ?? false;

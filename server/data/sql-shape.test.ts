@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inspectSql, localSqlTouchesFiles } from "./sql-shape.ts";
+import { inspectSql } from "./sql-shape.ts";
 
 const tablesOf = async (sql: string, mode: "named" | "local" = "named") => {
   const result = await inspectSql(sql, mode);
@@ -49,8 +49,5 @@ describe("inspectSql", () => {
     expect(await inspectSql("SELECT * FROM range(3)", "local")).toMatchObject({ ok: true });
     expect(await inspectSql("SHOW TABLES", "local")).toMatchObject({ ok: true });
     expect(await inspectSql("SELECT * FROM read_csv('payroll.csv')", "local")).toMatchObject({ ok: false, reason: "unsafe" });
-    expect(await localSqlTouchesFiles("SELECT 1")).toBe(false);
-    expect(await localSqlTouchesFiles("CREATE TABLE stolen AS SELECT * FROM read_csv('payroll.csv')")).toBe(true);
-    expect(await localSqlTouchesFiles("SELECT * FROM sqlite_scan('other.sqlite', 'secrets')")).toBe(true);
   });
 });

@@ -5,6 +5,8 @@ import { dirname, join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
 
+import pinsFile from "./duckdb-extensions.json" with { type: "json" };
+
 import { duckdbDirectory, nativeRequire } from "./engine.ts";
 import { DataFailure } from "./types.ts";
 
@@ -23,7 +25,7 @@ const DUCK_PLATFORM: Record<string, string> = {
   "win32-x64": "windows_amd64",
 };
 
-const pins = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "duckdb-extensions.json"), "utf8")) as ExtensionPins;
+const pins = pinsFile as ExtensionPins;
 const flights = new Map<string, Promise<string>>();
 
 export const EXTENSION_LIBRARY = pins.library;

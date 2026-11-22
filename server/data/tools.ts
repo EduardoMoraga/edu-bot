@@ -19,12 +19,9 @@ import {
 } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
 import { queryNamed, type NamedDataAccess } from "./live.ts";
-import { assertDatabaseLoad } from "./load-gate.ts";
-import { localSqlTouchesFiles } from "./sql-shape.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
-import { createSelectBody, queryRelation, singleStatement, type Token } from "./sql-statements.ts";
-import { assertWorkFolderLoad } from "./work-folder.ts";
+import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
 import type { DataSheetStore } from "./sheet.ts";
 import { DataFailure, type BotDatabase, type ChartCompiler, type ChartRenderer, type DataConnection, type DataExtension, type RunOptions, type RunResult, type VegaLiteValidator } from "./types.ts";
 
@@ -303,9 +300,6 @@ export interface DataContext {
   connection: DataConnection;
   by: DataCard["by"];
   named?: NamedDataAccess;
-  /** Set together. Local file loads must stay inside this folder and must not be Edu Bot's data folder. */
-  workFolder?: string;
-  dataDir?: string;
 }
 
 const runOptions = (ctx: DataContext, extra: Partial<RunOptions> = {}): RunOptions =>
@@ -330,14 +324,14 @@ export interface LoadPlan {
   /** Multi-file readers can keep their source paths beside a file's own filename column. */
   readerWithFilename?: (column: string | false) => string;
   extensions?: DataExtension[];
-  attach?: { type: "postgres" | "mysql" | "sqlite" | "duckdb"; connection: string; table?: string };
+  attach?: { type: "postgres" | "mysql" | "sqlite"; connection: string; table?: string };
   warnings: string[];
 }
 
 const GLOB_CHARS = /[*?[\]]/;
 const COMPRESSION = /\.(gz|zst|zstd|bz2)$/i;
 
-function readerFor(ext: string, kind: LoadKind | undefined): "csv" | "tsv" | "json" | "parquet" | "xlsx" | "sqlite" | "duckdb" | null {
+function readerFor(ext: string, kind: LoadKind | undefined): "csv" | "tsv" | "json" | "parquet" | "xlsx" | "sqlite" | null {
   if (kind && kind !== "auto" && kind !== "folder" && kind !== "url" && kind !== "gsheet" && kind !== "postgres" && kind !== "mysql") return kind;
   switch (ext.toLowerCase()) {
     case ".csv": return "csv";
@@ -347,7 +341,6 @@ function readerFor(ext: string, kind: LoadKind | undefined): "csv" | "tsv" | "js
     case ".parquet": case ".pq": return "parquet";
     case ".xlsx": return "xlsx";
     case ".db": case ".sqlite": case ".sqlite3": return "sqlite";
-    case ".duckdb": return "duckdb";
     default: return null;
   }
 }
@@ -428,7 +421,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
   if (/^(https?|s3|gs|az|azure|r2|hf):\/\//i.test(source) || kind === "url") {
     const pathname = (() => { try { return new URL(source).pathname; } catch { return source; } })();
     const reader = readerFor(extensionOf(pathname), kind === "url" ? undefined : kind);
-    if (!reader || reader === "sqlite" || reader === "duckdb") throw fail("source_unsupported", `No reader for ${extensionOf(pathname) || "a URL without a file extension"}.`, { hint: "Pass kind: csv, tsv, json, parquet or xlsx." });
+    if (!reader || reader === "sqlite") throw fail("source_unsupported", `No reader for ${extensionOf(pathname) || "a URL without a file extension"}.`, { hint: "Pass kind: csv, tsv, json, parquet or xlsx." });
     const extensions: DataExtension[] = [/^(az|azure):\/\//i.test(source) ? "azure" : "httpfs"];
     if (reader === "xlsx") extensions.push("excel");
     return [{ kind: "url", source: stripCredentials(source), stem: input.name ?? (stemOf(pathname) || "download"), reader: readerExpression(reader, source, input, false), extensions, warnings }];
@@ -436,7 +429,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
   const local = source.startsWith("~/") || source === "~" ? join(homedir(), source.slice(1)) : source;
   if ((GLOB_CHARS.test(local) || kind === "folder") && !existsSync(local)) {
     const reader = readerFor(extensionOf(local), kind === "folder" ? undefined : kind);
-    if (!reader || reader === "sqlite" || reader === "duckdb" || reader === "xlsx") throw fail("source_unsupported", "A glob needs a file extension DuckDB reads many of: *.csv, *.parquet, *.json.", { hint: "Pass kind: csv, json or parquet with the glob." });
+    if (!reader || reader === "sqlite" || reader === "xlsx") throw fail("source_unsupported", "A glob needs a file extension DuckDB reads many of: *.csv, *.parquet, *.json.", { hint: "Pass kind: csv, json or parquet with the glob." });
     const read = (column: string | boolean = true) => readerExpression(reader, local, input, true, column);
     return [{ kind: "folder", source: local, stem: input.name ?? (basename(dirname(local)) || "files"), reader: read(), readerWithFilename: read, warnings }];
   }
@@ -447,7 +440,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
     for (const entry of readdirSync(local, { recursive: true, withFileTypes: true })) {
       if (!entry.isFile()) continue;
       const reader = readerFor(extensionOf(entry.name), undefined);
-      if (!reader || reader === "sqlite" || reader === "duckdb" || reader === "xlsx") continue;
+      if (!reader || reader === "sqlite" || reader === "xlsx") continue;
       // Keep compression in the suffix even though it does not select the reader.
       const suffix = (extensionOf(entry.name) + (COMPRESSION.exec(entry.name)?.[0] ?? "")).toLowerCase();
       (families.get(reader) ?? families.set(reader, new Set()).get(reader)!).add(suffix);
@@ -466,7 +459,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
   }
   const reader = readerFor(extensionOf(local), kind);
   if (!reader) throw fail("source_unsupported", `No reader for ${extensionOf(local) || "a file without an extension"}.`, { hint: "Pass kind: csv, tsv, json, parquet, xlsx or sqlite." });
-  if (reader === "sqlite" || reader === "duckdb") return [{ kind: reader, source: local, stem: input.name ?? stemOf(local), attach: { type: reader, connection: local, table: input.sheet }, warnings }];
+  if (reader === "sqlite") return [{ kind: "sqlite", source: local, stem: input.name ?? stemOf(local), attach: { type: "sqlite", connection: local, table: input.sheet }, warnings }];
   if (reader === "xlsx" && !input.sheet) warnings.push("Loaded the workbook's first sheet; pass sheet to load another.");
   if (extensionOf(local).toLowerCase() === ".txt") warnings.push("Read as CSV; pass options.delimiter if the columns did not split.");
   return [{ kind: reader === "tsv" ? "csv" : reader, source: local, stem: input.name ?? (input.sheet ? `${stemOf(local)}_${input.sheet}` : stemOf(local)), reader: readerExpression(reader, local, input, false), ...(reader === "xlsx" ? { extensions: ["excel" as const] } : {}), warnings }];
@@ -491,12 +484,6 @@ export async function loadData(ctx: DataContext, input: LoadInput): Promise<Load
     return name;
   };
   const warnings: string[] = [];
-  if (ctx.workFolder && ctx.dataDir) {
-    for (const plan of plans) {
-      if (plan.kind === "url" || plan.kind === "gsheet") continue;
-      assertWorkFolderLoad(plan.source, ctx.workFolder, ctx.dataDir);
-    }
-  }
   const create = async (name: string, relation: string, plan: LoadPlan, options: Record<string, string | number | boolean>) => {
     const sql = (reader: string) => `CREATE ${replace ? "OR REPLACE " : ""}TABLE ${quoteIdent(name)} AS SELECT * FROM ${reader}`;
     const execute = (statement: string) => ctx.database.run(statement, runOptions(ctx, { extensions: plan.extensions }));
@@ -529,13 +516,9 @@ export async function loadData(ctx: DataContext, input: LoadInput): Promise<Load
       continue;
     }
     const attach = plan.attach!;
-    assertDatabaseLoad(ctx.named, attach.connection, attach.table);
     // Attached read-only and always detached: the connection string never persists.
     const alias = `omb_src_${Date.now().toString(36)}`;
-    const attached = attach.type === "duckdb"
-      ? `ATTACH ${quoteLiteral(attach.connection)} AS ${quoteIdent(alias)} (READ_ONLY)`
-      : `ATTACH ${quoteLiteral(attach.connection)} AS ${quoteIdent(alias)} (TYPE ${attach.type}, READ_ONLY)`;
-    await ctx.database.run(attached, runOptions(ctx, { extensions: attach.type === "duckdb" ? [] : [attach.type] }));
+    await ctx.database.run(`ATTACH ${quoteLiteral(attach.connection)} AS ${quoteIdent(alias)} (TYPE ${attach.type}, READ_ONLY)`, runOptions(ctx, { extensions: [attach.type] }));
     try {
       let chosen: Array<{ schema: string; table: string }>;
       if (attach.table) {
@@ -577,11 +560,10 @@ export async function describeTarget(ctx: DataContext, target: string): Promise<
   } else {
     const kind = gateSql(target);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Describe takes a table name or a SELECT.", { sql: target });
-    await assertLocalSql(target);
     sql = target;
     relation = queryRelation(target);
   }
-  const described = await ctx.database.describe(relation, runOptions(ctx, sql ? { confined: true } : {}));
+  const described = await ctx.database.describe(relation, runOptions(ctx));
   const { columns, truncated } = boundColumns(described.columns, DATA_LIMITS.describeBytesMax);
   return { ...(name ? { name } : {}), ...(sql ? { sql } : {}), rowCount: described.rowCount, columns, ...(truncated ? { truncated } : {}), elapsedMs: Date.now() - started };
 }
@@ -635,23 +617,19 @@ export async function runSql(ctx: DataContext, input: SqlInput): Promise<SqlOutp
     return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: result.elapsedMs };
   }
   const kind = gateSql(input.sql, { allowCreate: true });
-  await assertLocalSql(input.sql);
   if (kind.kind === "create") {
-    const body = createSelectBody(input.sql);
-    if (!body) throw fail("write_refused", "CREATE is not allowed here.", { sql: input.sql });
-    await ctx.database.run(body, runOptions(ctx, { confined: true, maxRows: 1 }));
     await ctx.database.run(input.sql, runOptions(ctx));
     const described = await ctx.database.describe(kind.target, runOptions(ctx));
     const bounded = boundColumns(described.columns, DATA_LIMITS.describeBytesMax);
     return { table: kind.target, columns: bounded.columns, rowCount: described.rowCount, rows: [], truncated: bounded.truncated, elapsedMs: Date.now() - started };
   }
   if (!kind.materialisable) {
-    const result = await ctx.database.run(input.sql, runOptions(ctx, { maxRows: limit + 1, confined: true }));
+    const result = await ctx.database.run(input.sql, runOptions(ctx, { maxRows: limit + 1 }));
     const bounded = boundRows(result.rows, limit, DATA_LIMITS.sqlBytesMax);
     return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: Date.now() - started };
   }
   const name = input.name ? tableNameFrom(input.name) : ctx.sheet.nextResultName();
-  const materialised = await ctx.database.materialise(input.sql, name, runOptions(ctx, { confined: true }));
+  const materialised = await ctx.database.materialise(input.sql, name, runOptions(ctx));
   const page = await ctx.database.run(`SELECT * FROM ${materialised.table} LIMIT ${limit + 1}`, runOptions(ctx, { maxRows: limit + 1 }));
   const bounded = boundRows(page.rows, limit, DATA_LIMITS.sqlBytesMax);
   return {
@@ -749,26 +727,23 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
       claim(card.id);
     }
     assertCurrent();
-    if (input.sql) await assertLocalSql(input.sql);
-    const locked = Boolean(input.sql);
-    const queryOptions = (extra: Partial<RunOptions> = {}) => runOptions(ctx, locked ? { confined: true, ...extra } : extra);
     // A query never overwrites the displayed table before its validation and ownership checks finish.
     resultName = input.id ? `${card.id}_${randomUUID().replaceAll("-", "")}` : card.id;
     let patch: Partial<DataCard>;
     if (kind === "table") {
       const limit = Math.min(Math.max(1, Math.trunc(input.limit ?? DATA_LIMITS.showTableRowsMax)), DATA_LIMITS.showTableRowsMax);
-      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit}`, resultName, queryOptions());
+      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit}`, resultName, runOptions(ctx));
       const truncated = materialised.rowCount >= limit;
       if (truncated) warnings.push(`The card keeps the first ${limit.toLocaleString("en-US")} rows.`);
       patch = { result: resultName, columns: materialised.columns, rowCount: materialised.rowCount, truncated, chart: undefined, vegaLite: undefined, reduction: undefined };
     } else if (input.chart) {
-      const probe = await ctx.database.run(`SELECT * FROM ${from} LIMIT 0`, queryOptions({ maxRows: 0 }));
+      const probe = await ctx.database.run(`SELECT * FROM ${from} LIMIT 0`, runOptions(ctx, { maxRows: 0 }));
       const compiled = ctx.compileChart(input.chart, probe.columns, from);
-      const materialised = await ctx.database.materialise(compiled.sql, resultName, queryOptions());
+      const materialised = await ctx.database.materialise(compiled.sql, resultName, runOptions(ctx));
       if (materialised.rowCount > DATA_LIMITS.chartMaxMarks) {
         throw fail("output_too_large", `The chart would draw ${materialised.rowCount.toLocaleString("en-US")} marks; the limit is ${DATA_LIMITS.chartMaxMarks.toLocaleString("en-US")}.`, { sql: compiled.sql, hint: OUTPUT_TOO_LARGE_HINT });
       }
-      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, queryOptions({ maxRows: 1 }));
+      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, runOptions(ctx, { maxRows: 1 }));
       const inputRows = Number(counted.rows[0]?.[0] ?? 0);
       const method = inputRows === materialised.rowCount ? "none" : compiled.reduction.method;
       const reduction: DataReduction = { ...compiled.reduction, method, inputRows, outputRows: materialised.rowCount };
@@ -776,11 +751,11 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
     } else {
       const vegaLite = await ctx.validateVegaLite(input.vegaLite);
       const limit = Math.min(Math.max(1, Math.trunc(input.limit ?? DATA_LIMITS.chartMaxMarks)), DATA_LIMITS.chartMaxMarks);
-      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit + 1}`, resultName, queryOptions());
+      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit + 1}`, resultName, runOptions(ctx));
       if (materialised.rowCount > limit) {
         throw fail("output_too_large", `The chart would bind more than ${limit.toLocaleString("en-US")} rows.`, { sql: cardSql, hint: OUTPUT_TOO_LARGE_HINT });
       }
-      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, queryOptions({ maxRows: 1 }));
+      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, runOptions(ctx, { maxRows: 1 }));
       const reduction: DataReduction = { method: "none", inputRows: Number(counted.rows[0]?.[0] ?? 0), outputRows: materialised.rowCount };
       patch = { result: resultName, columns: materialised.columns, rowCount: materialised.rowCount, truncated: false, chart: undefined, vegaLite, reduction };
     }
@@ -902,11 +877,8 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
   let stem: string;
   if (card) {
     if (card.result) relation = resultRelation(card.result);
-    else if (card.sql) {
-      await assertLocalSql(card.sql);
-      await ctx.database.run(card.sql, runOptions(ctx, { confined: true, maxRows: 1 }));
-      relation = queryRelation(card.sql);
-    } else throw fail("invalid_input", `${card.id} has no data to export.`);
+    else if (card.sql) relation = queryRelation(card.sql);
+    else throw fail("invalid_input", `${card.id} has no data to export.`);
     stem = card.title;
   } else if (input.table) {
     relation = await ctx.database.resolveTable(input.table);
@@ -914,8 +886,6 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
   } else {
     const kind = gateSql(input.sql!);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Export takes a SELECT.", { sql: input.sql });
-    await assertLocalSql(input.sql!);
-    await ctx.database.run(input.sql!, runOptions(ctx, { confined: true, maxRows: 1 }));
     relation = queryRelation(input.sql!);
     stem = "query";
   }
@@ -946,12 +916,6 @@ export function valuesContainDsn(value: unknown): boolean {
   if (Array.isArray(value)) return value.some(valuesContainDsn);
   if (value && typeof value === "object") return Object.values(value as Record<string, unknown>).some(valuesContainDsn);
   return false;
-}
-
-const FILE_SENTENCE = "That statement reads a file or another database. Load a file with data_load from an allowed folder, or query a named connection.";
-
-async function assertLocalSql(sql: string): Promise<void> {
-  if (await localSqlTouchesFiles(sql)) throw fail("write_refused", FILE_SENTENCE);
 }
 
 export async function runDataTool(ctx: DataContext, name: string, args: Record<string, unknown>, onCardReady?: (card: DataCard) => void): Promise<DataToolResult> {

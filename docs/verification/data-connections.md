@@ -5,3 +5,7 @@ A bot reads a named connection with `data_sql` and `on`. This release does not w
 The isolated check is `server/data/data-connections.e2e.test.ts`. It launches a fixture, answers one SQLite table, and refuses another table and an insert. Postgres runs only when `EDUBOT_PG_TEST_URL` is set.
 
 Do not point this at a live app. The fixture's data directory is removed when the test ends.
+
+## Known limits
+
+The local data tools follow the bot's own file access, as upstream. A bot whose engine has shell or file tools can already read local files. Hardening is planned.

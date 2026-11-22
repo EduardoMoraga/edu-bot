@@ -1,6 +1,5 @@
 // Every error is `{ error: DataError }`.
 import type { ServerResponse } from "node:http";
-import { join } from "node:path";
 import { z } from "zod";
 
 import { DATA_LIMITS, type DataError, type DataErrorCode } from "../../shared/data-surface.ts";
@@ -112,7 +111,6 @@ export function createDataRoutes(deps: DataRouteDeps): RouteHandler {
     const context: DataContext = {
       database, sheet, compileChart: deps.compileChart, validateVegaLite: deps.validateVegaLite, renderer: deps.renderer,
       exportRoots: () => deps.exportRoots(bot), signal: abort.signal, connection: "panel", by: "person",
-      ...(deps.dataDir ? { workFolder: bot.cwd ?? join(deps.dataDir, "workspaces", bot.id), dataDir: deps.dataDir } : {}),
     };
     try {
       if (rest === "" && method === "GET") {

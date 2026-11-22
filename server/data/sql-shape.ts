@@ -44,7 +44,6 @@ interface WalkState {
 
 let tail: Promise<void> = Promise.resolve();
 let parser: DuckDB.DuckDBConnection | null = null;
-let explainer: DuckDB.DuckDBConnection | null = null;
 
 function queued<T>(work: () => Promise<T>): Promise<T> {
   const run = tail.then(work, work);
@@ -61,20 +60,6 @@ async function parserConnection(): Promise<DuckDB.DuckDBConnection> {
   });
   parser = await instance.connect();
   return parser;
-}
-
-async function explainConnection(): Promise<DuckDB.DuckDBConnection> {
-  if (explainer) return explainer;
-  const instance = await duckdb().DuckDBInstance.create(":memory:", {
-    autoinstall_known_extensions: "false",
-    autoload_known_extensions: "false",
-    enable_external_access: "false",
-  });
-  const connection = await instance.connect();
-  await connection.run("SET enable_external_access = false");
-  await connection.run("SET lock_configuration = true");
-  explainer = connection;
-  return explainer;
 }
 
 export function inspectSql(sql: string, mode: "named" | "local"): Promise<SqlInspection> {
@@ -177,33 +162,4 @@ function functionName(node: unknown): string {
   if (!node || typeof node !== "object") return "";
   const name = (node as { function_name?: unknown }).function_name;
   return typeof name === "string" ? name : "";
-}
-
-/** True when a statement that is not a single SELECT still reads a file or another database. */
-export function localSqlTouchesFiles(sql: string): Promise<boolean> {
-  return queued(async () => {
-    const inspected = await inspectUnlocked(sql, "local");
-    if (!inspected.ok) {
-      if (inspected.reason === "unsafe") return true;
-      return explainTouchesFiles(sql);
-    }
-    return inspected.tables.some((table) => isPathTable(table.table));
-  });
-}
-
-async function explainTouchesFiles(sql: string): Promise<boolean> {
-  const connection = await explainConnection();
-  try {
-    const reader = await connection.runAndReadAll(`EXPLAIN ${sql}`);
-    const text = JSON.stringify(reader.getRowsJson());
-    return /READ_CSV|READ_PARQUET|READ_JSON|READ_TEXT|READ_BLOB|GLOB|SQLITE_SCAN|POSTGRES_SCAN|MYSQL_SCAN|"File"\s*:/i.test(text);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (/permission error|file system operations are disabled|cannot access file|io error|http error|failed to (?:open|read)/i.test(message)) return true;
-    if (/catalog error: table with name/i.test(message)) return false;
-    const missing = /(?:table|scalar) function with name "?([A-Za-z0-9_]+)"?/i.exec(message);
-    if (missing?.[1] && fileFunction(missing[1])) return true;
-    if (/parser error|syntax error/i.test(message)) return false;
-    return /cannot access file|disabled by configuration/i.test(message);
-  }
 }

@@ -11,7 +11,7 @@ import { botFolder as defaultBotFolder } from "../bot-folder.ts";
 import { boxCpus } from "../box-cpus.ts";
 import { boxMemory } from "../box-memory.ts";
 import { DATA_DIR } from "../config.ts";
-import { proveConfined, queryConfined } from "./confined.ts";
+import { scannerPath } from "./extensions.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import {
   DataFailure,
@@ -119,19 +119,33 @@ function quoteLiteral(text: string): string {
   return `'${text.replaceAll("'", "''")}'`;
 }
 
-/** INSTALL is a local no-op once cached; extension names come only from our tools. */
+function bundledScanner(extension: DataExtension): "sqlite_scanner" | "postgres_scanner" | null {
+  if (extension === "sqlite") return "sqlite_scanner";
+  if (extension === "postgres") return "postgres_scanner";
+  return null;
+}
+
 export async function loadExtensions(connection: Pick<DuckDB.DuckDBConnection, "run">, extensions: DataExtension[]): Promise<void> {
   for (const extension of extensions) {
+    const scanner = bundledScanner(extension);
     try {
+      if (scanner) {
+        const path = await scannerPath(scanner);
+        await connection.run(`LOAD ${quoteLiteral(path)}`);
+        continue;
+      }
       // The core repository bootstraps without httpfs; HTTPS repositories need it first.
       await connection.run(`INSTALL ${extension} FROM core`);
       await connection.run(`LOAD ${extension}`);
     } catch (error) {
+      if (error instanceof DataFailure) throw error;
       throw new DataFailure({
         code: "sql_error",
         message: error instanceof Error ? error.message : String(error),
         retryable: true,
-        hint: `DuckDB needs the ${extension} extension. Connect to the internet and retry; allow access to http://extensions.duckdb.org. Once installed, the extension is cached for offline use.`,
+        hint: scanner
+          ? `DuckDB needs the bundled ${extension} extension.`
+          : `DuckDB needs the ${extension} extension. Connect to the internet and retry; allow access to http://extensions.duckdb.org. Once installed, the extension is cached for offline use.`,
       });
     }
   }
@@ -354,18 +368,6 @@ class BotDb implements BotDatabase {
     this.idleTimer.unref();
   }
 
-  private databaseFile(): string {
-    return join(this.engine.folder(this.botId), DATA_DB_FILE);
-  }
-
-  private async readSql(connection: DataConnection, sql: string, options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }, maxRows = Infinity): Promise<RunResult> {
-    if (options.confined) {
-      await this.open();
-      return queryConfined(this.databaseFile(), sql, { maxRows, signal: options.signal, timeoutMs: options.timeoutMs });
-    }
-    return this.statement(connection, sql, options, (open, conn) => this.read(open, conn, sql, maxRows));
-  }
-
   private async statement<T>(connection: DataConnection, sql: string, options: { timeoutMs?: number; signal?: AbortSignal }, work: (open: Open, conn: DuckDB.DuckDBConnection) => Promise<T>): Promise<T> {
     this.inFlight++;
     try {
@@ -416,30 +418,20 @@ class BotDb implements BotDatabase {
 
   async run(sql: string, options: RunOptions): Promise<RunResult> {
     const maxRows = options.maxRows === undefined ? Infinity : Math.max(0, options.maxRows);
-    if (options.confined) return this.readSql(options.connection, sql, options, maxRows);
     await this.loadExtensions(options);
     return this.statement(options.connection, sql, options, (open, conn) => this.read(open, conn, sql, maxRows));
-  }
-
-  async exclusive<T>(connection: DataConnection, options: Omit<RunOptions, "connection">, work: (run: (sql: string, maxRows?: number) => Promise<RunResult>) => Promise<T>): Promise<T> {
-    await this.loadExtensions({ ...options, connection });
-    return this.statement(connection, "named connection", options, (open, conn) => work((sql, maxRows = Infinity) => this.read(open, conn, sql, maxRows)));
   }
 
   /** A first-time INSTALL is a download, so extensions load as their own step, off the statement's timeout. */
   private async loadExtensions(options: RunOptions): Promise<void> {
     const extensions = options.extensions ?? [];
     if (!extensions.length) return;
-    const label = extensions.map((extension) => `INSTALL ${extension} FROM core`).join("; ");
+    const label = extensions.map((extension) => bundledScanner(extension) ? `LOAD ${extension}` : `INSTALL ${extension} FROM core`).join("; ");
     await this.statement(options.connection, label, { timeoutMs: EXTENSION_INSTALL_TIMEOUT_MS, signal: options.signal }, (_open, conn) => loadExtensions(conn, extensions));
   }
 
   async materialise(sql: string, name: string, options: RunOptions): Promise<MaterialiseResult> {
     if (!RESULT_NAME.test(name)) throw new DataFailure({ code: "invalid_input", message: `Result name "${name}" must be a plain identifier (letters, digits, underscore).` });
-    if (options.confined) {
-      await this.open();
-      await proveConfined(this.databaseFile(), sql.trim().replace(/;+\s*$/, ""), options);
-    }
     const table = `${DATA_RESULTS_SCHEMA}.${name}`;
     const body = sql.trim().replace(/;+\s*$/, "");
     const create = `CREATE OR REPLACE TABLE ${table} AS ${body}`;
@@ -526,23 +518,23 @@ class BotDb implements BotDatabase {
     return this.qualified(entry, open.reserved);
   }
 
-  private async columnsOf(connection: DataConnection, from: string, options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }): Promise<DataColumn[]> {
+  private async columnsOf(connection: DataConnection, from: string, options: { timeoutMs?: number; signal?: AbortSignal }): Promise<DataColumn[]> {
     // DESCRIBE takes a table name or a query, not a parenthesised subquery.
     const sql = from.startsWith("(") ? `DESCRIBE SELECT * FROM ${from}` : `DESCRIBE ${from}`;
-    const result = await this.readSql(connection, sql, options);
+    const result = await this.statement(connection, sql, options, (open, conn) => this.read(open, conn, sql));
     return result.rows.map((row) => ({ name: String(row[0]), type: String(row[1]) }));
   }
 
   /** Two passes rather than SUMMARIZE, which is 10-25x slower. */
-  private async aggregate(connection: DataConnection, from: string, columns: DataColumn[], options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }): Promise<{ rowCount: number; columns: DataColumn[] }> {
+  private async aggregate(connection: DataConnection, from: string, columns: DataColumn[], options: { timeoutMs?: number; signal?: AbortSignal }): Promise<{ rowCount: number; columns: DataColumn[] }> {
     const countSql = `SELECT count(*) FROM ${from}`;
-    const count = await this.readSql(connection, countSql, options);
+    const count = await this.statement(connection, countSql, options, (open, conn) => this.read(open, conn, countSql));
     const rowCount = toCount(count.rows[0]?.[0] ?? 0);
     const enriched: DataColumn[] = columns.map((column) => ({ ...column }));
     if (!columns.length) return { rowCount, columns: enriched };
 
     const nullsSql = `SELECT ${columns.map((column) => `count(${quoteIdentifier(column.name)}), approx_count_distinct(${quoteIdentifier(column.name)})`).join(", ")} FROM ${from}`;
-    const nulls = await this.readSql(connection, nullsSql, options);
+    const nulls = await this.statement(connection, nullsSql, options, (open, conn) => this.read(open, conn, nullsSql));
     const nullRow = nulls.rows[0] ?? [];
     enriched.forEach((column, i) => {
       const nonNull = toCount(nullRow[i * 2] ?? 0);
@@ -553,7 +545,7 @@ class BotDb implements BotDatabase {
     const comparable = enriched.filter((column) => COMPARABLE_TYPE.test(column.type));
     if (comparable.length) {
       const rangeSql = `SELECT ${comparable.map((column) => `CAST(min(${quoteIdentifier(column.name)}) AS VARCHAR), CAST(max(${quoteIdentifier(column.name)}) AS VARCHAR)`).join(", ")} FROM ${from}`;
-      const range = await this.readSql(connection, rangeSql, options);
+      const range = await this.statement(connection, rangeSql, options, (open, conn) => this.read(open, conn, rangeSql));
       const rangeRow = range.rows[0] ?? [];
       comparable.forEach((column, i) => {
         column.min = rangeRow[i * 2] === undefined ? null : (rangeRow[i * 2] as string | null);
@@ -579,7 +571,7 @@ class BotDb implements BotDatabase {
     const { rowCount, columns } = await this.aggregate(options.connection, from, profiled, options);
     if (profiled.length) {
       const samplesSql = `SELECT ${profiled.map((column) => `list(DISTINCT CAST(${quoteIdentifier(column.name)} AS VARCHAR)) FILTER (WHERE ${quoteIdentifier(column.name)} IS NOT NULL)[1:${DATA_LIMITS.sampleValues}]`).join(", ")} FROM (SELECT * FROM ${from} LIMIT ${SAMPLE_SCAN_ROWS})`;
-      const samples = await this.readSql(options.connection, samplesSql, options);
+      const samples = await this.statement(options.connection, samplesSql, options, (open, conn) => this.read(open, conn, samplesSql));
       const sampleRow = samples.rows[0] ?? [];
       columns.forEach((column, i) => {
         const cell = sampleRow[i];
