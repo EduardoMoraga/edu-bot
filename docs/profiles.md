@@ -299,8 +299,8 @@ These belong to each person and stay in their own app. The check refuses each on
 - engine logins and API keys, MCP keys and sign-ins, connected-app accounts, edu-cloud tokens (secret slots name
   them; their values never appear);
 - `cwd` (a bot's working folder), `computer` (where it works), `browserProfile`, `visibility`;
-- `eduBrain: { mode: folder }`, and any absolute path (`/home/…`, `~/…`, `C:\…`), anywhere in a value such as
-  `--config=/home/…`: paths differ on each computer. A server's `command`, `args` and `env` may not climb with `..`
+- `eduBrain: { mode: folder }`, and any absolute path (`/home/…`, `~/…`, `$HOME/…`, `%USERPROFILE%\…`, `C:\…`,
+  `file:///…`), anywhere in a value such as `--config=/home/…`: paths differ on each computer. A server's `command`, `args` and `env` may not climb with `..`
   either.
 
 ## Checking a folder
