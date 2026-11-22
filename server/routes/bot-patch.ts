@@ -32,6 +32,9 @@ import { recordProfileChange } from "../profile-versions.ts";
 import { memberBotPatchViolation, requestSource, type RequestAuth } from "../request-auth.ts"; import { defaultBotPatchRefusal, ownsDefaultBot } from "../default-bot.ts";
 import type { RoutineManager } from "../routines.ts";
 import type { SessionRegistry } from "../sessions.ts";
+import { parseDataGrants } from "../../shared/data-connections.ts";
+import { syncConnectionGrants } from "../data/grants.ts";
+import type { ConnectionVault } from "../data/connections.ts";
 import { parseConnectorTools } from "../connector-tools.ts";
 import { sectionKey, type BotRecord, type GroupRecord, type Store, type TaskRecord } from "../store.ts";
 import * as vps from "../vps-computer.ts";
@@ -93,6 +96,8 @@ export interface BotPatchRouteDeps {
   /** The bots of the turns now running, each with the grants its turn reads. */
   turnBots?: { values(): Iterable<BotRecord> };
   eduBrains: Pick<EduBrains, "folderRefusal">;
+  dataDir?: string;
+  connectionVault?: Pick<ConnectionVault, "secret"> & Partial<ConnectionVault>;
 }
 
 /** Security: a bot's shell is a loopback caller, so only a paired session or the desktop app gives a bot an Edu brain. */
@@ -343,6 +348,14 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       if (body.eduCrew !== undefined) {
         if (typeof body.eduCrew !== "boolean") return json(res, 400, { error: "eduCrew must be true or false" });
         patch.eduCrew = body.eduCrew || undefined;
+      }
+      if (body.dataConnections !== undefined) {
+        if (body.dataConnections === null) patch.dataConnections = undefined;
+        else {
+          const parsed = parseDataGrants(body.dataConnections);
+          if (!parsed.ok) return json(res, 400, { error: parsed.error });
+          patch.dataConnections = Object.keys(parsed.grants).length ? parsed.grants : undefined;
+        }
       }
       // null drops the per-tool grants; {} means no tools.
       if (body.connectorTools !== undefined) {
@@ -733,6 +746,7 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
         bot = store.patchBot(m[1], patch);
       }
       if (!bot) return json(res, 404, { error: "no such bot" });
+      if (body.dataConnections !== undefined && deps.dataDir && deps.connectionVault) syncConnectionGrants(deps.connectionVault, deps.dataDir, deps.store.bots);
       if (body.applyToAllThreads === true && requestedApprovalMode !== "custom") store.setAllThreadApprovalMode(bot.id, requestedApprovalMode);
       if (body.memoryUpkeep === false || body.memoryEnabled === false) memoryUpkeep.dropBot(bot.id);
       if (body.cacheKeepWarm !== undefined) cacheKeepWarm.refresh();

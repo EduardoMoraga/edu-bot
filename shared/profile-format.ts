@@ -9,6 +9,7 @@ import { bodyLineOf, fieldName, invisibleProblem, parseFrontMatter, Problems, va
 import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES } from "./skill-md.ts";
 import { TOOL_GROUPS, type ToolGroup } from "./tool-groups.ts";
 import { parseToolScope, type ToolScope } from "./tool-scope.ts";
+import { RESERVED_CONNECTION_NAMES } from "./data-connections.ts";
 import { CONNECTOR_SLUG_PATTERN, CONNECTOR_TOOL_NAME_PATTERN, type ConnectorToolGrant } from "./wire.ts";
 
 export const PROFILE_VERSION = 1;
@@ -36,8 +37,9 @@ export interface InheritedFields {
   eduBrain?: ProfileEduBrain;
   eduCrew?: boolean;
   memory?: { enabled?: boolean; upkeep?: boolean };
+  data?: import("./data-connections.ts").DataGrantMap;
 }
-export const INHERITED_FIELDS = ["model", "effort", "approval", "tools", "toolsOff", "connectors", "eduBrain", "eduCrew", "memory"] as const;
+export const INHERITED_FIELDS = ["model", "effort", "approval", "tools", "toolsOff", "connectors", "eduBrain", "eduCrew", "memory", "data"] as const;
 export type InheritedField = (typeof INHERITED_FIELDS)[number];
 export type ProfileLevel = "org" | "area" | "bot";
 
@@ -277,6 +279,21 @@ const connectorsSchema = z.record(z.string(), z.object({
     }
   });
 
+const dataGrantSchema = z.record(z.string(), z.object({
+  schemas: z.array(z.string().min(1).max(63)).max(50).optional(),
+  tables: z.array(z.string().min(1).max(128)).max(200).optional(),
+  write: z.unknown().optional(),
+}, { error: "must be { schemas, tables }" }).strict().superRefine((grant, context) => {
+  if (grant.write !== undefined) context.addIssue({ code: "custom", path: ["write"], message: "writes come in a later update" });
+}), { error: "must map each connection name to its grant" }).superRefine((grants, context) => {
+  const names = Object.keys(grants);
+  if (names.length > 32) context.addIssue({ code: "custom", message: "must name at most 32 connections" });
+  for (const name of names) {
+    if (RESERVED_CONNECTION_NAMES.has(name)) context.addIssue({ code: "custom", path: [name], message: "is reserved" });
+    else if (!/^[a-z][a-z0-9_]{0,31}$/.test(name)) context.addIssue({ code: "custom", path: [name], message: "must be a lowercase connection name" });
+  }
+});
+
 const inheritedShape = {
   model: z.string({ error: "must be INSTANCE/MODEL, such as claude/claude-sonnet-5-5" }).max(300).regex(MODEL, "must be INSTANCE/MODEL, such as claude/claude-sonnet-5-5").optional(),
   effort: z.enum(["none", "low", "medium", "high", "xhigh", "max"], { error: "must be none, low, medium, high, xhigh or max" }).optional(),
@@ -288,6 +305,7 @@ const inheritedShape = {
   eduCrew: z.boolean({ error: "must be true or false" }).optional(),
   memory: z.object({ enabled: z.boolean({ error: "must be true or false" }).optional(), upkeep: z.boolean({ error: "must be true or false" }).optional() },
     { error: "must be { enabled: true|false, upkeep: true|false }" }).strict().optional(),
+  data: dataGrantSchema.optional(),
 };
 
 const mcpServerNames = z.array(z.string({ error: "must be a server name" }), { error: "must be a list of MCP server names" }).max(PROFILE_MAX_MCP_SERVERS)

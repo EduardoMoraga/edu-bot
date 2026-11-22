@@ -5,10 +5,12 @@
 // binding and its libduckdb must come from the same release. Each single-arch
 // mac app keeps only its slice of the universal libduckdb.dylib and re-signs it.
 import { execFile } from "node:child_process";
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { gunzipSync } from "node:zlib";
 import { resolveCuaMacArches } from "./cua-mac-arches.mjs";
 import { LIPO_ARCH, isMachO, machOArchs, writeThinMachO } from "./mac-thin.mjs";
 
@@ -186,6 +188,92 @@ export async function verifyDuckdbTree(directory, platform, arch, version, resvg
   }
 }
 
+const DUCK_PLATFORM = {
+  "linux-x64": "linux_amd64",
+  "linux-arm64": "linux_arm64",
+  "darwin-x64": "osx_amd64",
+  "darwin-arm64": "osx_arm64",
+  "win32-x64": "windows_amd64",
+};
+
+function sha256(bytes) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+export function scannerPins(root) {
+  return JSON.parse(readFileSync(join(root, "server", "data", "duckdb-extensions.json"), "utf8"));
+}
+
+export function duckExtensionPlatform(platform, arch) {
+  const name = DUCK_PLATFORM[`${platform}-${arch}`];
+  if (!name) throw new Error(`No bundled database extension for ${platform}-${arch}.`);
+  return name;
+}
+
+function plainScanner(name) {
+  return name === "sqlite_scanner" ? "sqlite" : "postgres";
+}
+
+function scannerFile(directory, pins, platform, arch, name) {
+  return join(directory, "extensions", pins.library, duckExtensionPlatform(platform, arch), `${name}.duckdb_extension`);
+}
+
+/** HTTPS download of the pinned gzip, checked before and after gunzip. Nothing installs an extension at runtime. */
+export async function stageScannerExtensions({
+  root,
+  destination,
+  platform,
+  arch,
+  pins = scannerPins(root),
+  fetchImpl = globalThis.fetch,
+}) {
+  const duck = duckExtensionPlatform(platform, arch);
+  for (const name of pins.scanners) {
+    const plain = plainScanner(name);
+    const key = `${duck}/${name}`;
+    const gzipHash = pins.gzipSha256?.[key];
+    const fileHash = pins.fileSha256?.[key];
+    if (!gzipHash || !fileHash) throw new Error(`The bundled ${plain} extension is missing.`);
+    const url = `https://extensions.duckdb.org/${pins.library}/${duck}/${name}.duckdb_extension.gz`;
+    let response;
+    try {
+      response = await fetchImpl(url, { redirect: "follow" });
+    } catch {
+      throw new Error(`The ${plain} extension could not be downloaded.`);
+    }
+    const finalUrl = response.url || url;
+    if (!response.ok || !String(finalUrl).startsWith("https://")) throw new Error(`The ${plain} extension could not be downloaded.`);
+    const gzip = Buffer.from(await response.arrayBuffer());
+    if (sha256(gzip) !== gzipHash) throw new Error(`The bundled ${plain} extension does not match this DuckDB version.`);
+    const file = gunzipSync(gzip);
+    if (sha256(file) !== fileHash) throw new Error(`The bundled ${plain} extension does not match this DuckDB version.`);
+    const out = scannerFile(destination, pins, platform, arch, name);
+    mkdirSync(dirname(out), { recursive: true });
+    const temporary = `${out}.partial`;
+    writeFileSync(temporary, file);
+    renameSync(temporary, out);
+  }
+}
+
+export function verifyScannerExtensions(directory, platform, arch, root) {
+  const pins = scannerPins(root);
+  for (const name of pins.scanners) {
+    const plain = plainScanner(name);
+    const file = scannerFile(directory, pins, platform, arch, name);
+    let bytes;
+    try {
+      const details = lstatSync(file);
+      if (!details.isFile() || details.isSymbolicLink()) throw new Error("link");
+      bytes = readFileSync(file);
+    } catch {
+      throw new Error(`The bundled ${plain} extension is missing.`);
+    }
+    if (sha256(bytes) !== pins.fileSha256[`${duckExtensionPlatform(platform, arch)}/${name}`]) {
+      throw new Error(`The bundled ${plain} extension does not match this DuckDB version.`);
+    }
+  }
+}
+
 export async function stageDuckdb({
   root,
   nodeModules = join(root, "node_modules"),
@@ -194,6 +282,7 @@ export async function stageDuckdb({
   cache = join(nodeModules, ".cache", "openmausbot", "duckdb"),
   pack = packedPackage,
   sign = process.platform === "darwin",
+  extensions = true,
   log = console.log,
 }) {
   const version = pinnedDuckdbVersion(root);
@@ -248,6 +337,10 @@ export async function stageDuckdb({
       if (sign) await run("/usr/bin/codesign", ["--force", "--sign", "-", join(resvgScope, resvgNative.name, resvgNative.binary)]);
     }
     await verifyDuckdbTree(destination, platform, arch, version, resvgVersion, onePasswordVersion);
+    if (extensions) {
+      await stageScannerExtensions({ root, destination, platform, arch });
+      verifyScannerExtensions(destination, platform, arch, root);
+    }
     staged.push(destination);
     log?.(`Staged DuckDB ${version} for ${platform}-${arch} at ${destination}`);
   }

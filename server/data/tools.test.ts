@@ -1,9 +1,12 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { DATA_LIMITS, DATA_TOOL_NAMES, type DataColumn } from "../../shared/data-surface.ts";
+import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
+import { ConnectionStore } from "./connections.ts";
 import { FakeDataDatabase } from "../testing/fake-data-database.ts";
 import { DataSheetStore } from "./sheet.ts";
 import {
@@ -77,7 +80,7 @@ const failure = async (promise: Promise<unknown>) => {
 };
 
 describe("the catalog", () => {
-  it("lists the five tools in the shared order, each with a schema Ajv compiles", () => {
+  it("lists the tools in the shared order, each with a schema Ajv compiles", () => {
     expect(DATA_TOOLS.map((tool) => tool.name)).toEqual([...DATA_TOOL_NAMES]);
     expect(dataToolCallProblem("data_sql", { sql: "SELECT 1" })).toBeNull();
     expect(dataToolCallProblem("data_sql", { sql: "SELECT 1", limit: 5000 })).toContain("limit");
@@ -242,9 +245,17 @@ describe("sources", () => {
     const sheet = planLoad({ source: "https://docs.google.com/spreadsheets/d/1AbC_d-e/edit#gid=42" })[0]!;
     expect(sheet).toMatchObject({ kind: "gsheet", reader: "read_csv('https://docs.google.com/spreadsheets/d/1AbC_d-e/export?format=csv&gid=42')" });
     expect(sheet.warnings[0]).toContain("CSV export");
-    const pg = planLoad({ source: "postgresql://bob:hunter2@db:5432/shop", sheet: "public.orders" })[0]!;
-    expect(pg).toMatchObject({ kind: "postgres", source: "postgresql://bob@db:5432/shop", attach: { type: "postgres", connection: "postgresql://bob:hunter2@db:5432/shop", table: "public.orders" } });
-    expect(planLoad({ source: "mysql://u:p@h/db" })[0]).toMatchObject({ kind: "mysql", source: "mysql://u@h/db" });
+    for (const source of ["postgresql://bob:hunter2@db:5432/shop", "mysql://u:p@h/db"]) {
+      try {
+        planLoad({ source, sheet: "public.orders" });
+        throw new Error("expected a refusal");
+      } catch (error) {
+        expect(error).toBeInstanceOf(DataFailure);
+        expect(JSON.stringify(error)).not.toContain("hunter2");
+        expect(JSON.stringify(error)).not.toContain("u:p@");
+        expect((error as DataFailure).error).toMatchObject({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
+      }
+    }
     expect(() => planLoad({ source: "https://example.com/report" })).toThrow(DataFailure);
     expect(() => planLoad({ source: join(freshDir(), "missing.csv") })).toThrow(expect.objectContaining({ error: expect.objectContaining({ code: "source_not_found" }) }));
     const dir = freshDir();
@@ -272,9 +283,8 @@ describe("data_load", () => {
     database.onRun = (_sql, options) => { if (options.extensions?.length) requirements.push(options.extensions); return undefined; };
     await loadData(ctx, { source: "https://example.com/data.csv" });
     await loadData(ctx, { source: "https://example.com/book.xlsx" });
-    await loadData(ctx, { source: "postgres://db/shop", sheet: "orders" });
     await exportData(ctx, { sql: "SELECT 1", format: "xlsx" });
-    expect(requirements).toEqual([["httpfs"], ["httpfs", "excel"], ["postgres"], ["excel"]]);
+    expect(requirements).toEqual([["httpfs"], ["httpfs", "excel"], ["excel"]]);
   });
 
   it("creates the table, describes it and records the source", async () => {
@@ -306,26 +316,13 @@ describe("data_load", () => {
     expect(third.tables[0]!.name).toBe(`${"t".repeat(61)}_3`);
   });
 
-  it("snapshots a database read-only, detaches it even on failure, and never records the password", async () => {
+  it("refuses a database URL and never records the password", async () => {
     const { ctx, database, sheet } = context();
-    const out = await loadData(ctx, { source: "postgres://bob:hunter2@db/shop" });
-    const sqls = database.calls.filter((call) => call.method === "run").map((call) => call.sql!);
-    expect(sqls[0]).toMatch(/^ATTACH 'postgres:\/\/bob:hunter2@db\/shop' AS "omb_src_\w+" \(TYPE postgres, READ_ONLY\)$/);
-    expect(sqls[1]).toContain("duckdb_tables()");
-    expect(sqls[2]).toMatch(/^CREATE OR REPLACE TABLE "orders" AS SELECT \* FROM "omb_src_\w+"\."public"\."orders"$/);
-    expect(sqls[3]).toMatch(/^CREATE OR REPLACE TABLE "people" AS/);
-    expect(sqls[4]).toMatch(/^DETACH "omb_src_\w+"$/);
-    expect(out.tables.map((table) => table.name)).toEqual(["orders", "people"]);
-    expect(JSON.stringify(sheet.sheet().sources)).not.toContain("hunter2");
-    expect(sheet.sheet().sources[0]).toMatchObject({ kind: "postgres", source: "postgres://bob@db/shop", options: { table: "public.orders" } });
-
-    database.calls.length = 0;
-    database.onRun = (sql) => { if (sql.startsWith("CREATE")) throw new DataFailure({ code: "sql_error", message: "Catalog Error: Table with name nope does not exist!" }); return undefined; };
-    const refused = await failure(loadData(ctx, { source: "postgres://bob:hunter2@db/shop", sheet: "public.nope", name: "n" }));
-    expect(refused.code).toBe("sql_error");
-    const after = database.calls.filter((call) => call.method === "run").map((call) => call.sql!);
-    expect(after.map((sql) => sql.split(" ")[0])).toEqual(["ATTACH", "CREATE", "DETACH"]);
-    expect(after[1]).toMatch(/^CREATE OR REPLACE TABLE "n" AS SELECT \* FROM "omb_src_\w+"\."public"\."nope"$/);
+    const refused = await failure(loadData(ctx, { source: "postgres://bob:hunter2@db/shop", sheet: "public.orders" }));
+    expect(refused).toMatchObject({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
+    expect(JSON.stringify(refused)).not.toContain("hunter2");
+    expect(database.calls).toEqual([]);
+    expect(sheet.sheet().sources).toEqual([]);
   });
 });
 
@@ -812,5 +809,101 @@ describe("runDataTool", () => {
     expect(JSON.parse(good.content[0]!.text)).toEqual(good.structuredContent);
     const described = await runDataTool(ctx, "data_describe", { target: "DROP TABLE t" });
     expect(described.structuredContent).toMatchObject({ code: "write_refused" });
+  });
+});
+
+describe("named connections", () => {
+  function shop(grant: { tables?: string[] } | undefined) {
+    const base = context();
+    const root = freshDir();
+    const file = join(root, "shop.sqlite");
+    const db = new DatabaseSync(file);
+    db.exec("CREATE TABLE orders (id INTEGER PRIMARY KEY, amount INTEGER); INSERT INTO orders VALUES (1, 42), (2, 7), (3, 8), (4, 9); CREATE TABLE secrets (note TEXT); INSERT INTO secrets VALUES ('hidden');");
+    db.close();
+    const store = new ConnectionStore(base.dir, { secret: () => null });
+    store.addFolder(root);
+    store.add({ name: "shop", type: "sqlite", path: file });
+    base.ctx.named = {
+      botId: "bot-1",
+      threadId: "thread-1",
+      dataDir: base.dir,
+      allowlist: () => (grant ? { shop: grant } : undefined),
+      secret: () => null,
+    };
+    return { ...base, file };
+  }
+
+  it("reads an allowlisted table, including main.table, and caps the rows", async () => {
+    const { ctx, database } = shop({ tables: ["orders"] });
+    const out = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders ORDER BY amount", limit: 2 });
+    expect(out.isError, JSON.stringify(out.structuredContent)).toBeUndefined();
+    expect(out.structuredContent).toMatchObject({ table: null, rows: [["7"], ["8"]], truncated: true });
+    const qualified = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM main.orders WHERE id = 1" });
+    expect(qualified.structuredContent).toMatchObject({ rows: [["42"]] });
+    const owned = await runDataTool(ctx, "data_sql", { on: "shop", sql: 'SELECT amount FROM shop.main.orders WHERE id = 1' });
+    expect(owned.structuredContent).toMatchObject({ rows: [["42"]] });
+    expect(database.calls.filter((call) => call.sql?.includes("ATTACH"))).toEqual([]);
+  });
+
+  it("refuses tables, scans and statements the grant does not allow, before any attach", async () => {
+    const missed = shop({ tables: ["orders"] });
+    const otherFile = join(dirname(missed.file), "other.sqlite");
+    const other = new DatabaseSync(otherFile);
+    other.exec("CREATE TABLE secrets (note TEXT); INSERT INTO secrets VALUES ('TOP')");
+    other.close();
+    const escapes = [
+      "SELECT note FROM secrets",
+      "SELECT * FROM (SELECT note FROM secrets)",
+      "SELECT * FROM orders, secrets",
+      "WITH s AS (SELECT note FROM secrets) SELECT * FROM s",
+      "SELECT * FROM mystery(orders)",
+      `SELECT * FROM sqlite_scan('${otherFile}', 'secrets')`,
+      "SELECT * FROM read_csv('payroll.csv')",
+      "SELECT * FROM information_schema.tables",
+      "SELECT * FROM sqlite_master",
+      "SHOW TABLES",
+      "SELECT * FROM range(3)",
+      "INSERT INTO orders VALUES (9, 9)",
+    ];
+    for (const sql of escapes) {
+      const result = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql });
+      expect(result.structuredContent, sql).toMatchObject({ code: "write_refused" });
+      expect(JSON.stringify(result), sql).not.toContain("TOP");
+      expect(JSON.stringify(result), sql).not.toContain("hidden");
+    }
+    const multi = await runDataTool(missed.ctx, "data_sql", { on: "shop", sql: "SELECT 1; SELECT 2" });
+    expect(multi.structuredContent).toMatchObject({ code: "invalid_input" });
+    expect(JSON.stringify(multi)).not.toContain("hidden");
+    const none = shop(undefined);
+    const denied = await runDataTool(none.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders" });
+    expect(denied.structuredContent).toMatchObject({ code: "write_refused" });
+    expect(missed.database.calls.filter((call) => call.sql?.includes("ATTACH"))).toEqual([]);
+  });
+
+  it("refuses a raw DSN without repeating it", async () => {
+    const { ctx } = shop({ tables: ["orders"] });
+    const secret = "postgres://bob:hunter2@db/shop";
+    const loaded = await runDataTool(ctx, "data_load", { source: secret });
+    const queried = await runDataTool(ctx, "data_sql", { sql: `SELECT '${secret}'` });
+    for (const result of [loaded, queried]) {
+      expect(result.structuredContent).toMatchObject({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
+      expect(JSON.stringify(result)).not.toContain("hunter2");
+    }
+  });
+
+  it("blocks catalog objects on an open grant unless the grant names them", async () => {
+    const { ctx } = shop({});
+    for (const sql of [
+      "SELECT * FROM pragma_database_list",
+      "SELECT * FROM sqlite_temp_schema",
+      "SELECT * FROM pg_tables",
+      "SELECT * FROM duckdb_schemas",
+    ]) {
+      const result = await runDataTool(ctx, "data_sql", { on: "shop", sql });
+      expect(result.structuredContent, sql).toMatchObject({ code: "write_refused" });
+      expect(JSON.stringify(result), sql).not.toContain("hidden");
+    }
+    const orders = await runDataTool(ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
+    expect(orders.structuredContent).toMatchObject({ rows: [["42"]] });
   });
 });

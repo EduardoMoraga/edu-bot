@@ -358,14 +358,14 @@ export class VaultStore {
    * newest. */
   usableSecret(name: string, botId: string, delivery: "ref" | "file", reader: VaultReader): StoredSecret | null {
     const key = vaultNameKey(name);
-    const matches = (this.read().secrets ?? []).filter((secret) => vaultNameKey(secret.name) === key && loginUsableBy(secret, botId) &&
+    const matches = (this.read().secrets ?? []).filter((secret) => vaultNameKey(secret.name) === key && !connectionSecret(secret) && loginUsableBy(secret, botId) &&
       secretReadable(secret, reader) && (delivery === "ref" || !secret.refOnly));
     return matches.sort((a, b) => Number(Boolean(b.person)) - Number(Boolean(a.person)) || Number(b.bots !== "all") - Number(a.bots !== "all") ||
       b.updatedAt - a.updatedAt)[0] ?? null;
   }
 
   secretNamesFor(botId: string, reader: VaultReader): Array<{ name: string; refOnly?: true }> {
-    return (this.read().secrets ?? []).filter((secret) => loginUsableBy(secret, botId) && secretReadable(secret, reader))
+    return (this.read().secrets ?? []).filter((secret) => !connectionSecret(secret) && loginUsableBy(secret, botId) && secretReadable(secret, reader))
       .map(({ name, refOnly }) => ({ name, ...(refOnly ? { refOnly } : {}) }));
   }
 
@@ -441,7 +441,7 @@ export class VaultStore {
     return gone.length;
   }
 
-  /** A deleted bot leaves every secret kept to it; a secret kept only to it goes with it. */
+  /** A deleted bot leaves every secret kept to it. A secret kept only to it goes with it, except a connection secret, which stays with no bot. */
   forgetBot(botId: string): void {
     const data = this.read();
     if (!data.secrets) return;
@@ -451,7 +451,9 @@ export class VaultStore {
       if (secret.bots === "all" || !secret.bots.includes(botId)) return [secret];
       touched.push(secret.id);
       const bots = secret.bots.filter((id) => id !== botId);
-      return bots.length ? [{ ...secret, bots, updatedAt: at }] : [];
+      if (bots.length) return [{ ...secret, bots, updatedAt: at }];
+      if (connectionSecret(secret)) return [{ ...secret, bots: [], updatedAt: at }];
+      return [];
     });
     if (!touched.length) return;
     this.write({ ...data, secrets });
@@ -535,13 +537,36 @@ export class VaultStore {
 
   secretValues(): string[] {
     const data = this.read();
-    return [
+    const raw = [
       ...data.logins.flatMap((login) => [login.password, ...(login.totp ? [login.totp.secret] : [])]),
       ...(data.onePassword ? [data.onePassword.token] : []),
       ...(data.bitwarden ? [data.bitwarden.clientSecret, data.bitwarden.password] : []),
       ...(data.secrets ?? []).map((secret) => secret.value),
     ];
+    const pieces = new Set<string>();
+    for (const value of raw) {
+      pieces.add(value);
+      for (const extra of secretPieces(value)) if (extra !== value) pieces.add(extra);
+    }
+    return [...pieces];
   }
+}
+
+function connectionSecret(secret: { name: string }): boolean {
+  return secret.name.startsWith("data:");
+}
+
+function secretPieces(value: string): string[] {
+  const found: string[] = [];
+  try {
+    const password = new URL(value).password;
+    if (password) found.push(decodeURIComponent(password));
+  } catch { /* a password that is not a URL stays one piece */ }
+  for (const match of value.matchAll(/\b(?:password|passwd|pwd)\s*=\s*("[^"]*"|'[^']*'|\S+)/gi)) {
+    const bare = (match[1] ?? "").replace(/^['"]|['"]$/g, "");
+    if (bare) found.push(bare);
+  }
+  return found;
 }
 
 // Saved secrets, passwords filled this run and recent one-time codes are masked wherever text crosses to a bot or a

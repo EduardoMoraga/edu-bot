@@ -123,6 +123,11 @@ prove native Electron packaging, third-party database credentials, remote URL
 availability, or production query capacity. The row-count check measures DOM
 virtualization, not an end-to-end performance benchmark.
 
+## Known limits
+
+The local data tools follow the bot's own file access, as upstream. A bot whose
+engine has shell or file tools can already read local files. Hardening is planned.
+
 ## Current limits
 
 The legacy companion connection does not expose the Data routes; its chat

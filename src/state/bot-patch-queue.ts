@@ -50,6 +50,7 @@ export type BotUpdatePatch = Partial<
 > & {
   computer?: Bot["computer"] | null;
   connectorTools?: Bot["connectorTools"] | null;
+  dataConnections?: Bot["dataConnections"] | null;
   connectorScopes?: Bot["connectorScopes"] | null;
   phoneApps?: Bot["phoneApps"] | null;
   /** null demotes a default bot to a regular one; the server clears the mark. Body only: bot state drops the field. */

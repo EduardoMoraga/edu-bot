@@ -8,7 +8,7 @@ import {
 } from "./prepare-cloudflared.mjs";
 import { fileURLToPath } from "node:url";
 import { verifyBrowserBundle } from "./prepare-browser.mjs";
-import { pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, verifyDuckdbTree } from "./prepare-duckdb.mjs";
+import { pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, verifyDuckdbTree, verifyScannerExtensions } from "./prepare-duckdb.mjs";
 import { LIPO_ARCH, isMachO, writeThinMachO } from "./mac-thin.mjs";
 import { PRODUCT_NAME } from "../electron/app-identity.mjs";
 
@@ -93,6 +93,7 @@ async function validateDuckdb(resources, platform, arch, required) {
   if (!arch) throw new Error(`Unsupported DuckDB package architecture: ${arch}`);
   await requireRealDirectory(duckdb, platform === "win32" ? undefined : 0o755);
   await verifyDuckdbTree(duckdb, platform, arch, pinnedDuckdbVersion(root), pinnedResvgVersion(root), pinnedOnePasswordVersion(root));
+  verifyScannerExtensions(duckdb, platform, arch, root);
 }
 
 // Google ships macOS Platform Tools universal, and the shared top-level

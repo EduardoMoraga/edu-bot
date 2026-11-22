@@ -204,6 +204,16 @@ describe("extensions", () => {
     ]);
   });
 
+  it("loads sqlite and postgres from the verified bundle and does not install them", async () => {
+    const run = vi.fn<DuckDBConnection["run"]>();
+    await loadExtensions({ run }, ["sqlite", "postgres"]);
+    const sql = run.mock.calls.map(([statement]) => String(statement));
+    expect(sql).toHaveLength(2);
+    expect(sql[0]).toMatch(/^LOAD '.*\/sqlite_scanner\.duckdb_extension'$/);
+    expect(sql[1]).toMatch(/^LOAD '.*\/postgres_scanner\.duckdb_extension'$/);
+    expect(sql.join("\n")).not.toContain("INSTALL");
+  });
+
   it("keeps an offline failure actionable and does not proceed to load", async () => {
     const run = vi.fn<DuckDBConnection["run"]>().mockRejectedValue(new Error("Could not connect"));
     const error = await failure(loadExtensions({ run }, ["excel"]));

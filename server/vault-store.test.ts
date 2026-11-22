@@ -318,6 +318,21 @@ describe("what saved secrets go with", () => {
     expect(changed.sort()).toEqual([shared.id, only.id].sort());
   });
 
+  it("keeps a connection secret when its last bot goes, and never hands that secret to a bot", () => {
+    const store = new VaultStore({ dataDir: dir });
+    const connection = store.saveSecret({ name: "data:shop", value: "postgres://bob:hunter2@db/shop", source: "settings", bots: ["bot-bi"] });
+    const ordinary = store.saveSecret({ name: "Only Ada", value: "fake-only-value", source: "card", bots: ["bot-bi"] });
+    store.forgetBot("bot-bi");
+    expect(store.secret(connection.id)).toMatchObject({ bots: [], value: "postgres://bob:hunter2@db/shop" });
+    expect(store.secret(ordinary.id)).toBeNull();
+    expect(store.secretValues()).toContain("postgres://bob:hunter2@db/shop");
+    const granted = store.saveSecret({ name: "data:notes", value: "sqlite-secret-value", source: "settings", bots: ["bot-bi"] });
+    expect(store.usableSecret("data:shop", "bot-bi", "ref", TEAM_READER)).toBeNull();
+    expect(store.usableSecret("data:notes", "bot-bi", "ref", TEAM_READER)).toBeNull();
+    expect(store.secretNamesFor("bot-bi", TEAM_READER).map((item) => item.name)).not.toContain("data:notes");
+    expect(store.secret(granted.id)?.value).toBe("sqlite-secret-value");
+  });
+
   it("a secret from the person's other computer keeps its id and bots, and sent again replaces what it first made", () => {
     const store = new VaultStore({ dataDir: dir });
     const id = "22222222-2222-4222-8222-222222222222";

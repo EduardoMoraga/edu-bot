@@ -13,7 +13,7 @@ const FIELD_LABEL: Record<string, LocaleKey> = {
   model: "profiles.field.model", effort: "profiles.field.effort", approval: "profiles.field.approval", tools: "profiles.field.tools",
   toolsOff: "profiles.field.toolsOff", mcpServers: "profiles.field.mcpServers", connectors: "profiles.field.connectors",
   eduBrain: "profiles.field.eduBrain", eduCrew: "profiles.field.eduCrew", "memory.enabled": "profiles.field.memory", "memory.upkeep": "profiles.field.memoryUpkeep",
-  chief: "profiles.field.chief",
+  chief: "profiles.field.chief", data: "profiles.field.data",
 };
 
 const fieldLabel = (field: string) => (FIELD_LABEL[field] ? t(FIELD_LABEL[field]) : field);
@@ -22,7 +22,7 @@ const fieldLabel = (field: string) => (FIELD_LABEL[field] ? t(FIELD_LABEL[field]
  * brain and crew are not on `Bot`; their change is heard from `onEduSettingsChanged`. */
 const settingsKey = (bot: Bot) => JSON.stringify([
   bot.name, bot.title, bot.description, bot.soul, bot.approvalMode, bot.modelSelection, bot.toolScope, bot.toolsOff, bot.mcpServers,
-  bot.connectorTools, bot.memoryEnabled, bot.memoryUpkeep, bot.chiefOfStaff, bot.profileSource?.appliedAt,
+  bot.connectorTools, bot.memoryEnabled, bot.memoryUpkeep, bot.chiefOfStaff, bot.dataConnections, bot.profileSource?.appliedAt,
 ]);
 
 /** Which fields were changed here and which keys the bot needs; null for a bot not from a profile, or when this person

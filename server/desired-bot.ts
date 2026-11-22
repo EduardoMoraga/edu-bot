@@ -3,6 +3,7 @@ import type { EduBrainSetting } from "../shared/edu-brain.ts";
 import { lineDiff } from "../shared/line-diff.ts";
 import type { ToolGroup } from "../shared/tool-groups.ts";
 import type { ToolScope } from "../shared/tool-scope.ts";
+import type { DataGrantMap } from "../shared/data-connections.ts";
 import type { ConnectorToolGrant } from "../shared/wire.ts";
 
 type Rec = Record<string, any>;
@@ -31,6 +32,7 @@ export interface DesiredBot {
   toolsOff?: ToolGroup[];
   mcpServers?: string[];
   connectorTools?: Record<string, ConnectorToolGrant>;
+  data?: DataGrantMap;
   eduBrain?: EduBrainSetting;
   eduCrew?: boolean;
   memoryEnabled?: boolean;
@@ -52,6 +54,14 @@ export function everyTool(scope: { allow?: unknown; deny?: unknown } | null | un
 
 export const canonicalScope = (scope: Rec | null | undefined) => everyTool(scope) ? "every tool"
   : JSON.stringify(Object.fromEntries(["allow", "deny"].filter((field) => Array.isArray(scope![field])).map((field) => [field, [...new Set(scope![field] as string[])].sort()])));
+
+export function canonicalData(grants: DataGrantMap | null | undefined): string {
+  if (!grants || !Object.keys(grants).length) return "none";
+  return JSON.stringify(Object.keys(grants).sort().map((name) => {
+    const grant = grants[name]!;
+    return [name, { ...(grant.schemas ? { schemas: [...grant.schemas].sort() } : {}), ...(grant.tables ? { tables: [...grant.tables].sort() } : {}) }];
+  }));
+}
 
 export function canonicalGrants(grants: Record<string, ConnectorToolGrant> | undefined | null): string {
   if (!grants) return "every app";
@@ -121,6 +131,11 @@ export function botPatch(desired: DesiredBot, echo: Rec, team: string | undefine
   if (desired.mcpServers !== undefined && !(Array.isArray(echo.mcpServers) && sameList(echo.mcpServers, desired.mcpServers))) {
     patch.mcpServers = sorted(desired.mcpServers);
     changes.push(desired.mcpServers.length ? `MCP servers: ${sorted(desired.mcpServers).join(", ")}` : "no MCP servers");
+  }
+  if (desired.data !== undefined && canonicalData(echo.dataConnections) !== canonicalData(desired.data)) {
+    patch.dataConnections = Object.keys(desired.data).length ? desired.data : null;
+    const names = Object.keys(desired.data).sort();
+    changes.push(names.length ? `data connections: ${names.join(", ")}` : "no data connections");
   }
   if (desired.connectorTools !== undefined && canonicalGrants(echo.connectorTools) !== canonicalGrants(desired.connectorTools)) {
     patch.connectorTools = desired.connectorTools;

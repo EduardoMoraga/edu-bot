@@ -259,6 +259,23 @@ describe("planProfiles", () => {
     expect(plan(wider).plan.noChanges).toBe(true);
   });
 
+  it("treats a new data connection as more access and applies the grant", async () => {
+    const { plan, apply, bot } = fakeApp();
+    await apply();
+    const edited = folder({
+      "areas/bi/bots/analyst.md": (text) => {
+        const lines = text.split("\n");
+        lines.splice(lines.indexOf("---", 1), 0, "data:", "  shop:", "    tables: [orders]");
+        return lines.join("\n");
+      },
+    });
+    expect(kinds(plan(edited).plan.lines, "access")).toContain("Analista BI: data connections none → shop");
+    const { outcome } = await apply(edited, { giveAccess: true });
+    expect(outcome.applied.map((line) => line.text)).toContain("Analista BI: data connections none → shop");
+    expect(bot("bi/analyst").dataConnections).toEqual({ shop: { tables: ["orders"] } });
+    expect(plan(edited).plan.noChanges).toBe(true);
+  });
+
   it("gives area and cloud Edu brains only as more access, and takes the area's personalBrain", async () => {
     const { plan, apply, bot } = fakeApp();
     const brains = (lines: ProfilePlanLine[]) => lines.filter((line) => line.field === "eduBrain").map((line) => `${line.kind}: ${line.text}`);

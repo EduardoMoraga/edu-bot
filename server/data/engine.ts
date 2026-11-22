@@ -11,6 +11,7 @@ import { botFolder as defaultBotFolder } from "../bot-folder.ts";
 import { boxCpus } from "../box-cpus.ts";
 import { boxMemory } from "../box-memory.ts";
 import { DATA_DIR } from "../config.ts";
+import { scannerPath } from "./extensions.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import {
   DataFailure,
@@ -118,19 +119,33 @@ function quoteLiteral(text: string): string {
   return `'${text.replaceAll("'", "''")}'`;
 }
 
-/** INSTALL is a local no-op once cached; extension names come only from our tools. */
+function bundledScanner(extension: DataExtension): "sqlite_scanner" | "postgres_scanner" | null {
+  if (extension === "sqlite") return "sqlite_scanner";
+  if (extension === "postgres") return "postgres_scanner";
+  return null;
+}
+
 export async function loadExtensions(connection: Pick<DuckDB.DuckDBConnection, "run">, extensions: DataExtension[]): Promise<void> {
   for (const extension of extensions) {
+    const scanner = bundledScanner(extension);
     try {
+      if (scanner) {
+        const path = await scannerPath(scanner);
+        await connection.run(`LOAD ${quoteLiteral(path)}`);
+        continue;
+      }
       // The core repository bootstraps without httpfs; HTTPS repositories need it first.
       await connection.run(`INSTALL ${extension} FROM core`);
       await connection.run(`LOAD ${extension}`);
     } catch (error) {
+      if (error instanceof DataFailure) throw error;
       throw new DataFailure({
         code: "sql_error",
         message: error instanceof Error ? error.message : String(error),
         retryable: true,
-        hint: `DuckDB needs the ${extension} extension. Connect to the internet and retry; allow access to http://extensions.duckdb.org. Once installed, the extension is cached for offline use.`,
+        hint: scanner
+          ? `DuckDB needs the bundled ${extension} extension.`
+          : `DuckDB needs the ${extension} extension. Connect to the internet and retry; allow access to http://extensions.duckdb.org. Once installed, the extension is cached for offline use.`,
       });
     }
   }
@@ -411,7 +426,7 @@ class BotDb implements BotDatabase {
   private async loadExtensions(options: RunOptions): Promise<void> {
     const extensions = options.extensions ?? [];
     if (!extensions.length) return;
-    const label = extensions.map((extension) => `INSTALL ${extension} FROM core`).join("; ");
+    const label = extensions.map((extension) => bundledScanner(extension) ? `LOAD ${extension}` : `INSTALL ${extension} FROM core`).join("; ");
     await this.statement(options.connection, label, { timeoutMs: EXTENSION_INSTALL_TIMEOUT_MS, signal: options.signal }, (_open, conn) => loadExtensions(conn, extensions));
   }
 

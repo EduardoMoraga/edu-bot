@@ -1,7 +1,7 @@
 // The Data surface: what the server, the bots' tools and the panel agree on.
 // DuckDB runs in the OMB server, one database per bot.
 
-/** The five tools a bot gets, in the order the catalog lists them. */
+/** The tools a bot gets, in the order the catalog lists them. */
 export const DATA_TOOL_NAMES = ["data_load", "data_describe", "data_sql", "data_show", "data_export"] as const;
 export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
 
@@ -88,7 +88,7 @@ export interface DataSource {
   name: string;
   /** A quoted identifier ready to paste into SQL; name remains the source identity. */
   sqlName?: string;
-  kind: "csv" | "parquet" | "json" | "xlsx" | "folder" | "url" | "postgres" | "mysql" | "sqlite" | "gsheet" | "connector" | "sql";
+  kind: "csv" | "parquet" | "json" | "xlsx" | "folder" | "url" | "postgres" | "mysql" | "sqlite" | "duckdb" | "gsheet" | "connector" | "sql";
   /** The path, URL or connection the table came from, with credentials removed. */
   source: string;
   options?: Record<string, string | number | boolean>;

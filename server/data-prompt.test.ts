@@ -41,6 +41,7 @@ describe("the Data section of the prompt", () => {
     expect(prompt("user-of-data", "t3", "Say hi.")).toBe(BUILT_IN_DATA_SYSTEM_PROMPT);
     // the pointer names every tool the guide does, in far fewer bytes
     for (const tool of ["data_load", "data_describe", "data_sql", "data_show", "data_export"]) expect(DATA_TOOLS_POINTER).toContain(tool);
+    expect(DATA_TOOLS_POINTER).not.toContain("data_write");
     expect(Buffer.byteLength(DATA_TOOLS_POINTER)).toBeLessThan(Buffer.byteLength(BUILT_IN_DATA_SYSTEM_PROMPT) / 5);
   });
 
