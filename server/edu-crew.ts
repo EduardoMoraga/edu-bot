@@ -229,21 +229,24 @@ function nodeRun(args: string[], { env, timeoutMs, cwd }: { env: NodeJS.ProcessE
   });
 }
 
-function gitRun(args: string[], cwd: string): Promise<string> {
+function gitRun(args: string[], cwd: string, path: string): Promise<string> {
   return new Promise((done, fail) => {
-    execFile("git", args, { cwd, timeout: READ_TIMEOUT_MS, windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (error, stdout) => error ? fail(error) : done(String(stdout)));
+    execFile("git", args, { cwd, env: { ...process.env, PATH: path }, timeout: READ_TIMEOUT_MS, windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (error, stdout) => error ? fail(error) : done(String(stdout)));
   });
 }
+
+const missingProgram = (error: unknown) => (error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+const GIT_MISSING = "git isn't installed or isn't on this app's PATH, so changes can't be listed. Install git, or review named paths instead.";
 
 const lastLine = (text: string) => text.trim().split("\n").at(-1)?.replace(/^edu:\s*/, "") ?? "";
 
 export function createEduCrew(deps: EduCrewDeps) {
   const env = deps.env ?? process.env;
   const run = deps.run ?? nodeRun;
-  const git = deps.git ?? gitRun;
   const now = deps.now ?? Date.now;
   const pollMs = deps.pollMs ?? POLL_MS;
   const searchPath = deps.path ?? augmentedPath;
+  const git = deps.git ?? ((args: string[], cwd: string) => gitRun(args, cwd, searchPath()));
   const installed = (cli: string) => findCliCandidates(cli, searchPath()).length > 0;
   const file = join(deps.dataDir, EDU_CREW_FILE);
   const jobs = new Map<string, JobRecord>();
@@ -531,7 +534,8 @@ export function createEduCrew(deps: EduCrewDeps) {
     if (base.startsWith("-") || base.includes("\0") || base.length > 200) return { ok: false, error: `Unknown git base: ${base}` };
     try {
       await git(["rev-parse", "--verify", "--end-of-options", `${base}^{commit}`], folder);
-    } catch {
+    } catch (error) {
+      if (missingProgram(error)) return { ok: false, error: GIT_MISSING };
       return { ok: false, error: `The working folder has no git commit ${JSON.stringify(base)} to review changes against.` };
     }
     let diff: string;
@@ -540,6 +544,7 @@ export function createEduCrew(deps: EduCrewDeps) {
       diff = await git(["diff", "--no-ext-diff", "--no-textconv", base, "--"], folder);
       untracked = await git(["ls-files", "--others", "--exclude-standard", "-z"], folder);
     } catch (error) {
+      if (missingProgram(error)) return { ok: false, error: GIT_MISSING };
       return { ok: false, error: `git couldn't list the changes in the working folder (${oneLine(error instanceof Error ? error.message : String(error), 200)}). Review named paths instead.` };
     }
     const newFiles = untracked.split("\0").filter(Boolean);

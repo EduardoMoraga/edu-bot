@@ -487,6 +487,15 @@ describe("Edu crew review input", () => {
     crew.stop();
   });
 
+  it("says git is missing, not that the folder has no commit, when git can't be found", async () => {
+    const { crew, calls } = setup({ edu: doneReview, git: async () => { throw Object.assign(new Error("spawn git ENOENT"), { code: "ENOENT" }); } });
+    const answer = await ask(crew, { action: "review" });
+    expect(answer.status).not.toBe(200);
+    expect(JSON.stringify(answer.body)).toContain("git isn't installed or isn't on this app's PATH");
+    expect(calls).toEqual([]);
+    crew.stop();
+  });
+
   it("is an error, not an empty review, when git can't list the changes", async () => {
     const { crew, calls } = setup({ edu: doneReview, git: async (args) => { if (args[0] === "diff") throw new Error("stdout maxBuffer length exceeded"); return "abc\n"; } });
     const answer = await ask(crew, { action: "review" });

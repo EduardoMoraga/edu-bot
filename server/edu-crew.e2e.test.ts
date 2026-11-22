@@ -3,7 +3,7 @@
 // passes each gate; stopping a turn stops its job. HOME, the global Edu brain, the data folder and the project are
 // temporary.
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -73,6 +73,7 @@ it.skipIf(!cli || process.platform === "win32")("a bot's Edu crew job waits at e
   const eduHome = join(scratch, "edu-home"), crewBin = join(scratch, "bin"), project = join(scratch, "project"), calls = join(scratch, "calls.json"), release = join(scratch, "release"), pids = join(scratch, "codex-pids.json");
   for (const dir of [eduHome, crewBin, project]) mkdirSync(dir, { recursive: true });
   writeFileSync(join(crewBin, "codex"), fakeCodex(pids), { mode: 0o755 });
+  symlinkSync(execFileSync("sh", ["-c", "command -v git"], { encoding: "utf8" }).trim(), join(crewBin, "git"));
   execFileSync("git", ["init", "-q"], { cwd: project });
   writeFileSync(join(project, "README.md"), "shop\n");
   execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", "-c", "commit.gpgsign=false", "add", "README.md"], { cwd: project });
