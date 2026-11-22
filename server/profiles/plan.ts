@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 import { approvalModeFor, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import type { EduBrainSetting } from "../../shared/edu-brain.ts";
-import { problemSentence, type ProfileFolder, type ProfileProblem, type ResolvedBot, type SkillProfile } from "../../shared/profile-format.ts";
+import { problemSentence, type McpServerProfile, type ProfileFolder, type ProfileProblem, type ResolvedBot, type SkillProfile } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine } from "../../shared/profile-plan.ts";
 import { toolScopeWidens, type ToolScope } from "../../shared/tool-scope.ts";
 import type { ConnectorToolGrant } from "../../shared/wire.ts";
@@ -202,6 +202,27 @@ const canonOf = (spec: FieldSpec, value: unknown) => (spec.canon ? spec.canon(va
 /** The stored hashes of `fields` as `echo` has them. */
 export function appHashes(fields: readonly string[], echo: Rec): Record<string, string> {
   return Object.fromEntries(FIELDS.filter((spec) => fields.includes(spec.field)).map((spec) => [spec.field, valueHash(canonOf(spec, spec.app(echo)))]));
+}
+
+/** The fields of a stamped bot whose value in this app no longer matches the hash the profile last stored: changed here.
+ * With `bot`, only the fields its file sets count; a field left to the app is the app's to change. */
+export function changedHereFields(hashes: Readonly<Record<string, string>>, echo: Rec, bot?: ResolvedBot): string[] {
+  return FIELDS.filter((spec) => hashes[spec.field] !== undefined && (!bot || spec.file(bot) !== undefined)
+    && hashes[spec.field] !== valueHash(canonOf(spec, spec.app(echo)))).map((spec) => spec.field);
+}
+
+/** The secret slots a bot's profile names: its Edu brain's token and the headers and variables of its MCP servers. */
+export function botSecretSlots(bot: ResolvedBot, servers: readonly McpServerProfile[]): Array<{ name: string; for: string }> {
+  const slots = new Map<string, string>();
+  const add = (ref: unknown, used: string) => {
+    if (ref && typeof ref === "object" && "secret" in ref && typeof ref.secret === "string" && !slots.has(ref.secret)) slots.set(ref.secret, used);
+  };
+  if (bot.eduBrain?.mode === "cloud") add(bot.eduBrain.token, "Edu brain");
+  for (const name of bot.mcpServers) {
+    const server = servers.find((candidate) => candidate.key === name);
+    for (const value of [...Object.values(server?.headers ?? {}), ...Object.values(server?.env ?? {})]) add(value, name);
+  }
+  return [...slots].map(([name, used]) => ({ name, for: used }));
 }
 
 /** Which areas and bots a folder's problems leave alone. A problem at a bot's file blocks that bot; anywhere else under

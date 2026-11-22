@@ -86,3 +86,12 @@ export interface ProfilesStatus {
   /** Each area applied, by its key: the department it became. */
   areas: Record<string, { section: string }>;
 }
+
+/** GET /api/profiles/bots/:id: what bot settings show for a bot that came from a profile. */
+export interface ProfileBotView {
+  /** Managed fields whose value was changed in this app since the profile last set it, by plan field name
+   * (`soul`, `title`, `approval`, `memory.enabled`, …). */
+  changedHere: string[];
+  /** Secret slots the bot's profile names: each person fills them with their own key. Values are never sent. */
+  secrets: Array<{ name: string; for: string }>;
+}
