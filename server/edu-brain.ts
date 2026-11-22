@@ -334,6 +334,11 @@ export function createEduBrains(deps: EduBrainDeps) {
     brainFolder,
     integration,
 
+    /** Whether the last check found Edu ready and turns run on this computer; never waits for a check. */
+    readyNow(): boolean {
+      return (deps.hostLocal?.() ?? true) && deps.config()?.enabled !== false && cached?.runtime.state === "ready";
+    },
+
     /** Why `folder` may not be this bot's brain, or null. */
     folderRefusal(bot: EduBot, folder: string): string | null {
       return folderRefusal({ ...bot, eduBrain: { mode: "folder", path: folder } }, folder);

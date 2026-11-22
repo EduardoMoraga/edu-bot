@@ -20,7 +20,8 @@ Edu's memory tools only:
 | `edu_project_use` | switch brains | always refused: the brain is fixed for the turn |
 
 "Asks first?" is for Claude bots below Full access, where these tools are pre-allowed. Codex asks for tools that are
-not read-only, as it does for any server. Edu's crew tools (`edu_crew_*`, `edu_orchestrate`) are not mounted.
+not read-only, as it does for any server. Edu's crew tools (`edu_crew_*`, `edu_orchestrate`) are never mounted; a bot
+with Edu crew on gets Edu Bot's own crew tools instead (see [Edu crew](#edu-crew)).
 
 Canonical notes can only be proposed. Accepting one is a person's decision (see [Approvals](#approvals)).
 
@@ -168,6 +169,52 @@ in a proactive turn's fence or in a Bot API conversation.
 - When Edu Bot itself runs inside an Edu crew job, the inherited guard stays on for the bots too, and Edu refuses
   their brain writes.
 
+## Edu crew
+
+Edu crew lets a bot hand work to Edu's plan, build, checks and cross-vendor review loop, which runs other coding CLIs
+(Codex, Claude, Pi, OpenCode, Antigravity) from the person's PATH. It is **off** for every bot. Turn it on in Bot
+settings, Memory, Edu brain, **Edu crew** (it needs the bot's Edu brain). Turning it on, like widening the Edu brain,
+works only from the desktop app or a paired device; anyone may turn it off.
+
+With it on, the bot gets four tools on Edu Bot's own `agents` server. Edu's `full` MCP profile is never mounted.
+
+| Tool | Does |
+| --- | --- |
+| `edu_plan` | `edu run --detach` on a goal, with an optional playbook (`default`, `quick`, `research`). Never `--yes`, never `--allow-unregistered-checks`. |
+| `edu_review` | A read-only review (`edu crew dispatch <cli> --autonomy readonly`) of a question, paths, or the git changes since a base, by Codex, Claude or Pi, never the bot's own CLI. Waits up to 120 s by default and returns the review. |
+| `edu_crew_status` | Where a job of this chat stands, or this chat's jobs. |
+| `edu_crew_result` | Waits up to 300 s for a job and returns Edu's summary or the review. |
+
+**Gates.** Edu stops a plan at its approval gates: the spec first, then each step its playbook asks about. Each open
+gate becomes a card in the chat: **Let Edu crew go on?**, with the spec, any planner command that approving runs, and
+the folder. Approve runs `edu crew approve <job> --request <gate id>` from the server, Reject runs `edu crew reject`
+(Edu fails the job: `spec rejected`). The same rule as Edu proposals decides who may answer: a local service or a
+bot's shell may only reject, a local caller outside the desktop app may only reject, a session needs the admin scope.
+A gate decided elsewhere (Edu's deck or CLI) turns the card into "No longer waiting". No turn, call or composer waits
+on these cards.
+
+**Where it works.** Jobs run in the chat's working folder (the bot's folder, as pinned for the chat). Edu crew refuses
+a chat with no folder of its own, the person's home folder or any folder above it, Edu Bot's data folder and the
+global Edu brain. Edu runs with `EDU_HOME` set to the bot's brain and `EDU_CEILING_DIRECTORIES` set to the folder's
+parent, so the job record, spec and run notes go to the bot's brain (or to the project's own `.edu`, if it has one),
+never to your global brain. `EDU_CREW_JOB` is cleared for these commands only.
+
+**In the chat.** Each job keeps one quiet line, rewritten as it moves: working, waiting for your approval, finished,
+stopped, or "couldn't finish: why". A failure is that one line, never an error card. **Details** shows the folder, the
+spec and the result; **Cancel** stops a running job (`edu crew cancel`). Stopping the bot's turn in a chat stops that
+chat's running jobs too. Jobs are kept in `edu-crew.json` in the data folder, so a restart picks them up again.
+
+**Known limits** (Edu 6.0.0):
+
+- Edu takes a gate decision from a file any local process can write. Claude bots' shells carry the `EDU_CREW_JOB` guard,
+  which makes `edu crew approve` refuse; a shell that unsets it, or a bot on another engine with a shell, could still
+  approve. As with proposals, this is not a hard boundary outside the bot box.
+- Edu's own crew workers run the coding CLIs outside Edu Bot's permission levels, bot box and audit; the gates and the
+  folder rules above are the controls.
+- `edu_crew_review` in Edu reviews only a git diff, so a review of a question or paths goes through a read-only
+  dispatch instead.
+- Not in rooms, not on a cloud home or in the bot box, not for engines without the `agents` server.
+
 ## Engines
 
 Claude, Codex, Pi, the ACP engines (Grok, Gemini, OpenCode, Antigravity and the others), Muse Code and the API engines
@@ -186,8 +233,11 @@ pnpm exec vitest run server/edu-proposals.test.ts src/components/bot-panel/EduBr
 pnpm exec vitest run server/edu-brain.real.test.ts server/edu-brain.e2e.test.ts   # need Edu installed; skipped otherwise
 pnpm exec vitest run server/edu-proposals.real.test.ts server/edu-proposals.e2e.test.ts   # the same
 pnpm exec vitest run server/edu-brief.real.test.ts server/edu-brief.e2e.test.ts   # the same, except the no-Edu e2e case
+pnpm exec vitest run server/edu-crew.test.ts src/components/ApprovalCard.edu-crew.test.ts server/skill-library.test.ts
+pnpm exec vitest run server/edu-crew.real.test.ts server/edu-crew.e2e.test.ts   # need Edu installed; a fake codex is the crew
 ```
 
 The real-binary tests run Edu in temporary folders only: the fixture's data folder, and a temporary global brain
 passed to the launcher as `EDU_FIXTURE_HOME` (it refuses your own `~/.edu`). Without `EDU_FIXTURE_HOME` a fixture has
-no Edu.
+no Edu. `EDU_FIXTURE_CREW_BIN` puts a folder of fake crew CLIs on the fixture's PATH; the crew tests use a fake `codex` and
+never a real coding CLI, account or key.
