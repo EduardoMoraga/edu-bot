@@ -5,7 +5,7 @@ import { APPROVAL_MODES, type ApprovalMode } from "./approval-mode.ts";
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "./bot-profile.ts";
 import { MCP_SERVER_NAME, RESERVED_MCP_NAMES } from "./mcp-name.ts";
 import { AGENT_MAX_SKILLS, isLoopbackHost, TEAM_BRIEF_MAX_BYTES, utf8Bytes } from "./package-format.ts";
-import { holdsCredential, redactSecretsInText } from "./redact.ts";
+import { findLeaks, leakIn, type Leak } from "./profile-leaks.ts";
 import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES } from "./skill-md.ts";
 import { TOOL_GROUPS, type ToolGroup } from "./tool-groups.ts";
 import { parseToolScope, type ToolScope } from "./tool-scope.ts";
@@ -15,6 +15,7 @@ export const PROFILE_VERSION = 1;
 export const PROFILE_FILE_MAX_BYTES = 256 * 1024;
 export const PROFILE_FOLDER_MAX_BYTES = 4 * 1024 * 1024;
 export const PROFILE_FOLDER_MAX_FILES = 500;
+export const PROFILE_FOLDER_MAX_ENTRIES = 2_000;
 export const PROFILE_MAX_AREAS = 100;
 export const PROFILE_MAX_BOTS = 200;
 export const PROFILE_MAX_MCP_SERVERS = 50;
@@ -174,7 +175,13 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]{1,128}$/;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CREDENTIAL_NAME = /authorization|cookie|token|secret|passw|api[-_]?key|access[-_]?key|private[-_]?key|credential|^key$|[-_]key$/i;
-const ABSOLUTE_PATH = /^(?:\/|~(?:[/\\]|$)|[A-Za-z]:[\\/]|\\\\)/;
+const PATH_START = String.raw`(?:^|[\s=,;:"'(\[{])`;
+const ABSOLUTE_PATH = new RegExp(String.raw`${PATH_START}(?:\/|~[\w.-]*(?:[/\\]|$|(?=[\s,;:"')\]}]))|[A-Za-z]:[\\/]|\\\\)`);
+const CLIMBING_PATH = new RegExp(String.raw`(?:^|[\s=,;:"'(\[{/\\])\.\.(?:[/\\]|$|(?=[\s,;:"')\]}]))`);
+const ADDRESS = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]*/gi;
+const SECRET_ARG_FLAG = /^--?[A-Za-z0-9_-]*?(?:token|passw(?:or)?d|secret|api[-_]?key|access[-_]?key|private[-_]?key|credentials?)s?(?:=(.*))?$/is;
+const CI_KEY_FILE = /^\.secrets\/[A-Za-z0-9_-][A-Za-z0-9._-]*(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)*$/;
+const EVERY_TOOL = "*";
 const PROSE_FIELDS = new Set(["name", "was", "title", "description"]);
 const PROFILE_APPROVALS = APPROVAL_MODES.filter((mode): mode is ProfileApproval => mode !== "custom");
 
@@ -252,10 +259,12 @@ const eduBrainSchema = z.object({
   ? { mode: "cloud", url: brain.url as string, token: brain.token as SecretRef }
   : { mode: brain.mode as "own" | "area" | "off" });
 
-const selectorList = z.array(z.string({ error: "must be a tool selector" }), { error: "must be a list of tool selectors" }).max(256, "must list at most 256 selectors")
+const selectorList = (everyTool: boolean) => z.array(z.string({ error: "must be a tool selector" }), { error: "must be a list of tool selectors" }).max(256, "must list at most 256 selectors")
   .superRefine((list, context) => {
     list.forEach((selector, index) => {
-      if (!parseToolScope({ allow: [selector] }).ok) {
+      if (everyTool && selector === EVERY_TOOL) {
+        if (list.length > 1) context.addIssue({ code: "custom", path: [index], message: "is every tool, so it stands alone in allow: [\"*\"]" });
+      } else if (!parseToolScope({ allow: [selector] }).ok) {
         context.addIssue({ code: "custom", path: [index], message: `is not a tool selector: use native:NAME, native:*, mcp:SERVER:NAME or mcp:SERVER:* (docs/tool-selection.md)` });
       }
     });
@@ -277,7 +286,7 @@ const inheritedShape = {
   model: z.string({ error: "must be INSTANCE/MODEL, such as claude/claude-sonnet-5-5" }).max(300).regex(MODEL, "must be INSTANCE/MODEL, such as claude/claude-sonnet-5-5").optional(),
   effort: z.enum(["none", "low", "medium", "high", "xhigh", "max"], { error: "must be none, low, medium, high, xhigh or max" }).optional(),
   approval: approvalSchema.optional(),
-  tools: z.object({ allow: selectorList.optional(), deny: selectorList.optional() }, { error: "must be { allow: [SELECTOR], deny: [SELECTOR] }" }).strict().optional(),
+  tools: z.object({ allow: selectorList(true).optional(), deny: selectorList(false).optional() }, { error: "must be { allow: [SELECTOR], deny: [SELECTOR] }" }).strict().optional(),
   toolsOff: z.array(z.enum(TOOL_GROUPS, { error: `must be one of ${TOOL_GROUPS.join(", ")}` }), { error: "must be a list of tool groups" }).max(20).optional(),
   connectors: connectorsSchema.optional(),
   eduBrain: eduBrainSchema.optional(),
@@ -376,14 +385,20 @@ class Problems {
   readonly list: ProfileProblem[] = [];
   readonly warnings: ProfileProblem[] = [];
   private readonly reportedFields = new Set<string>();
+  private readonly reportedLines = new Set<string>();
 
   add(problem: ProfileProblem): void {
     this.reportedFields.add(`${problem.file}\0${problem.field ?? ""}`);
+    if (problem.line) this.reportedLines.add(`${problem.file}\0${problem.line}`);
     if (this.list.length < PROFILE_MAX_PROBLEMS) this.list.push(problem);
   }
 
   warn(problem: ProfileProblem): void {
-    this.warnings.push(problem);
+    if (this.warnings.length < PROFILE_MAX_PROBLEMS) this.warnings.push(problem);
+  }
+
+  hasLine(file: string, line: number): boolean {
+    return this.reportedLines.has(`${file}\0${line}`);
   }
 
   has(file: string, field: string): boolean {
@@ -427,21 +442,31 @@ function nodeAt(doc: Document, path: readonly (string | number)[], key: boolean)
   return found;
 }
 
+function frontMatterEnd(source: string): number | "missing" | "unclosed" {
+  if (!source.startsWith("---\n")) return "missing";
+  let end = source.indexOf("\n---", 3);
+  while (end >= 0 && end + 4 < source.length && source[end + 4] !== "\n") end = source.indexOf("\n---", end + 1);
+  return end < 0 ? "unclosed" : end;
+}
+
+function bodyLineOf(source: string): number {
+  const end = frontMatterEnd(source);
+  if (end === "missing") return 1;
+  if (end === "unclosed") return Number.MAX_SAFE_INTEGER;
+  return source.slice(4, end + 1).split("\n").length + 2;
+}
+
 function splitFrontMatter(file: string, source: string, problems: Problems): { yaml: string; body: string; bodyLine: number } | null {
-  if (!source.startsWith("---\n")) {
+  const end = frontMatterEnd(source);
+  if (end === "missing") {
     problems.add({ file, line: 1, message: "must start with a front matter block: a line with ---, the YAML fields, then another ---" });
     return null;
   }
-  let end = source.indexOf("\n---", 3);
-  while (end >= 0 && end + 4 < source.length && source[end + 4] !== "\n") end = source.indexOf("\n---", end + 1);
-  const after = end + 4;
-  if (end < 0) {
+  if (end === "unclosed") {
     problems.add({ file, line: 1, message: "has a front matter block that never closes: end it with a line holding only ---" });
     return null;
   }
-  const yaml = source.slice(4, end + 1);
-  const bodyLine = yaml.split("\n").length + 2;
-  return { yaml, body: source.slice(Math.min(after + 1, source.length)), bodyLine };
+  return { yaml: source.slice(4, end + 1), body: source.slice(Math.min(end + 5, source.length)), bodyLine: bodyLineOf(source) };
 }
 
 function parseFrontMatter(file: string, source: string, problems: Problems): (ParsedDoc & { bodyLine: number }) | null {
@@ -507,7 +532,7 @@ function checkHeader(doc: ParsedDoc, kind: Kind, problems: Problems): boolean {
     return false;
   }
   if (data.kind !== expected) {
-    problems.add({ file, line: doc.lineOf(["kind"]), field: "kind", message: `is ${JSON.stringify(data.kind)}, but this place in the folder holds kind: ${expected}` });
+    problems.add({ file, line: doc.lineOf(["kind"]), field: "kind", message: `does not match this place in the folder, which holds kind: ${expected}` });
     return false;
   }
   return true;
@@ -528,7 +553,8 @@ function schemaProblems(doc: ParsedDoc, error: z.ZodError, what: string, problem
     if (issue.code === "unrecognized_keys") {
       for (const key of issue.keys) {
         const field = fieldName([...path, key]);
-        const reason = PER_PERSON[key] ?? BODY_FIELDS[key] ?? `is not a field ${what} can have (docs/profiles.md lists them)`;
+        const reason = (Object.hasOwn(PER_PERSON, key) ? PER_PERSON[key] : Object.hasOwn(BODY_FIELDS, key) ? BODY_FIELDS[key] : undefined)
+          ?? `is not a field ${what} can have (docs/profiles.md lists them)`;
         problems.add({ file: doc.file, line: doc.lineOf([...path, key], true), field, message: reason });
       }
       continue;
@@ -540,36 +566,77 @@ function schemaProblems(doc: ParsedDoc, error: z.ZodError, what: string, problem
   }
 }
 
-function refuseAbsolutePathsAndKeys(doc: ParsedDoc, problems: Problems): void {
+const isKeyFileSlot = (value: unknown): value is { file: string } =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value) && Object.keys(value as object).length === 1 && typeof (value as { file?: unknown }).file === "string";
+
+function refusePathsAndKeys(doc: ParsedDoc, role: ProfileFileRole["role"], problems: Problems): boolean {
+  let leaked = refuseSecretArguments(doc, role, problems);
   const walk = (value: unknown, path: (string | number)[]) => {
     if (typeof value === "string") {
       const field = fieldName(path);
-      if (problems.has(doc.file, field)) return;
-      const line = doc.lineOf(path);
-      const top = path.find((part) => typeof part === "string");
-      if (redactSecretsInText(value) !== value) {
-        problems.add({ file: doc.file, line, field, message: `holds a key or password; ${SECRET_HINT}` });
-      } else if (!PROSE_FIELDS.has(String(top)) && !/^[a-z][a-z0-9+.-]*:\/\//i.test(value) && ABSOLUTE_PATH.test(value.trim())) {
-        problems.add({ file: doc.file, line, field, message: "is an absolute path; paths differ on each computer, so profiles never hold one" });
+      const leak = leakIn(value);
+      if (leak) {
+        leaked = true;
+        const message = leak === "address" ? `holds an address with a user name or password; take them out of the address and ${SECRET_HINT}` : `holds a key or password; ${SECRET_HINT}`;
+        if (!problems.has(doc.file, field)) problems.add({ file: doc.file, line: doc.lineOf(path), field, message });
+        return;
+      }
+      if (problems.has(doc.file, field) || PROSE_FIELDS.has(String(path[0]))) return;
+      const plain = value.replace(ADDRESS, " ");
+      const runs = role === "mcp-server" && ["command", "args", "env"].includes(String(path[0]));
+      if (ABSOLUTE_PATH.test(plain)) {
+        problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds an absolute or home path; paths differ on each computer, so profiles never hold one" });
+      } else if (runs && CLIMBING_PATH.test(plain)) {
+        problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one" });
       }
       return;
     }
+    if (path[0] !== "skills" && isKeyFileSlot(value)) return;
     if (Array.isArray(value)) value.forEach((entry, index) => walk(entry, [...path, index]));
     else if (value && typeof value === "object") for (const key of Object.keys(value)) walk((value as Record<string, unknown>)[key], [...path, key]);
   };
   walk(doc.data, []);
+  return leaked;
+}
+
+function refuseSecretArguments(doc: ParsedDoc, role: ProfileFileRole["role"], problems: Problems): boolean {
+  const args = doc.data.args;
+  if (role !== "mcp-server" || !Array.isArray(args)) return false;
+  let leaked = false;
+  const refuse = (index: number, message: string) => {
+    leaked = true;
+    const field = `args[${index}]`;
+    if (!problems.has(doc.file, field)) problems.add({ file: doc.file, line: doc.lineOf(["args", index]), field, message });
+  };
+  const hint = "pass the key in env with a secret slot instead, such as env: { NOTION_TOKEN: { secret: NAME } }";
+  args.forEach((arg, index) => {
+    const flag = typeof arg === "string" ? SECRET_ARG_FLAG.exec(arg) : null;
+    if (!flag) return;
+    const next = args[index + 1];
+    if (flag[1] !== undefined) {
+      if (flag[1] !== "") refuse(index, `gives a flag that names a key or password its value; ${hint}`);
+    } else if (typeof next === "string" && next !== "" && !next.startsWith("-")) {
+      refuse(index + 1, `is the value of ${arg}, a flag that names a key or password; ${hint}`);
+    }
+  });
+  return leaked;
 }
 
 function bodyText(doc: ParsedDoc & { bodyLine: number }, what: string, maxBytes: number, problems: Problems): string {
   const body = doc.body.trim() ? doc.body.replace(/^\n+/, "").trimEnd() : "";
-  const leading = doc.body.length - doc.body.replace(/^\n+/, "").length;
-  body.split("\n").forEach((line, index) => {
-    if (redactSecretsInText(line) !== line || holdsCredential(line)) {
-      problems.add({ file: doc.file, line: doc.bodyLine + leading + index, message: `has a key or password in ${what}; take it out and ${SECRET_HINT}` });
-    }
-  });
   if (utf8Bytes(body) > maxBytes) problems.add({ file: doc.file, line: doc.bodyLine, message: `has ${what} over ${maxBytes.toLocaleString("en-US")} bytes` });
   return body;
+}
+
+function reportLeaks(file: string, leaks: readonly Leak[], body: { line: number; name: string }, problems: Problems): void {
+  for (const leak of leaks) {
+    if (problems.hasLine(file, leak.line)) continue;
+    const where = leak.line >= body.line ? `in ${body.name}` : "on this line";
+    const message = leak.kind === "address"
+      ? `has an address with a user name or password ${where}; take them out of the address and ${SECRET_HINT}`
+      : `has a key or password ${where}; take it out and ${SECRET_HINT}`;
+    problems.add({ file, line: leak.line, message });
+  }
 }
 
 /** A relative path from the folder's root, with `..` resolved; null when it climbs out of the root. */
@@ -587,18 +654,19 @@ export function joinInside(dir: string, relative: string): string | null {
 
 const dirOf = (file: string) => file.includes("/") ? file.slice(0, file.lastIndexOf("/")) : "";
 
-function refuseKeyFilesInsideFolder(doc: ParsedDoc, problems: Problems): void {
+function checkKeyFiles(doc: ParsedDoc, problems: Problems): void {
   const walk = (value: unknown, path: (string | number)[]) => {
     if (Array.isArray(value)) return value.forEach((entry, index) => walk(entry, [...path, index]));
     if (!value || typeof value !== "object") return;
-    const record = value as Record<string, unknown>;
-    if (Object.keys(record).length === 1 && typeof record.file === "string") {
+    if (isKeyFileSlot(value)) {
       const field = fieldName([...path, "file"]);
-      if (!problems.has(doc.file, field) && joinInside(dirOf(doc.file), record.file) !== null) {
-        problems.add({ file: doc.file, line: doc.lineOf([...path, "file"]), field, message: "points inside the profile folder, so the key would be shared with the profiles; keep key files outside it" });
+      if (!problems.has(doc.file, field) && !CI_KEY_FILE.test(value.file)) {
+        problems.add({ file: doc.file, line: doc.lineOf([...path, "file"]), field,
+          message: "must name a file in the folder's .secrets/ folder, such as .secrets/notion: a key file is for CI, which writes it there before it applies the profiles and never commits it" });
       }
       return;
     }
+    const record = value as Record<string, unknown>;
     for (const key of Object.keys(record)) walk(record[key], [...path, key]);
   };
   for (const key of Object.keys(doc.data)) if (key !== "skills") walk(doc.data[key], [key]);
@@ -619,8 +687,18 @@ interface Parsed {
   docs: Map<string, ParsedDoc>;
 }
 
+const BODY_NAME = { org: "the organization's brief", area: "the area's brief", bot: "the bot's instructions", "mcp-server": "the notes" } as const;
+
+/** A file that holds a key is reported and never kept, so no output repeats what it holds. */
 function parseOne(file: string, source: string, role: ProfileFileRole, parsed: Parsed, problems: Problems): void {
   if (role.role === "skill") return parseSkill(file, source, role, parsed, problems);
+  const bodyLine = bodyLineOf(source);
+  const leaks = findLeaks(source, bodyLine - 1);
+  parseProfile(file, source, role, leaks.length > 0, parsed, problems);
+  reportLeaks(file, leaks, { line: bodyLine, name: BODY_NAME[role.role] }, problems);
+}
+
+function parseProfile(file: string, source: string, role: Exclude<ProfileFileRole, { role: "skill" }>, leaked: boolean, parsed: Parsed, problems: Problems): void {
   const doc = parseFrontMatter(file, source, problems);
   if (!doc || !checkHeader(doc, role.role, problems)) return;
   parsed.docs.set(file, doc);
@@ -628,11 +706,11 @@ function parseOne(file: string, source: string, role: ProfileFileRole, parsed: P
   const schema = { org: orgSchema, area: areaSchema, bot: botSchema, "mcp-server": mcpServerSchema }[role.role];
   const result = schema.safeParse(doc.data);
   if (!result.success) schemaProblems(doc, result.error, what, problems);
-  refuseAbsolutePathsAndKeys(doc, problems);
-  refuseKeyFilesInsideFolder(doc, problems);
+  const keyInValues = refusePathsAndKeys(doc, role.role, problems);
+  checkKeyFiles(doc, problems);
   const keyMatches = (key: unknown, expected: string, where: string) => {
     if (typeof key !== "string" || problems.has(file, "key") || key === expected) return;
-    problems.add({ file, line: doc.lineOf(["key"]), field: "key", message: `is ${key}, but the ${where} is named ${expected}; rename one so they match` });
+    problems.add({ file, line: doc.lineOf(["key"]), field: "key", message: `does not match the name of the ${where}, ${expected}; rename one so they match` });
   };
   if (role.role === "area") keyMatches(doc.data.key, role.area, "area's folder");
   if (role.role === "bot") keyMatches(doc.data.key, role.key, "file");
@@ -640,9 +718,8 @@ function parseOne(file: string, source: string, role: ProfileFileRole, parsed: P
   if (role.role === "area" && doc.data.eduBrain !== undefined && valueAt(doc.data, ["defaults", "eduBrain"]) !== undefined) {
     problems.add({ file, line: doc.lineOf(["defaults", "eduBrain"], true), field: "defaults.eduBrain", message: "repeats eduBrain; set it once, either at the top or under defaults" });
   }
-  const bodyName = { org: "the organization's brief", area: "the area's brief", bot: "the bot's instructions", "mcp-server": "the notes" }[role.role];
-  const body = bodyText(doc, bodyName, role.role === "bot" ? BOT_PROFILE_LIMITS.soul : TEAM_BRIEF_MAX_BYTES, problems);
-  if (!result.success) return;
+  const body = bodyText(doc, BODY_NAME[role.role], role.role === "bot" ? BOT_PROFILE_LIMITS.soul : TEAM_BRIEF_MAX_BYTES, problems);
+  if (!result.success || leaked || keyInValues) return;
   const data = result.data as Record<string, unknown>;
   if (role.role === "org") {
     const org = data as z.output<typeof orgSchema>;
@@ -682,6 +759,11 @@ function parseSkill(file: string, source: string, role: Extract<ProfileFileRole,
     problems.add({ file, message: `is larger than ${SKILL_FILE_MAX_BYTES / 1024} KB` });
     return;
   }
+  const leaks = findLeaks(source);
+  if (leaks.length) {
+    reportLeaks(file, leaks, { line: 1, name: "the skill" }, problems);
+    return;
+  }
   const skill = parseSkillMd(source);
   if ("error" in skill) {
     problems.add({ file, line: 1, message: `is not a valid SKILL.md: ${skill.error}` });
@@ -689,12 +771,6 @@ function parseSkill(file: string, source: string, role: Extract<ProfileFileRole,
   }
   if (skill.name !== role.name) {
     problems.add({ file, line: 2, field: "name", message: `is ${skill.name}, but the skill's folder is named ${role.name}; rename one so they match` });
-    return;
-  }
-  const lines = source.split("\n");
-  const leaked = lines.findIndex((line) => redactSecretsInText(line) !== line || holdsCredential(line));
-  if (leaked >= 0) {
-    problems.add({ file, line: leaked + 1, message: `has a key or password; take it out and ${SECRET_HINT}` });
     return;
   }
   for (const warning of scanSkillText(source)) problems.warn({ file, message: warning });
@@ -719,14 +795,17 @@ function resolveBots(parsed: Parsed, problems: Problems): ResolvedBot[] {
     names.set(name, bot.file);
     const from: Partial<Record<InheritedField, ProfileLevel>> = {};
     const fields: Record<string, unknown> = {};
+    const levels: Array<[ProfileLevel, InheritedFields | undefined]> = [["bot", bot.fields], ["area", area.defaults], ["org", parsed.org?.defaults]];
     for (const field of INHERITED_FIELDS) {
-      const levels: Array<[ProfileLevel, InheritedFields | undefined]> = [["bot", bot.fields], ["area", area.defaults], ["org", parsed.org?.defaults]];
-      for (const [level, source] of levels) {
-        if (source?.[field] === undefined) continue;
-        fields[field] = source[field];
-        from[field] = level;
-        break;
-      }
+      const nearest = levels.findIndex(([, source]) => source?.[field] !== undefined);
+      if (nearest < 0) continue;
+      const [level, source] = levels[nearest]!;
+      fields[field] = source![field];
+      from[field] = level;
+    }
+    if (fields.tools) {
+      checkToolsWidening(parsed, bot, area, levels, from.tools!, problems);
+      fields.tools = resolvedTools(fields.tools as ToolScope);
     }
     const skills: ResolvedBot["skills"] = [];
     bot.skills.forEach((entry, index) => {
@@ -757,12 +836,40 @@ function resolveBots(parsed: Parsed, problems: Problems): ResolvedBot[] {
   return resolved;
 }
 
+function checkToolsWidening(parsed: Parsed, bot: BotProfile, area: AreaProfile, levels: ReadonlyArray<[ProfileLevel, InheritedFields | undefined]>,
+  level: ProfileLevel, problems: Problems): void {
+  const nearest = levels.findIndex(([name]) => name === level);
+  if (levels[nearest]![1]!.tools!.allow) return;
+  const allowing = levels.slice(nearest + 1).find(([, source]) => source?.tools?.allow);
+  if (!allowing) return;
+  const fileOf = (name: ProfileLevel) => name === "bot" ? bot.file : name === "area" ? area.file : parsed.org!.file;
+  const file = fileOf(level);
+  const field = level === "bot" ? "tools" : "defaults.tools";
+  if (problems.has(file, field)) return;
+  problems.add({ file, line: parsed.docs.get(file)?.lineOf(level === "bot" ? ["tools"] : ["defaults", "tools"]), field,
+    message: `has no allow, so it would allow every other tool, not only those ${fileOf(allowing[0])} allows; list them in allow, or write allow: ["*"] to allow every tool on purpose` });
+}
+
+function resolvedTools(tools: ToolScope): ToolScope {
+  if (tools.allow?.[0] !== EVERY_TOOL) return tools;
+  return tools.deny ? { deny: tools.deny } : {};
+}
+
 function checkApprovalCeilings(parsed: Parsed, bots: ResolvedBot[], problems: Problems): void {
   const rank = (mode: ProfileApproval) => PROFILE_APPROVALS.indexOf(mode);
+  const highest = PROFILE_APPROVALS[PROFILE_APPROVALS.length - 1]!;
+  const unsetReported = new Set<string>();
   for (const bot of bots) {
-    if (!bot.approval) continue;
     const area = parsed.areas.get(bot.area)!;
     const ceilings = [[area.maxApproval, area.file], [parsed.org?.maxApproval, parsed.org?.file]] as const;
+    if (!bot.approval) {
+      const [ceiling, ceilingFile] = ceilings.find(([ceiling]) => ceiling && ceiling !== highest) ?? [];
+      if (!ceiling || !ceilingFile || unsetReported.has(ceilingFile)) continue;
+      unsetReported.add(ceilingFile);
+      problems.add({ file: ceilingFile, line: parsed.docs.get(ceilingFile)?.lineOf(["maxApproval"]), field: "maxApproval",
+        message: `is ${ceiling}, but no level sets approval for ${bot.id}, so the app's default, Full access, would apply; set approval, such as defaults: { approval: ${ceiling} }` });
+      continue;
+    }
     for (const [ceiling, ceilingFile] of ceilings) {
       if (!ceiling || rank(bot.approval) <= rank(ceiling)) continue;
       const level = bot.from.approval!;
@@ -776,10 +883,12 @@ function checkApprovalCeilings(parsed: Parsed, bots: ResolvedBot[], problems: Pr
   }
 }
 
-function checkReferences(parsed: Parsed, problems: Problems): void {
+function checkReferences(parsed: Parsed, listed: readonly string[], problems: Problems): void {
   for (const area of parsed.areas.values()) {
     if (area.chief && !parsed.bots.some((bot) => bot.area === area.key && bot.key === area.chief)) {
-      problems.add({ file: area.file, line: parsed.docs.get(area.file)?.lineOf(["chief"]), field: "chief", message: `names ${area.chief}, but areas/${area.key}/bots/${area.chief}.md does not exist` });
+      const chiefFile = `areas/${area.key}/bots/${area.chief}.md`;
+      const state = listed.includes(chiefFile) || problems.fileHas(chiefFile) ? "is not a valid bot yet; fix its problems first" : "does not exist";
+      problems.add({ file: area.file, line: parsed.docs.get(area.file)?.lineOf(["chief"]), field: "chief", message: `names ${area.chief}, but ${chiefFile} ${state}` });
     }
   }
   const warned = new Set<string>();
@@ -824,7 +933,7 @@ export function checkProfileFiles(files: ReadonlyArray<{ path: string; text: str
   if (parsed.bots.length > PROFILE_MAX_BOTS) problems.add({ file: "areas", message: `has more than ${PROFILE_MAX_BOTS} bots` });
   if (parsed.mcpServers.size > PROFILE_MAX_MCP_SERVERS) problems.add({ file: "mcp", message: `has more than ${PROFILE_MAX_MCP_SERVERS} servers` });
   const bots = resolveBots(parsed, problems);
-  checkReferences(parsed, problems);
+  checkReferences(parsed, listed, problems);
   checkApprovalCeilings(parsed, bots, problems);
   const byPath = (a: { file: string }, b: { file: string }) => a.file.localeCompare(b.file);
   return {

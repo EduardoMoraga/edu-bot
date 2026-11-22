@@ -1,13 +1,16 @@
-// Security invariant: never follow a link inside the folder. A link anywhere in its layout is a problem, so a profile can
-// never pull in a file from elsewhere on the computer. Only the folder the person names may itself be a link.
-import { closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readSync, realpathSync, type Dirent } from "node:fs";
+// Security invariant: never read a file from outside the folder. A link anywhere in its layout is a problem, and each file
+// is checked after it is opened to be the very file inside the folder. Only the folder the person names may be a link.
+// Known open risk: Node has no openat, so a folder swapped for a link while it is listed can lend the listing its names.
+import { closeSync, constants, fstatSync, lstatSync, opendirSync, openSync, readSync, realpathSync, type Dir, type Dirent } from "node:fs";
 import { join } from "node:path";
 
 import {
   checkProfileFiles,
   PROFILE_FILE_MAX_BYTES,
   PROFILE_FOLDER_MAX_BYTES,
+  PROFILE_FOLDER_MAX_ENTRIES,
   PROFILE_FOLDER_MAX_FILES,
+  PROFILE_MAX_PROBLEMS,
   type ProfileFolder,
   type ProfileProblem,
 } from "../../shared/profile-format.ts";
@@ -20,6 +23,8 @@ export interface LoadedProfileFolder extends ProfileFolder {
 export class ProfileFolderError extends Error {}
 
 const NO_FOLLOW = constants.O_NOFOLLOW ?? 0;
+const NON_BLOCK = constants.O_NONBLOCK ?? 0;
+const LINK = "is a link; profiles never follow links, so put the file itself in the folder";
 const KB = (bytes: number) => `${bytes / 1024} KB`;
 const MB = (bytes: number) => `${bytes / 1024 / 1024} MB`;
 
@@ -28,26 +33,52 @@ interface Walk {
   wanted: string[];
   problems: ProfileProblem[];
   warnings: ProfileProblem[];
+  seen: number;
+  full: boolean;
 }
 
+const isRealFolder = (path: string) => {
+  const stat = lstatSync(path);
+  return stat.isDirectory() && !stat.isSymbolicLink();
+};
+
 function entries(walk: Walk, relative: string): Dirent[] {
+  if (walk.full) return [];
+  const path = join(walk.root, relative);
+  let dir: Dir | undefined;
   try {
-    return readdirSync(join(walk.root, relative), { withFileTypes: true })
-      .filter((entry) => !entry.name.startsWith("."))
-      .sort((a, b) => a.name.localeCompare(b.name));
+    if (!isRealFolder(path)) {
+      walk.problems.push({ file: relative, message: LINK });
+      return [];
+    }
+    dir = opendirSync(path);
+    const list: Dirent[] = [];
+    for (let entry = dir.readSync(); entry; entry = dir.readSync()) {
+      if (++walk.seen > PROFILE_FOLDER_MAX_ENTRIES) {
+        walk.full = true;
+        walk.problems.push({ file: ".", message: `has more than ${PROFILE_FOLDER_MAX_ENTRIES} files and folders in its layout, so the check stopped at ${relative || "."}` });
+        return [];
+      }
+      if (!entry.name.startsWith(".")) list.push(entry);
+    }
+    return list.sort((a, b) => a.name.localeCompare(b.name));
   } catch (error) {
     walk.problems.push({ file: relative, message: `could not be read (${(error as NodeJS.ErrnoException).code ?? "error"})` });
     return [];
+  } finally {
+    dir?.closeSync();
   }
 }
 
 const isLink = (walk: Walk, path: string, entry: Dirent): boolean => {
   if (!entry.isSymbolicLink()) return false;
-  walk.problems.push({ file: path, message: "is a link; profiles never follow links, so put the file itself in the folder" });
+  walk.problems.push({ file: path, message: LINK });
   return true;
 };
 
-const unexpected = (walk: Walk, path: string) => walk.warnings.push({ file: path, message: "is not a profile file, so it is ignored" });
+const unexpected = (walk: Walk, path: string) => {
+  if (walk.warnings.length < PROFILE_MAX_PROBLEMS) walk.warnings.push({ file: path, message: "is not a profile file, so it is ignored" });
+};
 
 function collect(walk: Walk): void {
   for (const entry of entries(walk, "")) {
@@ -111,17 +142,30 @@ function collectSkills(walk: Walk, dir: string): void {
   }
 }
 
+function isFileAt(fd: number, full: string): boolean {
+  const opened = fstatSync(fd, { bigint: true });
+  if (realpathSync(full) !== full) return false;
+  const there = lstatSync(full, { bigint: true });
+  return opened.dev === there.dev && opened.ino === there.ino;
+}
+
 function readCapped(root: string, path: string): { bytes: Buffer } | { problem: string } {
+  const full = join(root, path);
+  const parents = path.split("/").slice(0, -1);
   let fd: number;
   try {
-    fd = openSync(join(root, path), constants.O_RDONLY | NO_FOLLOW);
+    for (let depth = 1; depth <= parents.length; depth++) {
+      if (!isRealFolder(join(root, ...parents.slice(0, depth)))) return { problem: LINK };
+    }
+    fd = openSync(full, constants.O_RDONLY | NO_FOLLOW | NON_BLOCK);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    return { problem: code === "ELOOP" ? "is a link; profiles never follow links, so put the file itself in the folder" : `could not be read (${code ?? "error"})` };
+    return { problem: code === "ELOOP" ? LINK : `could not be read (${code ?? "error"})` };
   }
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile()) return { problem: "is not a file" };
+    if (!isFileAt(fd, full)) return { problem: LINK };
     if (stat.size > PROFILE_FILE_MAX_BYTES) return { problem: `is larger than ${KB(PROFILE_FILE_MAX_BYTES)}` };
     const bytes = Buffer.alloc(stat.size);
     let read = 0;
@@ -150,8 +194,9 @@ export function loadProfileFolder(folder: string): LoadedProfileFolder {
     const code = (error as NodeJS.ErrnoException).code;
     throw new ProfileFolderError(code === "ENOENT" ? `${folder} does not exist` : `${folder} could not be opened (${code ?? "error"})`);
   }
-  const walk: Walk = { root, wanted: [], problems: [], warnings: [] };
+  const walk: Walk = { root, wanted: [], problems: [], warnings: [], seen: 0, full: false };
   collect(walk);
+  if (walk.full) return { root, areas: [], bots: [], mcpServers: [], skills: [], problems: walk.problems, warnings: walk.warnings };
   if (!walk.wanted.length && !walk.problems.length) {
     const nested = entries(walk, "").find((entry) => entry.name === "edubot" && entry.isDirectory());
     if (nested) {
@@ -183,5 +228,9 @@ export function loadProfileFolder(folder: string): LoadedProfileFolder {
     }
   }
   const checked = checkProfileFiles(files, walk.wanted);
-  return { root, ...checked, problems: [...walk.problems, ...checked.problems], warnings: [...walk.warnings, ...checked.warnings] };
+  return {
+    root, ...checked,
+    problems: [...walk.problems, ...checked.problems].slice(0, PROFILE_MAX_PROBLEMS),
+    warnings: [...walk.warnings, ...checked.warnings].slice(0, PROFILE_MAX_PROBLEMS),
+  };
 }

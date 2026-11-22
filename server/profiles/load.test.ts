@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { PROFILE_FILE_MAX_BYTES, PROFILE_FOLDER_MAX_FILES, problemSentence } from "../../shared/profile-format.ts";
+import { PROFILE_FILE_MAX_BYTES, PROFILE_FOLDER_MAX_ENTRIES, PROFILE_FOLDER_MAX_FILES, PROFILE_MAX_PROBLEMS, problemSentence } from "../../shared/profile-format.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { loadProfileFolder, ProfileFolderError } from "./load.ts";
 
@@ -126,6 +126,14 @@ describe("loadProfileFolder", () => {
       expect(sentences(dir)).toEqual([`.: has ${PROFILE_FOLDER_MAX_FILES + 9} profile files; the most a folder may have is ${PROFILE_FOLDER_MAX_FILES}`]);
     });
 
+    it("a layout with too many files and folders, before it lists them all", () => {
+      const dir = acme();
+      for (let i = 0; i <= PROFILE_FOLDER_MAX_ENTRIES; i++) write(dir, `areas/bi/note-${i}.txt`, "");
+      const folder = loadProfileFolder(dir);
+      expect(folder.problems.map(problemSentence)).toEqual([`.: has more than ${PROFILE_FOLDER_MAX_ENTRIES} files and folders in its layout, so the check stopped at areas/bi`]);
+      expect(folder.bots).toEqual([]);
+    });
+
     it("a file that is not UTF-8", () => {
       const dir = acme();
       write(dir, "areas/bi/bots/reporter.md", Buffer.from([0x2d, 0x2d, 0x2d, 0x0a, 0xff, 0xfe, 0x0a]));
@@ -145,6 +153,14 @@ describe("loadProfileFolder", () => {
         "areas/sales/bots/closer.md, line 6: cwd is chosen by each person in the app (a working folder is a path on one computer), so it never goes in a profile",
       ]);
     });
+  });
+
+  it("keeps at most PROFILE_MAX_PROBLEMS warnings", () => {
+    const dir = acme();
+    for (let i = 0; i < 250; i++) write(dir, `areas/bi/note-${i}.txt`, "");
+    const folder = loadProfileFolder(dir);
+    expect(folder.problems).toEqual([]);
+    expect(folder.warnings).toHaveLength(PROFILE_MAX_PROBLEMS);
   });
 
   it("warns about files the layout has no place for, and skips hidden ones", () => {

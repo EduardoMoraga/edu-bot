@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { checkProfileFiles, joinInside, problemSentence, profileFileRole } from "./profile-format.ts";
+import { checkProfileFiles, joinInside, PROFILE_MAX_PROBLEMS, problemSentence, profileFileRole } from "./profile-format.ts";
 
 const ORG = `---
 edubot: 1
@@ -201,11 +201,11 @@ name: Helper
       ["a newer version", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("edubot: 1", "edubot: 2") },
         ["areas/bi/bots/analyst.md, line 2: edubot is 2: this folder was written for a newer Edu Bot, so update the app"]],
       ["the wrong kind for the place", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("kind: bot", "kind: area") },
-        ["areas/bi/bots/analyst.md, line 3: kind is \"area\", but this place in the folder holds kind: bot"]],
+        ["areas/bi/bots/analyst.md, line 3: kind does not match this place in the folder, which holds kind: bot"]],
       ["a key that is not the file's name", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("key: analyst", "key: analista") },
-        ["areas/bi/bots/analyst.md, line 4: key is analista, but the file is named analyst; rename one so they match"]],
+        ["areas/bi/bots/analyst.md, line 4: key does not match the name of the file, analyst; rename one so they match"]],
       ["an area key that is not its folder's name", { ...base(), "areas/bi/area.md": AREA.replace("key: bi", "key: sales") },
-        ["areas/bi/area.md, line 4: key is sales, but the area's folder is named bi; rename one so they match"]],
+        ["areas/bi/area.md, line 4: key does not match the name of the area's folder, bi; rename one so they match"]],
       ["a bad bot file name", { ...base(), "areas/bi/bots/Analyst Two.md": BOT },
         ["areas/bi/bots/Analyst Two.md: has a file name that is not a bot key: it must be 1 to 64 lowercase letters, digits or hyphens, starting with a letter or digit"]],
       ["a missing name", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("name: Analyst\n", "") }, ["areas/bi/bots/analyst.md, line 2: name is required"]],
@@ -242,15 +242,15 @@ name: Helper
       ["a key in the instructions", withBot("title: Analyst", "Hello.\n\nThe key is ghp_abcdefghijklmnopqrstuvwxyz0123.\n"),
         ["areas/bi/bots/analyst.md, line 10: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"]],
       ["an absolute path", withBot("skills:\n  - { file: /home/ana/skills/report/SKILL.md }"),
-        ["areas/bi/bots/analyst.md, line 7: skills[0].file is an absolute path; paths differ on each computer, so profiles never hold one"]],
+        ["areas/bi/bots/analyst.md, line 7: skills[0].file holds an absolute or home path; paths differ on each computer, so profiles never hold one"]],
       ["a home path", withBot("skills:\n  - { file: ~/skills/report/SKILL.md }"),
-        ["areas/bi/bots/analyst.md, line 7: skills[0].file is an absolute path; paths differ on each computer, so profiles never hold one"]],
+        ["areas/bi/bots/analyst.md, line 7: skills[0].file holds an absolute or home path; paths differ on each computer, so profiles never hold one"]],
       ["a skill that is not there", withBot("skills:\n  - { file: ../skills/report/SKILL.md }"),
         ["areas/bi/bots/analyst.md, line 7: skills[0].file points to areas/bi/skills/report/SKILL.md, which is not a SKILL.md in an area's skills folder"]],
       ["a skill named apart from its folder", { ...base(), "areas/bi/skills/report/SKILL.md": "---\nname: weekly\ndescription: Report.\n---\n" },
         ["areas/bi/skills/report/SKILL.md, line 2: name is weekly, but the skill's folder is named report; rename one so they match"]],
       ["a skill with a key", { ...base(), "areas/bi/skills/report/SKILL.md": "---\nname: report\ndescription: Report.\n---\nexport OPENAI_KEY=sk-proj-abcdefghijklmnopqrstuv\n" },
-        ["areas/bi/skills/report/SKILL.md, line 5: has a key or password; take it out and put it in a secret slot instead: { secret: NAME }"]],
+        ["areas/bi/skills/report/SKILL.md, line 5: has a key or password in the skill; take it out and put it in a secret slot instead: { secret: NAME }"]],
       ["two bots with one name", { ...base(), "areas/bi/bots/second.md": BOT.replace("key: analyst", "key: second").replace("name: Analyst", "name: analyst") },
         ["areas/bi/bots/second.md, line 5: name is also the name of areas/bi/bots/analyst.md; each bot needs its own name"]],
       ["a chief that is not there", { ...base(), "areas/bi/area.md": AREA.replace("name: BI\n", "name: BI\nchief: boss\n") },
@@ -263,14 +263,14 @@ name: Helper
         ["mcp/notion.md, line 8: headers.Authorization holds a credential; put it in a secret slot instead: { secret: NAME }"]],
       ["a written credential variable", withMcp("transport: stdio\ncommand: npx\nenv:\n  NOTION_TOKEN: abc"),
         ["mcp/notion.md, line 8: env.NOTION_TOKEN holds a credential; put it in a secret slot instead: { secret: NAME }"]],
-      ["a key file inside the folder", withMcp("transport: stdio\ncommand: npx\nenv:\n  NOTION_TOKEN: { file: keys/notion }"),
-        ["mcp/notion.md, line 8: env.NOTION_TOKEN.file points inside the profile folder, so the key would be shared with the profiles; keep key files outside it"]],
+      ["a key file outside .secrets/", withMcp("transport: stdio\ncommand: npx\nenv:\n  NOTION_TOKEN: { file: ../../keys/notion }"),
+        ["mcp/notion.md, line 8: env.NOTION_TOKEN.file must name a file in the folder's .secrets/ folder, such as .secrets/notion: a key file is for CI, which writes it there before it applies the profiles and never commits it"]],
       ["an address with a password", withMcp("transport: http\nurl: https://user:pw@mcp.example/mcp"),
         ["mcp/notion.md, line 6: url must not hold a user name or password; put it in a secret slot instead: { secret: NAME }"]],
       ["a remote server without an address", withMcp("transport: sse"), ["mcp/notion.md, line 2: url is required for transport sse"]],
       ["a command server with headers", withMcp("transport: stdio\ncommand: npx\nheaders: { X-A: b }"), ["mcp/notion.md, line 7: headers is not used with transport stdio"]],
       ["an absolute command", withMcp("transport: stdio\ncommand: /usr/local/bin/notion-mcp"),
-        ["mcp/notion.md, line 6: command is an absolute path; paths differ on each computer, so profiles never hold one"]],
+        ["mcp/notion.md, line 6: command holds an absolute or home path; paths differ on each computer, so profiles never hold one"]],
       ["a version that is not a number", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("edubot: 1", "edubot: one") },
         ["areas/bi/bots/analyst.md, line 2: edubot must be 1"]],
       ["a missing kind", { ...base(), "areas/bi/bots/analyst.md": BOT.replace("kind: bot\n", "") },
@@ -284,13 +284,13 @@ name: Helper
       ["who may see a bot", { ...base(), "areas/bi/area.md": AREA.replace("name: BI\n", "name: BI\ndefaults:\n  visibility: admins\n") },
         ["areas/bi/area.md, line 7: defaults.visibility is chosen by each person in the app, so it never goes in a profile"]],
       ["a Windows path", withBot("skills:\n  - { file: \"C:\\\\skills\\\\report\\\\SKILL.md\" }"),
-        ["areas/bi/bots/analyst.md, line 7: skills[0].file is an absolute path; paths differ on each computer, so profiles never hold one"]],
+        ["areas/bi/bots/analyst.md, line 7: skills[0].file holds an absolute or home path; paths differ on each computer, so profiles never hold one"]],
       ["an area folder that is not a key", { ...base(), "areas/Big Data/area.md": AREA },
         ["areas/Big Data/area.md: is in a folder whose name is not an area key: it must be 1 to 64 lowercase letters, digits or hyphens, starting with a letter or digit"]],
       ["a skill folder that is not a skill name", { ...base(), "areas/bi/skills/Report/SKILL.md": "---\nname: report\ndescription: R.\n---\n" },
         ["areas/bi/skills/Report/SKILL.md: is in a skill folder whose name is not a skill name (lowercase letters, digits and hyphens)"]],
       ["an MCP key that is not the file's name", { ...base(), "mcp/notion.md": mcp("transport: sse\nurl: https://x.example/sse").replace("key: notion", "key: notes") },
-        ["mcp/notion.md, line 4: key is notes, but the file is named notion; rename one so they match"]],
+        ["mcp/notion.md, line 4: key does not match the name of the file, notion; rename one so they match"]],
       ["a token on a brain that is not in the cloud", withBot("eduBrain: { mode: area, token: { secret: T } }"), ["areas/bi/bots/analyst.md, line 6: eduBrain.token is only for mode cloud"]],
       ["a reserved server key", { ...base(), "mcp/edu.md": mcp("transport: http\nurl: https://x.example/mcp").replace("key: notion", "key: edu") },
         ["mcp/edu.md, line 4: key is Edu Bot's own memory server; set eduBrain on a bot or area instead"]],
@@ -300,12 +300,120 @@ name: Helper
     });
   });
 
+  describe("keeps a key out wherever it is written, and never returns the file that holds it", () => {
+    const KEY = "sk-ant-AUDITKEY0123456789";
+    const leakCases: Array<[string, Files, string | string[]]> = [
+      ["split across two lines of the instructions", withBot("title: Analyst", "Hello.\nsk-ant-AUDITKEY\n0123456789\n"),
+        "areas/bi/bots/analyst.md, line 9: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"],
+      ["split inside a literal block", withBot("description: |\n  sk-ant-AUDITKEY\n  0123456789"), [
+        "areas/bi/bots/analyst.md, line 6: description holds a key or password; put it in a secret slot instead: { secret: NAME }",
+        "areas/bi/bots/analyst.md, line 7: has a key or password on this line; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]],
+      ["broken by a line separator", withBot("title: Analyst", "Hello sk-ant-AUDIT\u2028KEY0123456789\n"),
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"],
+      ["broken by a zero-width space", withBot("description: use sk-ant-AUDIT\u200bKEY0123456789"),
+        "areas/bi/bots/analyst.md, line 6: description holds a key or password; put it in a secret slot instead: { secret: NAME }"],
+      ["in a front matter comment", withBot(`# old token ${KEY}\ntitle: Analyst`),
+        "areas/bi/bots/analyst.md, line 6: has a key or password on this line; take it out and put it in a secret slot instead: { secret: NAME }"],
+      ["as base64", withBot("title: Analyst", `key= ${btoa(KEY)}\n`),
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"],
+      ["as a user name in an address", withBot("title: Analyst", "Clone https://notaprefix0123456789token@github.com/acme/repo.git\n"),
+        "areas/bi/bots/analyst.md, line 8: has an address with a user name or password in the bot's instructions; take them out of the address and put it in a secret slot instead: { secret: NAME }"],
+    ];
+    it.each(leakCases)("%s", (_name, files, expected) => {
+      const folder = check(files);
+      expect(folder.problems.map(problemSentence)).toEqual([expected].flat());
+      expect(folder.bots).toEqual([]);
+      expect(JSON.stringify(folder)).not.toMatch(/AUDIT|0123456789token/);
+    });
+
+    it("refuses the value after a flag that names a key, and a flag written with its value", () => {
+      expect(sentences(withMcp("transport: stdio\ncommand: npx\nargs: [\"--token\", \"s3cretvalue99\", \"--api-key=abc\", \"--token-file\", \"x\"]"))).toEqual([
+        "mcp/notion.md, line 7: args[1] is the value of --token, a flag that names a key or password; pass the key in env with a secret slot instead, such as env: { NOTION_TOKEN: { secret: NAME } }",
+        "mcp/notion.md, line 7: args[2] gives a flag that names a key or password its value; pass the key in env with a secret slot instead, such as env: { NOTION_TOKEN: { secret: NAME } }",
+      ]);
+      expect(check(withMcp("transport: stdio\ncommand: npx\nargs: [\"--token\", \"s3cretvalue99\"]")).mcpServers).toEqual([]);
+    });
+
+    it("reads a secret slot written as a block as a slot, not as a written secret", () => {
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/mcp\nheaders:\n  Authorization:\n    secret: NOTION_TOKEN"))).toEqual([]);
+    });
+  });
+
+  describe("refuses a path anywhere in a server's command, arguments and variables", () => {
+    const pathCases: Array<[string, string, string]> = [
+      ["an absolute path after =", "args: [\"--config=/home/ana/.edubot-secrets/notion\"]", "args[0] holds an absolute or home path"],
+      ["a home path after =", "args: [\"--dir=~/keys/notion\"]", "args[0] holds an absolute or home path"],
+      ["a path that climbs out", "args: [\"--dir\", \"../../keys\"]", "args[1] holds a path that climbs with .."],
+      ["a command that climbs out", "env: { HOME_DIR: \"a:../b\" }", "env.HOME_DIR holds a path that climbs with .."],
+    ];
+    it.each(pathCases)("%s", (_name, lines, expected) => {
+      const [sentence] = sentences(withMcp(`transport: stdio\ncommand: npx\n${lines}`));
+      expect(sentence).toContain(expected);
+    });
+
+    it("refuses a command that climbs out, and keeps addresses and relative names", () => {
+      expect(sentences(withMcp("transport: stdio\ncommand: ../../.edubot-secrets/notion-mcp"))).toEqual([
+        "mcp/notion.md, line 6: command holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one",
+      ]);
+      expect(sentences(withMcp("transport: stdio\ncommand: npx\nargs: [\"-y\", \"@notionhq/notion-mcp-server\", \"--url=https://api.notion.com/v1\", \"dist/server.js\"]"))).toEqual([]);
+    });
+  });
+
+  describe("tools", () => {
+    const area = (tools: string) => ({ ...base(), "areas/bi/area.md": AREA.replace("name: BI\n", `name: BI\ndefaults:\n  tools: ${tools}\n`) });
+
+    it("refuses a nearer tools without allow under a level that sets allow, since it would allow every other tool", () => {
+      expect(sentences({ ...area("{ allow: [\"native:read\"] }"), "areas/bi/bots/analyst.md": bot("tools: { deny: [\"native:shell\"] }") })).toEqual([
+        "areas/bi/bots/analyst.md, line 6: tools has no allow, so it would allow every other tool, not only those areas/bi/area.md allows; list them in allow, or write allow: [\"*\"] to allow every tool on purpose",
+      ]);
+    });
+
+    it("widens to every tool only when the file says allow: [\"*\"]", () => {
+      const folder = check({ ...area("{ allow: [\"native:read\"] }"), "areas/bi/bots/analyst.md": bot("tools: { allow: [\"*\"], deny: [\"native:shell\"] }") });
+      expect(folder.problems).toEqual([]);
+      expect(folder.bots[0]).toMatchObject({ tools: { deny: ["native:shell"] }, from: { tools: "bot" } });
+      expect(sentences(withBot("tools: { allow: [\"*\", \"native:read\"] }"))).toEqual([
+        "areas/bi/bots/analyst.md, line 6: tools.allow[0] is every tool, so it stands alone in allow: [\"*\"]",
+      ]);
+      expect(sentences(withBot("tools: { deny: [\"*\"] }"))[0]).toContain("tools.deny[0] is not a tool selector");
+    });
+  });
+
+  it("refuses a maxApproval when no level sets approval, since the app's default is Full access", () => {
+    const org = ORG.replace("  approval: ask\n", "").replace("name: Acme\n", "name: Acme\nmaxApproval: ask\n");
+    expect(sentences({ ...base(), "org.md": org })).toEqual([
+      "org.md, line 5: maxApproval is ask, but no level sets approval for bi/analyst, so the app's default, Full access, would apply; set approval, such as defaults: { approval: ask }",
+    ]);
+    expect(sentences({ ...base(), "org.md": org.replace("maxApproval: ask", "maxApproval: full") })).toEqual([]);
+  });
+
+  it("calls __proto__ and constructor unknown fields in a sentence", () => {
+    expect(sentences(withBot("__proto__: x\nconstructor: y"))).toEqual([
+      "areas/bi/bots/analyst.md, line 6: __proto__ is not a field a bot can have (docs/profiles.md lists them)",
+      "areas/bi/bots/analyst.md, line 7: constructor is not a field a bot can have (docs/profiles.md lists them)",
+    ]);
+  });
+
+  it("says a chief whose file has problems is not a valid bot, not that it is missing", () => {
+    const files = { ...withBot("colour: blue"), "areas/bi/area.md": AREA.replace("name: BI\n", "name: BI\nchief: analyst\n") };
+    expect(sentences(files)).toEqual([
+      "areas/bi/bots/analyst.md, line 6: colour is not a field a bot can have (docs/profiles.md lists them)",
+      "areas/bi/area.md, line 6: chief names analyst, but areas/bi/bots/analyst.md is not a valid bot yet; fix its problems first",
+    ]);
+  });
+
+  it("keeps at most PROFILE_MAX_PROBLEMS warnings", () => {
+    const files = { ...base(), ...Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`areas/bi/note-${i}.txt`, "x"])) };
+    expect(check(files).warnings).toHaveLength(PROFILE_MAX_PROBLEMS);
+  });
+
   it("allows the plain loopback address and a name that only mentions a path in prose", () => {
     const files = withBot("description: /reports is where the weekly files go\neduBrain: { mode: cloud, url: \"http://127.0.0.1:8787/mcp\", token: { env: EDU_CLOUD_TOKEN } }");
     expect(sentences(files)).toEqual([]);
   });
 
-  it("allows a key file outside the folder, for CI", () => {
-    expect(sentences(withMcp("transport: stdio\ncommand: npx\nenv:\n  NOTION_TOKEN: { file: ../../keys/notion }"))).toEqual([]);
+  it("allows a key file in the folder's .secrets/ folder, for CI", () => {
+    expect(sentences(withMcp("transport: stdio\ncommand: npx\nenv:\n  NOTION_TOKEN: { file: .secrets/notion }"))).toEqual([]);
   });
 });

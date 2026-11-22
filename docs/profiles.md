@@ -219,7 +219,7 @@ field is an error, never ignored, so a misspelt field cannot silently do nothing
 | `model` | `INSTANCE/MODEL`, such as `claude/claude-sonnet-5-5`. |
 | `effort` | `none`, `low`, `medium`, `high`, `xhigh` or `max`. |
 | `approval` | `ask`, `edits`, `auto` or `full` ([approval-levels.md](approval-levels.md)). `custom` is set in the desktop app. |
-| `tools` | `{ allow: [SELECTOR], deny: [SELECTOR] }`, as in [tool-selection.md](tool-selection.md). |
+| `tools` | `{ allow: [SELECTOR], deny: [SELECTOR] }`, as in [tool-selection.md](tool-selection.md). `allow: ["*"]` allows every tool. |
 | `toolsOff` | Built-in tool groups switched off: `meetings`, `data`, `pages`, `images`, `email`. |
 | `connectors` | Connected-app tools by app: `gmail: { tools: [GMAIL_FETCH_EMAILS] }` or `gmail: { tools: "*" }`. Each person connects their own account. |
 | `eduBrain` | `{ mode: own }` (the bot's own brain, the app's default), `{ mode: area }` (one brain the area's bots share), `{ mode: cloud, url, token }` (an [edu-cloud](https://github.com/EduardoMoraga/edu-cloud) brain the team shares) or `{ mode: off }`. See [edu-brain.md](edu-brain.md). |
@@ -247,12 +247,15 @@ must already have a server with that name.
 
 Each bot setting comes whole from the nearest level that sets it: the bot, then its area's `defaults`, then the
 organization's `defaults`. `tools: { allow: [...] }` on a bot replaces its area's `tools` entirely; lists are never
-merged. A setting no level sets is left to the app's own default (for `eduBrain`, the bot's own brain).
+merged. A `tools` without `allow` under a level that sets `allow` is an error, since it would allow every other tool;
+to widen on purpose, write `allow: ["*"]`. A setting no level sets is left to the app's own default (for `eduBrain`,
+the bot's own brain).
 
 `mcpServers` is the one exception: a bot may use the organization's servers, its area's and its own, each listed once.
 
 `maxApproval` limits the result: a bot whose approval, wherever it was set, is above its area's or organization's
-`maxApproval` is an error.
+`maxApproval` is an error. Under a `maxApproval` below `full`, some level must set `approval`, since the app's own
+default is Full access.
 
 `edubot profiles check FOLDER --json` shows each bot as it resolves, with `from`, the level each setting came from:
 
@@ -272,15 +275,22 @@ headers:
 ```
 
 The slot holds the whole value the server expects (for example `Bearer …`). For CI, `{ env: NAME }` reads an
-environment variable and `{ file: PATH }` a file, as in the [team file](headless-cli.md#the-team-file). A `file` path
-must be relative and must point outside the profile folder, so a key file is never committed with the profiles.
+environment variable and `{ file: .secrets/NAME }` a file in the folder's `.secrets/` folder, which CI writes from its
+own secret store before it applies the profiles. Add `.secrets/` to the repository's `.gitignore`: a key file is never
+committed. The check never opens a key file.
 
 The check refuses:
 
-- a value shaped like a key anywhere in a file: a provider's key prefix, a private key block, `Bearer …`, `token=…`;
+- a value shaped like a key anywhere in a file, YAML comments included: a provider's key prefix, a private key block,
+  `Bearer …`, `token=…`. Each line is checked, and the whole file again with line breaks, indentation and invisible
+  characters taken out, so a key split across lines is found too. A short base64 token is decoded and checked;
 - a header or variable whose name says it holds a credential (`Authorization`, `Cookie`, `*_TOKEN`, `*_KEY`,
   `*SECRET*`, `*PASSWORD*`…) written as plain text instead of a slot;
-- an address with a user name or password in it.
+- a server argument after a flag that names a key (`--token VALUE`, `--api-key=VALUE`): pass the key in `env` with a
+  slot;
+- an address with a user name or password in it, anywhere in a file.
+
+Prose can now and then look like a key. The problem names the line; reword it, or move the value into a slot.
 
 ## What never goes in a profile
 
@@ -289,7 +299,9 @@ These belong to each person and stay in their own app. The check refuses each on
 - engine logins and API keys, MCP keys and sign-ins, connected-app accounts, edu-cloud tokens (secret slots name
   them; their values never appear);
 - `cwd` (a bot's working folder), `computer` (where it works), `browserProfile`, `visibility`;
-- `eduBrain: { mode: folder }`, and any absolute path (`/home/…`, `~/…`, `C:\…`): paths differ on each computer.
+- `eduBrain: { mode: folder }`, and any absolute path (`/home/…`, `~/…`, `C:\…`), anywhere in a value such as
+  `--config=/home/…`: paths differ on each computer. A server's `command`, `args` and `env` may not climb with `..`
+  either.
 
 ## Checking a folder
 
@@ -319,7 +331,8 @@ The check also refuses:
 - a file that is not UTF-8 (Windows line ends and a byte order mark are fine);
 - YAML aliases (`*name`), a field written twice, a front matter block that never closes;
 - a bot whose area has no `area.md`, a `chief` that is not one of the area's bots, two bots with one name, and a
-  `skills` entry that is not a SKILL.md in an area's `skills/` folder.
+  `skills` entry that is not a SKILL.md in an area's `skills/` folder;
+- more than 2,000 files and folders in the layout. At most 200 problems and 200 warnings are listed.
 
 A skill's text is scanned as imported skills are (a download piped into a shell, a long encoded blob, hidden text).
 What the scan finds is a warning for a person to read, not a refusal.
