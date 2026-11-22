@@ -8,10 +8,17 @@ import { fileURLToPath } from "node:url";
 // lane its commands in order. ci-workflow.test.ts holds every command equal to the job step it stands for.
 
 /** The vitest job's two steps for one Linux matrix entry, with the step's environment. */
-export function vitestLane(entry, retryLog) {
+export function vitestLane(entry, retryLog, env = process.env) {
   return {
     name: `vitest (ubuntu-latest, ${entry.part})`,
-    env: { OMB_VITEST_RETRY_LOG: retryLog, OMB_VITEST_E2E: entry.e2e, OMB_VITEST_SUBSET: entry.files, OMB_VITEST_WORKERS: entry.workers },
+    env: {
+      OMB_VITEST_RETRY_LOG: retryLog,
+      OMB_VITEST_E2E: entry.e2e,
+      OMB_VITEST_SUBSET: entry.files,
+      OMB_VITEST_WORKERS: entry.workers,
+      // A blank string would wipe a secret the caller already has. Unset stays empty, and the live test skips.
+      EDUBOT_COMPOSIO_TEST_KEY: env.EDUBOT_COMPOSIO_TEST_KEY ?? "",
+    },
     commands: [
       `pnpm exec vitest run ${entry.files} --shard=${entry.shard}/${entry.shards} --reporter=default --reporter=github-actions`,
       ...(entry.node_tests ? ["pnpm broker:test && pnpm test:electron"] : []),
@@ -19,9 +26,12 @@ export function vitestLane(entry, retryLog) {
   };
 }
 
+// Spawn overlays lane.env on the process environment, so "" clears the Boat step's Composio test key.
+const noComposioTestKey = { EDUBOT_COMPOSIO_TEST_KEY: "" };
+
 export const EVALS_LANE = {
   name: "behavior evals (offline tiers 1-3)",
-  env: {},
+  env: noComposioTestKey,
   commands: [
     "pnpm exec tsc -p evals/tsconfig.json",
     "pnpm exec vitest run --config evals/vitest.config.ts --reporter=default --reporter=github-actions",
@@ -34,12 +44,12 @@ printf '%s\\n' "$output" | grep -q "live tier skipped"
   ],
 };
 
-export const PACKAGED_SERVER_LANE = { name: "packaged server smoke (ubuntu-latest)", env: {}, commands: ["pnpm test:packaged-server"] };
+export const PACKAGED_SERVER_LANE = { name: "packaged server smoke (ubuntu-latest)", env: noComposioTestKey, commands: ["pnpm test:packaged-server"] };
 
 /** Every lane of ci-scope's `linux_lanes` plan. */
-export function lanesFor(plan, retryLog) {
+export function lanesFor(plan, retryLog, env = process.env) {
   return [
-    ...plan.vitest.map((entry) => vitestLane(entry, retryLog)),
+    ...plan.vitest.map((entry) => vitestLane(entry, retryLog, env)),
     ...(plan.evals ? [EVALS_LANE] : []),
     ...(plan.packaged_server ? [PACKAGED_SERVER_LANE] : []),
   ];
