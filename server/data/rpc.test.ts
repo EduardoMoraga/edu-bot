@@ -34,14 +34,14 @@ function harness(signal = new AbortController().signal) {
 }
 
 describe("dataRpc", () => {
-  it("lists the six tools with the dialect instructions and touches no database", async () => {
+  it("lists the tools with the dialect instructions and touches no database", async () => {
     const { deps, database, checks } = harness();
     const listed = await dataRpc({ method: "tools/list", params: {} }, deps) as { tools: Array<{ name: string; inputSchema: unknown }>; instructions: string };
     expect(listed.tools.map((tool) => tool.name)).toEqual([...DATA_TOOL_NAMES]);
     expect(listed.instructions).toBe(DATA_INSTRUCTIONS);
     expect(listed.instructions).toContain("GROUP BY ALL");
     expect(listed.instructions).toContain("QUALIFY");
-    expect(listed.instructions).toContain("read_parquet");
+    expect(listed.instructions).toContain("working folder");
     expect(checks()).toBe(1);
     expect(database.calls).toEqual([]);
   });

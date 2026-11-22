@@ -2,7 +2,7 @@ import { DataFailure } from "./types.ts";
 
 const fail = (code: "invalid_input", message: string, hint?: string) => new DataFailure({ code, message, ...(hint ? { hint } : {}) });
 
-export type Token = { kind: "word" | "ident" | "punct" | "block"; text: string; raw: string };
+export type Token = { kind: "word" | "ident" | "punct" | "block"; text: string; raw: string; at: number };
 
 export function singleStatement(sql: string): { tokens: Token[]; end: number } {
   const tokens: Token[] = [];
@@ -12,7 +12,7 @@ export function singleStatement(sql: string): { tokens: Token[]; end: number } {
   let i = 0;
   const n = sql.length;
   let end = n;
-  const push = (kind: Token["kind"], raw: string, text = raw) => { if (depth === 0) tokens.push({ kind, text, raw }); };
+  const push = (kind: Token["kind"], raw: string, text = raw) => { if (depth === 0) tokens.push({ kind, text, raw, at: i }); };
   while (i < n) {
     const ch = sql[i]!;
     const next = sql[i + 1];
@@ -103,4 +103,21 @@ function literalEnd(sql: string, quote: number, escapes: boolean): number {
 export function queryRelation(sql: string): string {
   const { end } = singleStatement(sql);
   return `(${sql.slice(0, end)}\n)`;
+}
+
+/** The select after a top-level CREATE TABLE|VIEW … AS. Null when this is not that statement. */
+export function createSelectBody(sql: string): string | null {
+  const { tokens, end } = singleStatement(sql);
+  if (tokens[0]?.text !== "CREATE") return null;
+  let j = 1;
+  if (tokens[j]?.text === "OR" && tokens[j + 1]?.text === "REPLACE") j += 2;
+  if (tokens[j]?.text === "TEMP" || tokens[j]?.text === "TEMPORARY") j++;
+  if (tokens[j]?.text !== "TABLE" && tokens[j]?.text !== "VIEW") return null;
+  j++;
+  if (tokens[j]?.text === "IF" && tokens[j + 1]?.text === "NOT" && tokens[j + 2]?.text === "EXISTS") j += 3;
+  while (j < tokens.length && tokens[j]!.text !== "AS") j++;
+  const as = tokens[j];
+  if (!as || as.text !== "AS") return null;
+  const body = sql.slice(as.at + as.raw.length, end).trim();
+  return body || null;
 }

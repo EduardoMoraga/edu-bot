@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 
 import { t } from "@/lib/i18n";
-import { Select } from "../Select";
 import { api } from "@/state/api";
 import type { DataGrantMap } from "../../../shared/data-connections";
 import type { Bot } from "@/state/store";
 import { useStoreDispatch } from "@/state/store-select";
 
-interface Row { allow: boolean; tables: string; schemas: string; write: "never" | "ask" }
+interface Row { allow: boolean; tables: string; schemas: string }
 
 const split = (value: string) => value.split(",").map((item) => item.trim()).filter(Boolean);
 
@@ -31,7 +30,6 @@ export function DataSection({ bot }: { bot: Bot }) {
             allow: Boolean(grant),
             tables: grant?.tables?.join(", ") ?? "",
             schemas: grant?.schemas?.join(", ") ?? "",
-            write: grant?.write === "ask" ? "ask" : "never",
           };
         }
         setNames(list);
@@ -48,7 +46,7 @@ export function DataSection({ bot }: { bot: Bot }) {
       if (!row?.allow) continue;
       const tables = split(row.tables);
       const schemas = split(row.schemas);
-      grants[name] = { ...(schemas.length ? { schemas } : {}), ...(tables.length ? { tables } : {}), write: row.write };
+      grants[name] = { ...(schemas.length ? { schemas } : {}), ...(tables.length ? { tables } : {}) };
     }
     dispatch({ type: "updateBot", botId: bot.id, patch: { dataConnections: Object.keys(grants).length ? grants : null } });
     setNote(t("botSettings.data.saved"));
@@ -77,13 +75,6 @@ export function DataSection({ bot }: { bot: Bot }) {
               <label className="flex flex-col gap-1 text-[12px] text-ink-secondary">
                 {t("botSettings.data.schemas")}
                 <input className="h-8 rounded-lg bg-app px-2 text-[13px] text-ink" disabled={!row.allow} value={row.schemas} onChange={(event) => setRow(name, { schemas: event.target.value })} />
-              </label>
-              <label className="flex items-center justify-between gap-3 text-[13px] text-ink">
-                {t("botSettings.data.write")}
-                <Select disabled={!row.allow} value={row.write} aria-label={t("botSettings.data.write")} onChange={(event) => setRow(name, { write: event.target.value as Row["write"] })}>
-                  <option value="never">{t("botSettings.data.writeNever")}</option>
-                  <option value="ask">{t("botSettings.data.writeAsk")}</option>
-                </Select>
               </label>
             </div>
           );

@@ -36,7 +36,7 @@ async function fixture() {
   return { dataDir, url, server, api };
 }
 
-it("answers an allowed sqlite table, refuses another, and writes only after the card", async () => {
+it("answers an allowed sqlite table and refuses another", async () => {
   const { dataDir, url, server, api } = await fixture();
   const allowed = join(dirname(dataDir), `shop-${process.pid}-${Date.now()}`);
   mkdirSync(allowed);
@@ -52,7 +52,7 @@ it("answers an allowed sqlite table, refuses another, and writes only after the 
     const added = await api("POST", "/api/data-connections", { name: "shop", type: "sqlite", path: file }, 201);
     expect(added.where).toBe(file);
     expect(JSON.stringify(await api("GET", "/api/data-connections"))).not.toMatch(/postgres:\/\//);
-    await api("PATCH", `/api/bots/${bot.id}`, { dataConnections: { shop: { tables: ["orders"], write: "ask" } } });
+    await api("PATCH", `/api/bots/${bot.id}`, { dataConnections: { shop: { tables: ["orders"] } } });
     const minted = await api("POST", "/api/testing/internal-capability", { botId: bot.id, threadId, kind: "data" }, 201, { "x-openmausbot-test-capability": CAPABILITY_KEY });
     const call = async (name: string, args: Record<string, unknown>) => {
       const result = (await api("POST", "/api/internal/data/mcp", { method: "tools/call", params: { name, arguments: args } }, 200, { authorization: `Bearer ${minted.token}` })).result;
@@ -71,19 +71,6 @@ it("answers an allowed sqlite table, refuses another, and writes only after the 
     }
     expect(read.isError, read.text).toBe(false);
     expect(read.data.rows).toEqual([["42"]]);
-    const pending = call("data_write", { on: "shop", sql: "INSERT INTO orders VALUES (2, 7)" });
-    const requestId = await cardId(api, threadId);
-    await api("POST", `/api/bots/${bot.id}/respond`, { requestId, behavior: "allow", threadId });
-    const wrote = await pending;
-    expect(wrote.isError, wrote.text).toBe(false);
-    const after = await call("data_sql", { on: "shop", sql: "SELECT amount FROM orders ORDER BY amount" });
-    expect(amounts(after.data.rows)).toEqual(["7", "42"]);
-    const denied = call("data_write", { on: "shop", sql: "INSERT INTO orders VALUES (3, 99)" });
-    const deniedId = await cardId(api, threadId, requestId);
-    await api("POST", `/api/bots/${bot.id}/respond`, { requestId: deniedId, behavior: "deny", threadId });
-    expect((await denied).data.code).toBe("write_refused");
-    const still = await call("data_sql", { on: "shop", sql: "SELECT amount FROM orders ORDER BY amount" });
-    expect(amounts(still.data.rows)).toEqual(["7", "42"]);
     const month = new Date().toISOString().slice(0, 7);
     const log = readFileSync(join(dataDir, "decisions", `${month}.ndjson`), "utf8");
     expect(log).toContain('"source":"data"');
@@ -103,7 +90,7 @@ it.skipIf(!process.env.EDUBOT_PG_TEST_URL)("reads postgres when EDUBOT_PG_TEST_U
     const { bot } = await runControlOmb(["new-bot", "--name", "Pg bot", "--url", url]) as { bot: { id: string; activeTaskId: string } };
     await api("POST", "/api/data-connections", { name: "pg", type: "postgres", dsn }, 201);
     expect(JSON.stringify(await api("GET", "/api/data-connections"))).not.toContain(dsn);
-    await api("PATCH", `/api/bots/${bot.id}`, { dataConnections: { pg: { write: "never" } } });
+    await api("PATCH", `/api/bots/${bot.id}`, { dataConnections: { pg: {} } });
     const minted = await api("POST", "/api/testing/internal-capability", { botId: bot.id, threadId: bot.activeTaskId, kind: "data" }, 201, { "x-openmausbot-test-capability": CAPABILITY_KEY });
     const result = (await api("POST", "/api/internal/data/mcp", { method: "tools/call", params: { name: "data_sql", arguments: { on: "pg", sql: "SELECT 1 AS n" } } }, 200, { authorization: `Bearer ${minted.token}` })).result;
     expect(result.isError).not.toBe(true);
@@ -115,20 +102,4 @@ it.skipIf(!process.env.EDUBOT_PG_TEST_URL)("reads postgres when EDUBOT_PG_TEST_U
   }
 }, 180_000);
 
-const amounts = (rows: unknown) => (rows as unknown[][]).map((row) => String(row[0])).sort((a, b) => Number(a) - Number(b));
 
-async function cardId(api: (method: string, path: string, body?: unknown, status?: number, headers?: Record<string, string>) => Promise<any>, threadId: string, skip = ""): Promise<string> {
-  const started = Date.now();
-  while (Date.now() - started < 20_000) {
-    const body = await api("GET", `/api/threads/${threadId}/messages?limit=200`);
-    const found = (body.messages as Array<{ card?: { requestId?: string; tool?: string; subtitle?: string } }>)
-      .map((message) => message.card)
-      .find((card) => card?.tool === "data_write" && card.requestId && card.requestId !== skip);
-    if (found?.requestId) {
-      expect(found.subtitle ?? "").not.toMatch(/postgres:\/\//);
-      return found.requestId;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("the write card was not shown");
-}

@@ -11,14 +11,15 @@ export const RESERVED_CONNECTION_NAMES = new Set(["data", "main", "memory", "tem
 export const NAMED_CONNECTION_SENTENCE =
   "Add a named connection in Settings → Data, then query it with data_sql on: that name. A password is never typed into a tool.";
 
-const URL_DSN = /\b(?:postgres(?:ql)?|mysql|mariadb|sqlite|duckdb|mssql|sqlserver|mongodb(?:\+srv)?|rediss?|clickhouse|oracle):\/\/\S+/i;
+const URL_DSN = /\b(?:postgres(?:ql)?|mysql|mariadb|sqlite|duckdb|mssql|sqlserver|mongodb(?:\+srv)?|rediss?|clickhouse|oracle)(?:\+[a-z0-9_.-]+)?:\/\/\S+/i;
+const USERINFO_DSN = /:\/\/[^\s/:@]+:[^\s/@]+@/;
 const KEYWORD_DSN = /\b(?:host(?:addr)?|password|passwd|pwd)\s*=\s*\S+/i;
 const ODBC_DSN = /\b(?:driver|dsn)\s*=\s*\S+/i;
 const ENV_DSN = /\$\{[A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Za-z0-9_]*\}|\$[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Z0-9_]*/;
 
-/** A database URL, a keyword or ODBC DSN, or an env var whose name holds a secret. `SELECT password FROM t` is not one. */
+/** A database URL, a keyword or ODBC DSN, userinfo, or an env var whose name holds a secret. `SELECT password FROM t` is not one. */
 export function containsRawDsn(text: string): boolean {
-  return URL_DSN.test(text) || KEYWORD_DSN.test(text) || ODBC_DSN.test(text) || ENV_DSN.test(text);
+  return URL_DSN.test(text) || USERINFO_DSN.test(text) || KEYWORD_DSN.test(text) || ODBC_DSN.test(text) || ENV_DSN.test(text);
 }
 
 export function connectionNameError(name: string): string | null {
@@ -47,11 +48,10 @@ export function parseDataGrants(value: unknown): { ok: true; grants: DataGrantMa
     if (typeof schemas === "string") return { ok: false, error: schemas };
     const tables = listField(body.tables, `dataConnections.${name}.tables`);
     if (typeof tables === "string") return { ok: false, error: tables };
-    if (body.write !== undefined && body.write !== "never" && body.write !== "ask") return { ok: false, error: `dataConnections.${name}.write must be never or ask` };
+    if (body.write !== undefined) return { ok: false, error: "writes come in a later update" };
     grants[name] = {
       ...(schemas ? { schemas } : {}),
       ...(tables ? { tables } : {}),
-      ...(body.write === "never" || body.write === "ask" ? { write: body.write } : {}),
     };
   }
   return { ok: true, grants };
@@ -72,7 +72,6 @@ export function dataGrantWidens(app: DataGrantMap | null | undefined, file: Data
   for (const [name, grant] of Object.entries(next)) {
     const had = current[name];
     if (!had) return true;
-    if (grant.write === "ask" && had.write !== "ask") return true;
     if (listWidens(had.schemas, grant.schemas) || listWidens(had.tables, grant.tables)) return true;
   }
   return false;

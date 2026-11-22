@@ -265,14 +265,14 @@ describe("planProfiles", () => {
     const edited = folder({
       "areas/bi/bots/analyst.md": (text) => {
         const lines = text.split("\n");
-        lines.splice(lines.indexOf("---", 1), 0, "data:", "  shop:", "    tables: [orders]", "    write: ask");
+        lines.splice(lines.indexOf("---", 1), 0, "data:", "  shop:", "    tables: [orders]");
         return lines.join("\n");
       },
     });
     expect(kinds(plan(edited).plan.lines, "access")).toContain("Analista BI: data connections none → shop");
     const { outcome } = await apply(edited, { giveAccess: true });
     expect(outcome.applied.map((line) => line.text)).toContain("Analista BI: data connections none → shop");
-    expect(bot("bi/analyst").dataConnections).toEqual({ shop: { tables: ["orders"], write: "ask" } });
+    expect(bot("bi/analyst").dataConnections).toEqual({ shop: { tables: ["orders"] } });
     expect(plan(edited).plan.noChanges).toBe(true);
   });
 

@@ -1,20 +1,9 @@
-import { randomUUID } from "node:crypto";
-
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn, type DataGrant, type DataGrantMap } from "../../shared/data-connections.ts";
 import { appendDecision } from "../decision-log.ts";
 import { ConnectionStore, type ConnectionType, type StoredConnection } from "./connections.ts";
 import { inspectSql, isPathTable, type SqlTable } from "./sql-shape.ts";
-import { runNamedRead, runNamedWrite, type PlanTable } from "./session.ts";
+import { runNamedRead } from "./session.ts";
 import { DataFailure, type BotDatabase, type DataConnection, type RunResult } from "./types.ts";
-
-export interface DataWriteCard {
-  title: string;
-  subtitle: string;
-  options: string[];
-  requestId: string;
-  tool: string;
-  requestType: "permission";
-}
 
 export interface NamedDataAccess {
   botId: string;
@@ -22,7 +11,6 @@ export interface NamedDataAccess {
   dataDir: string;
   allowlist(): DataGrantMap | undefined;
   secret(id: string): string | null;
-  postCard(text: string, card: DataWriteCard): void;
 }
 
 export interface NamedContext {
@@ -57,7 +45,7 @@ export async function queryNamed(ctx: NamedContext, input: { sql: string; on: st
   const named = ctx.named;
   let opened: OpenedConnection;
   try {
-    opened = openNamed(ctx, input.on, input.sql, "read");
+    opened = openNamed(ctx, input.on, input.sql);
     const inspected = await inspectSql(input.sql, "named");
     if (!inspected.ok) throw refused("This statement names something this bot cannot check, so it was not run.");
     for (const table of inspected.tables) {
@@ -74,7 +62,7 @@ export async function queryNamed(ctx: NamedContext, input: { sql: string; on: st
   return { ...result, elapsedMs: Date.now() - started };
 }
 
-export function openNamed(ctx: NamedContext, on: string, sql: string, mode: "read" | "write"): OpenedConnection {
+export function openNamed(ctx: NamedContext, on: string, sql: string): OpenedConnection {
   if (containsRawDsn(sql) || containsRawDsn(on)) throw fail(NAMED_CONNECTION_SENTENCE);
   const named = ctx.named;
   if (!named) throw fail("Named connections are not set up on this call.");
@@ -83,7 +71,6 @@ export function openNamed(ctx: NamedContext, on: string, sql: string, mode: "rea
   if (!connection) throw fail(`There is no data connection named ${on}. Add it in Settings → Data.`);
   const grant = named.allowlist()?.[on];
   if (!grant) throw refused(`This bot may not use ${on}.`);
-  if (mode === "write" && grant.write !== "ask") throw refused(`This bot may not write to ${on}.`);
   let target: string;
   try {
     target = store.target(connection);
@@ -118,26 +105,6 @@ export function relationAllowed(table: SqlTable, grant: DataGrant, connection: S
   return true;
 }
 
-export function writeTableAllowed(table: PlanTable, grant: DataGrant, connection: StoredConnection): boolean {
-  return relationAllowed({ catalog: "", schema: table.schema, table: table.table }, grant, connection);
-}
-
-export async function explainNamedWrite(ctx: NamedContext, opened: OpenedConnection, sql: string): Promise<void> {
-  const named = ctx.named!;
-  await runNamedWrite({
-    dataDir: named.dataDir, connection: opened.connection, target: opened.target, sql, signal: ctx.signal, dryRun: true,
-    allow: (table) => writeTableAllowed(table, opened.grant, opened.connection),
-  });
-}
-
-export async function executeNamedWrite(ctx: NamedContext, opened: OpenedConnection, sql: string): Promise<void> {
-  const named = ctx.named!;
-  await runNamedWrite({
-    dataDir: named.dataDir, connection: opened.connection, target: opened.target, sql, signal: ctx.signal,
-    allow: (table) => writeTableAllowed(table, opened.grant, opened.connection),
-  });
-}
-
 export function openStore(named: NamedDataAccess): ConnectionStore {
   return new ConnectionStore(named.dataDir, { secret: (id) => { const value = named.secret(id); return value === null ? null : { value }; } });
 }
@@ -152,6 +119,4 @@ export function log(ctx: NamedContext, row: { tool: string; decision: "auto-appr
   });
 }
 
-export function newRequestId(): string {
-  return randomUUID();
-}
+

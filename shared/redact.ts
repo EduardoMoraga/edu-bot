@@ -68,12 +68,9 @@ const SECRET_FLAG = /(--(?:token|password|passwd|api-key|apikey|secret|access-ke
 /** `scheme://user:secret@host` — the password in a URL's userinfo. */
 const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@'"]+:)([^\s/@'"«»]+)(@)/gi;
 /** A database URL is a credential end to end, host included. Masked before URL_USERINFO so the host does not remain. */
-const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|sqlite|duckdb|mssql|sqlserver|mongodb(?:\+srv)?|rediss?|clickhouse|oracle):\/\/\S+/gi;
+const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql|mariadb|sqlite|duckdb|mssql|sqlserver|mongodb(?:\+srv)?|rediss?|clickhouse|oracle)(?:\+[a-z0-9_.-]+)?:\/\/\S+/gi;
 /** ODBC-style `Driver=` / `DSN=` assignments. `Pwd=` is covered by PASSWORD_VALUE. */
 const ODBC_VALUE = /\b((?:driver|dsn)\s*=\s*)(["']?)([^\s"'«»;]+)\2/gi;
-/** `${DATABASE_URL}` and `$DATABASE_URL`. `$PATH`, `$HOME` and DuckDB `$1` do not match. */
-const ENV_SECRET = /\$\{[A-Za-z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Za-z0-9_]*\}|\$[A-Z0-9_]*(?:PASSWORD|PASSWD|SECRET|TOKEN|DSN|URL)[A-Z0-9_]*/g;
-
 // A saved website password has no shape: it is known by value. The server
 // registers a scrubber for the values it holds, and every redaction below
 // runs it first. Nothing registers one in a client, where this is a no-op.
@@ -100,7 +97,6 @@ export function redactSecretsInText(text: string): string {
   if (!text) return text;
   // Held values first: a short one-time code is still a secret.
   const held = scrubHeldSecrets(text);
-  if (held.length < 8) return held;
   let out = held;
   out = out.replace(PEM_BLOCK, (_m, open: string, body: string, close: string) => `${open}\n${mask(body.trim())}\n${close}`);
   for (const re of KEY_PREFIXES) out = out.replace(re, (m) => mask(m));
@@ -113,7 +109,6 @@ export function redactSecretsInText(text: string): string {
   out = out.replace(ODBC_VALUE, (_m, key: string, quote: string, value: string) => `${key}${quote}${mask(value)}${quote}`);
   out = out.replace(DATABASE_URL, (url) => mask(url));
   out = out.replace(URL_USERINFO, (_m, lead: string, secret: string, at: string) => `${lead}${mask(secret)}${at}`);
-  out = out.replace(ENV_SECRET, (name) => mask(name));
   return out;
 }
 

@@ -1,6 +1,14 @@
 // DuckDB's own parser (json_serialize_sql) names every base table, table function and statement.
 // A name this walk cannot place, or a statement it cannot serialize, is refused rather than run.
-import { DuckDBInstance, type DuckDBConnection } from "@duckdb/node-api";
+import type * as DuckDB from "@duckdb/node-api";
+
+import { nativeRequire } from "./engine.ts";
+
+type Binding = typeof DuckDB;
+
+function duckdb(): Binding {
+  return nativeRequire()("@duckdb/node-api") as Binding;
+}
 
 export interface SqlTable {
   catalog: string;
@@ -35,8 +43,8 @@ interface WalkState {
 }
 
 let tail: Promise<void> = Promise.resolve();
-let parser: DuckDBConnection | null = null;
-let explainer: DuckDBConnection | null = null;
+let parser: DuckDB.DuckDBConnection | null = null;
+let explainer: DuckDB.DuckDBConnection | null = null;
 
 function queued<T>(work: () => Promise<T>): Promise<T> {
   const run = tail.then(work, work);
@@ -44,9 +52,9 @@ function queued<T>(work: () => Promise<T>): Promise<T> {
   return run;
 }
 
-async function parserConnection(): Promise<DuckDBConnection> {
+async function parserConnection(): Promise<DuckDB.DuckDBConnection> {
   if (parser) return parser;
-  const instance = await DuckDBInstance.create(":memory:", {
+  const instance = await duckdb().DuckDBInstance.create(":memory:", {
     autoinstall_known_extensions: "false",
     autoload_known_extensions: "false",
     enable_external_access: "false",
@@ -55,9 +63,9 @@ async function parserConnection(): Promise<DuckDBConnection> {
   return parser;
 }
 
-async function explainConnection(): Promise<DuckDBConnection> {
+async function explainConnection(): Promise<DuckDB.DuckDBConnection> {
   if (explainer) return explainer;
-  const instance = await DuckDBInstance.create(":memory:", {
+  const instance = await duckdb().DuckDBInstance.create(":memory:", {
     autoinstall_known_extensions: "false",
     autoload_known_extensions: "false",
     enable_external_access: "false",
@@ -105,16 +113,13 @@ function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, s
     return;
   }
   const record = node as Record<string, unknown>;
-  if (record.type === "SELECT_NODE") {
-    walkSelect(record, ctes, seen, state);
-    return;
-  }
   if (record.type === "RECURSIVE_CTE_NODE") {
+    const name = typeof record.cte_name === "string" ? record.cte_name.toLowerCase() : "";
+    walk(record.left, ctes, seen, state);
     const scope = new Set(ctes);
-    const name = typeof record.cte_name === "string" ? record.cte_name : "";
     if (name) scope.add(name);
     for (const [key, value] of Object.entries(record)) {
-      if (key === "cte_name") continue;
+      if (key === "cte_name" || key === "left") continue;
       walk(value, scope, seen, state);
     }
     return;
@@ -124,7 +129,7 @@ function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, s
     const schema = typeof record.schema_name === "string" ? record.schema_name : "";
     const catalog = typeof record.catalog_name === "string" ? record.catalog_name : "";
     if (!table) return;
-    if (!catalog && !schema && ctes.has(table)) return;
+    if (!catalog && !schema && ctes.has(table.toLowerCase())) return;
     if (isPathTable(table)) state.unsafe = true;
     state.tables.push({ catalog, schema, table });
     return;
@@ -143,10 +148,14 @@ function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, s
   if (record.type === "FUNCTION" || record.class === "FUNCTION") {
     if (fileFunction(functionName(record))) state.unsafe = true;
   }
+  if (record.type === "SELECT_NODE" || record.cte_map) {
+    walkQuery(record, ctes, seen, state);
+    return;
+  }
   for (const value of Object.values(record)) walk(value, ctes, seen, state);
 }
 
-function walkSelect(node: Record<string, unknown>, ctes: ReadonlySet<string>, seen: WeakSet<object>, state: WalkState): void {
+function walkQuery(node: Record<string, unknown>, ctes: ReadonlySet<string>, seen: WeakSet<object>, state: WalkState): void {
   const map = (node.cte_map as { map?: unknown } | undefined)?.map;
   const entries = Array.isArray(map) ? map : [];
   let scope = ctes;
@@ -155,7 +164,7 @@ function walkSelect(node: Record<string, unknown>, ctes: ReadonlySet<string>, se
     const record = entry as { key?: unknown; value?: { query?: unknown } };
     walk(record.value?.query, scope, seen, state);
     const next = new Set(scope);
-    if (typeof record.key === "string" && record.key) next.add(record.key);
+    if (typeof record.key === "string" && record.key) next.add(record.key.toLowerCase());
     scope = next;
   }
   for (const [key, value] of Object.entries(node)) {

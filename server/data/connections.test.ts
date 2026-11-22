@@ -131,6 +131,8 @@ describe("connection storage", () => {
     expect(containsRawDsn("hostaddr=127.0.0.1 dbname=shop password=hunter2")).toBe(true);
     expect(containsRawDsn("Driver=SQLite3")).toBe(true);
     expect(containsRawDsn("${DATABASE_URL}")).toBe(true);
+    expect(containsRawDsn("https://bob:hunter2@api.example.com/data.csv")).toBe(true);
+    expect(containsRawDsn("postgresql+psycopg2://bob:hunter2@db/shop")).toBe(true);
     expect(containsRawDsn("echo $PATH")).toBe(false);
     expect(NAMED_CONNECTION_SENTENCE).not.toMatch(/postgres:\/\//);
   });
@@ -138,14 +140,14 @@ describe("connection storage", () => {
 
 describe("grants", () => {
   it("parses a grant and treats a wider file as more access", () => {
-    expect(parseDataGrants({ shop: { tables: ["orders"], write: "ask" } })).toEqual({ ok: true, grants: { shop: { tables: ["orders"], write: "ask" } } });
+    expect(parseDataGrants({ shop: { tables: ["orders"] } })).toEqual({ ok: true, grants: { shop: { tables: ["orders"] } } });
+    expect(parseDataGrants({ shop: { tables: ["orders"], write: "ask" } })).toEqual({ ok: false, error: "writes come in a later update" });
     expect(parseDataGrants({ shop: { password: "x" } }).ok).toBe(false);
     expect(parseDataGrants({ main: {} })).toMatchObject({ ok: false, error: expect.stringMatching(/reserved/) });
     expect(dataGrantWidens({}, { shop: {} })).toBe(true);
     expect(dataGrantWidens({ shop: { tables: ["orders"] } }, { shop: { tables: ["orders"] } })).toBe(false);
     expect(dataGrantWidens({ shop: { tables: ["orders"] } }, { shop: {} })).toBe(true);
-    expect(dataGrantWidens({ shop: { write: "never" } }, { shop: { write: "ask" } })).toBe(true);
-    expect(dataGrantWidens({ shop: { write: "ask" } }, {})).toBe(false);
+    expect(dataGrantWidens({ shop: { tables: ["orders"] } }, {})).toBe(false);
   });
 
   it("rejects home and system roots, and removes a folder that is already gone", () => {

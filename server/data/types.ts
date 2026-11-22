@@ -29,6 +29,8 @@ export interface RunOptions {
   signal?: AbortSignal;
   maxRows?: number;
   extensions?: DataExtension[];
+  /** Read or prove on a fresh locked attach. The shared database keeps file access. */
+  confined?: boolean;
 }
 
 export interface RunResult {

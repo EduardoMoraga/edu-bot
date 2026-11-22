@@ -1,9 +1,11 @@
 import { execFileSync, spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { gzipSync } from "node:zlib";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { installedPackage, pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, platformPackage, resvgPlatformPackage, stageDuckdb, targetsFor, verifyDuckdbTree } from "./prepare-duckdb.mjs";
+import { installedPackage, pinnedDuckdbVersion, pinnedOnePasswordVersion, pinnedResvgVersion, platformPackage, resvgPlatformPackage, stageDuckdb, stageScannerExtensions, targetsFor, verifyDuckdbTree, verifyScannerExtensions } from "./prepare-duckdb.mjs";
 
 const PIN = "9.9.9-r.9";
 const RESVG_PIN = "8.8.8";
@@ -56,11 +58,11 @@ describe("the installer", () => {
     // A Windows checkout may carry CRLF; the capture must not end in \r.
     const yml = fs.readFileSync(new URL("../electron-builder.yml", import.meta.url), "utf8").replace(/\r\n/g, "\n");
     const entries = [...yml.matchAll(/from: (dist-native\/duckdb\/[^\n]+)\n\s+to: ([^\n]+)/g)].map((m) => [m[1], m[2]]);
-    expect(entries.length).toBeGreaterThanOrEqual(3);
-    for (const [from, to] of entries) {
-      expect(from, from).toMatch(/\/node_modules$/);
-      expect(to).toBe("duckdb/node_modules");
-    }
+    const modules = entries.filter(([, to]) => to === "duckdb/node_modules");
+    const extensions = entries.filter(([, to]) => to === "duckdb/extensions");
+    expect(modules.length).toBeGreaterThanOrEqual(3);
+    expect(extensions.map(([from]) => from).sort()).toEqual(modules.map(([from]) => from.replace(/\/node_modules$/, "/extensions")).sort());
+    for (const [from] of modules) expect(from, from).toMatch(/\/node_modules$/);
   });
 });
 
@@ -104,7 +106,7 @@ describe("the pin", () => {
 describe("staging from an install", () => {
   it("copies the three packages into a per-target tree that verifies", async () => {
     const { root } = flatInstall();
-    const staged = await stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], sign: false, log: null });
+    const staged = await stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], extensions: false, sign: false, log: null });
     const tree = path.join(root, "dist-native", "duckdb", "linux-x64");
     expect(staged).toEqual([tree]);
     const scope = path.join(tree, "node_modules", "@duckdb");
@@ -138,7 +140,7 @@ describe("staging from an install", () => {
     expect(installedPackage(nodeModules, "sdk-core", "@1password", ["sdk"])).toBe(fs.realpathSync(core));
 
     const { root: other } = flatInstall({ onePasswordCore: "7.7.6" });
-    await expect(stageDuckdb({ root: other, targets: [{ platform: "linux", arch: "x64" }], sign: false, log: null }))
+    await expect(stageDuckdb({ root: other, targets: [{ platform: "linux", arch: "x64" }], extensions: false, sign: false, log: null }))
       .rejects.toThrow(/sdk-core .* is 7\.7\.6; @1password\/sdk needs 7\.7\.7/);
   });
 
@@ -166,7 +168,7 @@ describe("staging from an install", () => {
 
   it("refuses an installed package whose version is not the pin", async () => {
     const { root } = flatInstall({ version: "9.9.8-r.1" });
-    await expect(stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], sign: false, log: null }))
+    await expect(stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], extensions: false, sign: false, log: null }))
       .rejects.toThrow(/node-api at .* is 9\.9\.8-r\.1; package\.json pins 9\.9\.9-r\.9/);
   });
 
@@ -180,7 +182,7 @@ describe("staging from an install", () => {
       else writePackage(directory, name, version, { "duckdb.node": "node", "duckdb.dll": "lib" });
       return directory;
     };
-    const staged = await stageDuckdb({ root, targets: [{ platform: "win32", arch: "x64" }], pack, sign: false, log: null });
+    const staged = await stageDuckdb({ root, targets: [{ platform: "win32", arch: "x64" }], pack, extensions: false, sign: false, log: null });
     const cache = path.join(root, "node_modules", ".cache", "openmausbot", "duckdb");
     // Both native packages the host lacks are fetched, each at its own pin.
     expect(packed).toEqual([
@@ -194,14 +196,14 @@ describe("staging from an install", () => {
       writePackage(directory, name, "9.9.9-r.8", { "duckdb.node": "node", "duckdb.dll": "lib" });
       return directory;
     };
-    await expect(stageDuckdb({ root, targets: [{ platform: "win32", arch: "x64" }], pack: wrong, sign: false, log: null }))
+    await expect(stageDuckdb({ root, targets: [{ platform: "win32", arch: "x64" }], pack: wrong, extensions: false, sign: false, log: null }))
       .rejects.toThrow(/is 9\.9\.9-r\.8; package\.json pins/);
   });
 
   it("never fetches node-api or node-bindings: those must be installed", async () => {
     const { root, scope } = flatInstall();
     fs.rmSync(path.join(scope, "node-bindings"), { recursive: true });
-    await expect(stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], pack: async () => { throw new Error("must not pack"); }, sign: false, log: null }))
+    await expect(stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], pack: async () => { throw new Error("must not pack"); }, extensions: false, sign: false, log: null }))
       .rejects.toThrow(/node-bindings is not installed/);
   });
 });
@@ -209,7 +211,7 @@ describe("staging from an install", () => {
 describe("verifying a tree", () => {
   async function stagedTree() {
     const { root } = flatInstall();
-    const [tree] = await stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], sign: false, log: null });
+    const [tree] = await stageDuckdb({ root, targets: [{ platform: "linux", arch: "x64" }], extensions: false, sign: false, log: null });
     return { tree, native: path.join(tree, "node_modules", "@duckdb", "node-bindings-linux-x64") };
   }
 
@@ -259,7 +261,7 @@ describe.skipIf(!canBuildMachO)("macOS slices", () => {
   it.each([["arm64", "arm64"], ["x64", "x86_64"]])("keeps only the %s slice of the universal dylib and binding, signed", async (arch, lipoArch) => {
     const fat = fs.readFileSync(binaries.fat);
     const { root } = flatInstall({ platform: "darwin", arch, nativeFiles: { "duckdb.node": fat, "libduckdb.dylib": fat }, resvgBinary: fs.readFileSync(binaries[lipoArch]) });
-    const [tree] = await stageDuckdb({ root, targets: [{ platform: "darwin", arch }], sign: true, log: null });
+    const [tree] = await stageDuckdb({ root, targets: [{ platform: "darwin", arch }], extensions: false, sign: true, log: null });
     const native = path.join(tree, "node_modules", "@duckdb", platformPackage("darwin", arch));
     expect(archs(path.join(native, "libduckdb.dylib"))).toBe(lipoArch);
     expect(archs(path.join(native, "duckdb.node"))).toBe(lipoArch);
@@ -282,6 +284,35 @@ describe.skipIf(!canBuildMachO)("macOS slices", () => {
   it("fails staging when the binary lacks the app's arch", async () => {
     const only = fs.readFileSync(binaries.x86_64);
     const { root } = flatInstall({ platform: "darwin", arch: "arm64", nativeFiles: { "duckdb.node": only, "libduckdb.dylib": only }, resvgBinary: only });
-    await expect(stageDuckdb({ root, targets: [{ platform: "darwin", arch: "arm64" }], sign: false, log: null })).rejects.toThrow(/no arm64 slice/);
+    await expect(stageDuckdb({ root, targets: [{ platform: "darwin", arch: "arm64" }], extensions: false, sign: false, log: null })).rejects.toThrow(/no arm64 slice/);
+  });
+});
+
+describe("scanner extensions", () => {
+  const sha = (bytes) => createHash("sha256").update(bytes).digest("hex");
+
+  it("writes a verified scanner and refuses bytes that do not match the pin", async () => {
+    const file = Buffer.from("scanner-bytes");
+    const gzip = gzipSync(file);
+    const pins = {
+      library: "v1.5.6",
+      scanners: ["sqlite_scanner"],
+      gzipSha256: { "linux_amd64/sqlite_scanner": sha(gzip) },
+      fileSha256: { "linux_amd64/sqlite_scanner": sha(file) },
+    };
+    const destination = temporary("omb-duckdb-ext-");
+    const root = temporary("omb-duckdb-pins-");
+    fs.mkdirSync(path.join(root, "server", "data"), { recursive: true });
+    fs.writeFileSync(path.join(root, "server", "data", "duckdb-extensions.json"), JSON.stringify(pins));
+    const fetchImpl = async () => ({ ok: true, url: "https://extensions.duckdb.org/v1.5.6/linux_amd64/sqlite_scanner.duckdb_extension.gz", arrayBuffer: async () => gzip });
+    await stageScannerExtensions({ root, destination, platform: "linux", arch: "x64", pins, fetchImpl });
+    const written = path.join(destination, "extensions", "v1.5.6", "linux_amd64", "sqlite_scanner.duckdb_extension");
+    expect(fs.readFileSync(written).equals(file)).toBe(true);
+    expect(() => verifyScannerExtensions(destination, "linux", "x64", root)).not.toThrow();
+    await expect(stageScannerExtensions({
+      root, destination, platform: "linux", arch: "x64", pins,
+      fetchImpl: async () => ({ ok: true, url: "https://extensions.duckdb.org/bad.gz", arrayBuffer: async () => gzipSync(Buffer.from("other")) }),
+    })).rejects.toThrow(/does not match/);
+    expect(fs.readFileSync(written).equals(file)).toBe(true);
   });
 });

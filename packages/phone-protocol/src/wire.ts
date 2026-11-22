@@ -383,7 +383,7 @@ export interface WireBot extends DefaultBotFields, BotAccessFields, EduBrainFiel
    * defers to `composio` (unset/true = every tool, false = none); `{}` grants
    * none. Grants never travel in shareable exports. */
   connectorTools?: Record<string, ConnectorToolGrant>;
-  /** Per-connection read grants. Absent: this bot may use no named database. `write: "ask"` still waits on a card. */
+  /** Per-connection read grants. Absent: this bot may use no named database. */
   dataConnections?: import("./data-connections.ts").DataGrantMap;
   connectorScopes?: { apps: Record<string, "read" | "write"> };
   outbound?: { policy: "ask" | "allow" };

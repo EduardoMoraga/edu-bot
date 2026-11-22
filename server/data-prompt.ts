@@ -11,7 +11,7 @@ import { SHEET_FILE } from "./data/sheet.ts";
 
 /** Where the guide is not sent: enough for the bot to know the tools are there. */
 export const DATA_TOOLS_POINTER =
-  " You have Data tools for tables, spreadsheets and charts (data_load, data_describe, data_sql, data_show, data_export, data_write); load them with tool search when needed.";
+  " You have Data tools for tables, spreadsheets and charts (data_load, data_describe, data_sql, data_show, data_export); load them with tool search when needed.";
 
 /** Words that ask for work the Data tools do: loading, querying or charting a file, a sheet or a database. */
 export const DATA_WORK_TERMS = [

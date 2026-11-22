@@ -11,6 +11,7 @@ import { botFolder as defaultBotFolder } from "../bot-folder.ts";
 import { boxCpus } from "../box-cpus.ts";
 import { boxMemory } from "../box-memory.ts";
 import { DATA_DIR } from "../config.ts";
+import { proveConfined, queryConfined } from "./confined.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import {
   DataFailure,
@@ -353,6 +354,18 @@ class BotDb implements BotDatabase {
     this.idleTimer.unref();
   }
 
+  private databaseFile(): string {
+    return join(this.engine.folder(this.botId), DATA_DB_FILE);
+  }
+
+  private async readSql(connection: DataConnection, sql: string, options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }, maxRows = Infinity): Promise<RunResult> {
+    if (options.confined) {
+      await this.open();
+      return queryConfined(this.databaseFile(), sql, { maxRows, signal: options.signal, timeoutMs: options.timeoutMs });
+    }
+    return this.statement(connection, sql, options, (open, conn) => this.read(open, conn, sql, maxRows));
+  }
+
   private async statement<T>(connection: DataConnection, sql: string, options: { timeoutMs?: number; signal?: AbortSignal }, work: (open: Open, conn: DuckDB.DuckDBConnection) => Promise<T>): Promise<T> {
     this.inFlight++;
     try {
@@ -403,6 +416,7 @@ class BotDb implements BotDatabase {
 
   async run(sql: string, options: RunOptions): Promise<RunResult> {
     const maxRows = options.maxRows === undefined ? Infinity : Math.max(0, options.maxRows);
+    if (options.confined) return this.readSql(options.connection, sql, options, maxRows);
     await this.loadExtensions(options);
     return this.statement(options.connection, sql, options, (open, conn) => this.read(open, conn, sql, maxRows));
   }
@@ -422,6 +436,10 @@ class BotDb implements BotDatabase {
 
   async materialise(sql: string, name: string, options: RunOptions): Promise<MaterialiseResult> {
     if (!RESULT_NAME.test(name)) throw new DataFailure({ code: "invalid_input", message: `Result name "${name}" must be a plain identifier (letters, digits, underscore).` });
+    if (options.confined) {
+      await this.open();
+      await proveConfined(this.databaseFile(), sql.trim().replace(/;+\s*$/, ""), options);
+    }
     const table = `${DATA_RESULTS_SCHEMA}.${name}`;
     const body = sql.trim().replace(/;+\s*$/, "");
     const create = `CREATE OR REPLACE TABLE ${table} AS ${body}`;
@@ -508,23 +526,23 @@ class BotDb implements BotDatabase {
     return this.qualified(entry, open.reserved);
   }
 
-  private async columnsOf(connection: DataConnection, from: string, options: { timeoutMs?: number; signal?: AbortSignal }): Promise<DataColumn[]> {
+  private async columnsOf(connection: DataConnection, from: string, options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }): Promise<DataColumn[]> {
     // DESCRIBE takes a table name or a query, not a parenthesised subquery.
     const sql = from.startsWith("(") ? `DESCRIBE SELECT * FROM ${from}` : `DESCRIBE ${from}`;
-    const result = await this.statement(connection, sql, options, (open, conn) => this.read(open, conn, sql));
+    const result = await this.readSql(connection, sql, options);
     return result.rows.map((row) => ({ name: String(row[0]), type: String(row[1]) }));
   }
 
   /** Two passes rather than SUMMARIZE, which is 10-25x slower. */
-  private async aggregate(connection: DataConnection, from: string, columns: DataColumn[], options: { timeoutMs?: number; signal?: AbortSignal }): Promise<{ rowCount: number; columns: DataColumn[] }> {
+  private async aggregate(connection: DataConnection, from: string, columns: DataColumn[], options: { timeoutMs?: number; signal?: AbortSignal; confined?: boolean }): Promise<{ rowCount: number; columns: DataColumn[] }> {
     const countSql = `SELECT count(*) FROM ${from}`;
-    const count = await this.statement(connection, countSql, options, (open, conn) => this.read(open, conn, countSql));
+    const count = await this.readSql(connection, countSql, options);
     const rowCount = toCount(count.rows[0]?.[0] ?? 0);
     const enriched: DataColumn[] = columns.map((column) => ({ ...column }));
     if (!columns.length) return { rowCount, columns: enriched };
 
     const nullsSql = `SELECT ${columns.map((column) => `count(${quoteIdentifier(column.name)}), approx_count_distinct(${quoteIdentifier(column.name)})`).join(", ")} FROM ${from}`;
-    const nulls = await this.statement(connection, nullsSql, options, (open, conn) => this.read(open, conn, nullsSql));
+    const nulls = await this.readSql(connection, nullsSql, options);
     const nullRow = nulls.rows[0] ?? [];
     enriched.forEach((column, i) => {
       const nonNull = toCount(nullRow[i * 2] ?? 0);
@@ -535,7 +553,7 @@ class BotDb implements BotDatabase {
     const comparable = enriched.filter((column) => COMPARABLE_TYPE.test(column.type));
     if (comparable.length) {
       const rangeSql = `SELECT ${comparable.map((column) => `CAST(min(${quoteIdentifier(column.name)}) AS VARCHAR), CAST(max(${quoteIdentifier(column.name)}) AS VARCHAR)`).join(", ")} FROM ${from}`;
-      const range = await this.statement(connection, rangeSql, options, (open, conn) => this.read(open, conn, rangeSql));
+      const range = await this.readSql(connection, rangeSql, options);
       const rangeRow = range.rows[0] ?? [];
       comparable.forEach((column, i) => {
         column.min = rangeRow[i * 2] === undefined ? null : (rangeRow[i * 2] as string | null);
@@ -561,7 +579,7 @@ class BotDb implements BotDatabase {
     const { rowCount, columns } = await this.aggregate(options.connection, from, profiled, options);
     if (profiled.length) {
       const samplesSql = `SELECT ${profiled.map((column) => `list(DISTINCT CAST(${quoteIdentifier(column.name)} AS VARCHAR)) FILTER (WHERE ${quoteIdentifier(column.name)} IS NOT NULL)[1:${DATA_LIMITS.sampleValues}]`).join(", ")} FROM (SELECT * FROM ${from} LIMIT ${SAMPLE_SCAN_ROWS})`;
-      const samples = await this.statement(options.connection, samplesSql, options, (open, conn) => this.read(open, conn, samplesSql));
+      const samples = await this.readSql(options.connection, samplesSql, options);
       const sampleRow = samples.rows[0] ?? [];
       columns.forEach((column, i) => {
         const cell = sampleRow[i];

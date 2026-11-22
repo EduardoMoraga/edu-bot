@@ -304,15 +304,17 @@ name: Helper
       ]],
       ["a data connection that is not a name", withBot("data:\n  Shop: {}"),
         ["areas/bi/bots/analyst.md, line 7: data.Shop must be a lowercase connection name"]],
+      ["a data grant that asks to write", withBot("data:\n  shop:\n    tables: [orders]\n    write: ask"),
+        ["areas/bi/bots/analyst.md, line 9: data.shop.write writes come in a later update"]],
     ];
     it.each(cases)("%s", (_name, files, expected) => {
       expect(sentences(files)).toEqual(expected);
     });
 
     it("reads a data grant", () => {
-      const folder = check(withBot("data:\n  shop:\n    tables: [orders]\n    write: ask"));
+      const folder = check(withBot("data:\n  shop:\n    tables: [orders]"));
       expect(folder.problems).toEqual([]);
-      expect(folder.bots[0]).toMatchObject({ data: { shop: { tables: ["orders"], write: "ask" } } });
+      expect(folder.bots[0]).toMatchObject({ data: { shop: { tables: ["orders"] } } });
     });
   });
 

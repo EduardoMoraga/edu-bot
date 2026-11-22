@@ -15,6 +15,16 @@ describe("inspectSql", () => {
     expect(await tablesOf("WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM c WHERE n < 3) SELECT * FROM c")).toEqual([]);
   });
 
+  it("does not let a recursive CTE hide its anchor table, at any case", async () => {
+    expect(await tablesOf("WITH RECURSIVE secrets AS (SELECT note FROM secrets UNION ALL SELECT note FROM secrets WHERE false) SELECT * FROM secrets")).toEqual(["secrets"]);
+    expect(await tablesOf("WITH RECURSIVE Secrets AS (SELECT note FROM secrets UNION ALL SELECT note FROM Secrets WHERE false) SELECT * FROM Secrets")).toEqual(["secrets"]);
+  });
+
+  it("keeps an earlier CTE and still names a base table in the other branch", async () => {
+    expect(await tablesOf("WITH a AS (SELECT 1) SELECT * FROM a UNION SELECT amount FROM orders")).toEqual(["orders"]);
+    expect(await tablesOf("WITH A AS (SELECT 1) SELECT * FROM a UNION SELECT amount FROM Orders")).toEqual(["Orders"]);
+  });
+
   it("names every base table a parenthesis, a comma join, or a CTE hides", async () => {
     expect(await tablesOf(`SELECT (')' || (SELECT note FROM "shop"."main"."secrets" LIMIT 1) || '(') FROM orders`)).toEqual(expect.arrayContaining(["orders", "shop.main.secrets"]));
     expect(await tablesOf(`SELECT s.note FROM orders AS o(id, amount), "shop"."main"."secrets" s`)).toEqual(expect.arrayContaining(["orders", "shop.main.secrets"]));

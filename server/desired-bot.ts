@@ -59,7 +59,7 @@ export function canonicalData(grants: DataGrantMap | null | undefined): string {
   if (!grants || !Object.keys(grants).length) return "none";
   return JSON.stringify(Object.keys(grants).sort().map((name) => {
     const grant = grants[name]!;
-    return [name, { ...(grant.schemas ? { schemas: [...grant.schemas].sort() } : {}), ...(grant.tables ? { tables: [...grant.tables].sort() } : {}), ...(grant.write ? { write: grant.write } : {}) }];
+    return [name, { ...(grant.schemas ? { schemas: [...grant.schemas].sort() } : {}), ...(grant.tables ? { tables: [...grant.tables].sort() } : {}) }];
   }));
 }
 

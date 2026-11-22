@@ -21,10 +21,10 @@ import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-con
 import { queryNamed, type NamedDataAccess } from "./live.ts";
 import { assertDatabaseLoad } from "./load-gate.ts";
 import { localSqlTouchesFiles } from "./sql-shape.ts";
-import { DATA_WRITE_TOOL, runDataWrite } from "./writes.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
-import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
+import { createSelectBody, queryRelation, singleStatement, type Token } from "./sql-statements.ts";
+import { assertWorkFolderLoad } from "./work-folder.ts";
 import type { DataSheetStore } from "./sheet.ts";
 import { DataFailure, type BotDatabase, type ChartCompiler, type ChartRenderer, type DataConnection, type DataExtension, type RunOptions, type RunResult, type VegaLiteValidator } from "./types.ts";
 
@@ -87,7 +87,7 @@ export const DATA_TOOLS = [
   ),
   tool(
     "data_sql",
-    "Run one DuckDB statement. SELECT-like statements are kept as a result table (omb_results.q_<n>) you can show or export, and return columns, the exact row count and the first rows. CREATE [OR REPLACE] TABLE|VIEW … AS … is allowed on this bot's own database; other writes are refused. Pass on to read a named connection live and read-only. Writes to a named connection use data_write.",
+    "Run one DuckDB statement. SELECT-like statements are kept as a result table (omb_results.q_<n>) you can show or export, and return columns, the exact row count and the first rows. CREATE [OR REPLACE] TABLE|VIEW … AS … is allowed on this bot's own database; other writes are refused. Pass on to read a named connection live and read-only.",
     {
       sql: { type: "string", minLength: 1, maxLength: 100000 },
       on: { type: "string", pattern: "^[a-z][a-z0-9_]{0,31}$", description: "Named connection from Settings → Data. Reads it live and read-only. Omit to query this bot's own database." },
@@ -122,7 +122,6 @@ export const DATA_TOOLS = [
     },
     ["format"],
   ),
-  DATA_WRITE_TOOL,
 ];
 
 let validators: Map<string, ValidateFunction> | undefined;
@@ -130,7 +129,7 @@ let validators: Map<string, ValidateFunction> | undefined;
 export function dataToolCallProblem(name: unknown, args: unknown): string | null {
   validators ??= new Map(DATA_TOOLS.map((entry) => [entry.name, compileToolSchema(entry.inputSchema, { allErrors: true })]));
   const validate = typeof name === "string" ? validators.get(name) : undefined;
-  if (!validate) return "Unknown Data tool. Use one of data_load, data_describe, data_sql, data_show, data_export, data_write.";
+  if (!validate) return "Unknown Data tool. Use one of data_load, data_describe, data_sql, data_show, data_export.";
   if (!args || typeof args !== "object" || Array.isArray(args) || !validate(args)) {
     return `Tool arguments do not match the advertised input schema: ${schemaProblems(validate.errors).join("; ") || "use its required fields and types"}.`;
   }
@@ -304,6 +303,9 @@ export interface DataContext {
   connection: DataConnection;
   by: DataCard["by"];
   named?: NamedDataAccess;
+  /** Set together. Local file loads must stay inside this folder and must not be Edu Bot's data folder. */
+  workFolder?: string;
+  dataDir?: string;
 }
 
 const runOptions = (ctx: DataContext, extra: Partial<RunOptions> = {}): RunOptions =>
@@ -489,6 +491,12 @@ export async function loadData(ctx: DataContext, input: LoadInput): Promise<Load
     return name;
   };
   const warnings: string[] = [];
+  if (ctx.workFolder && ctx.dataDir) {
+    for (const plan of plans) {
+      if (plan.kind === "url" || plan.kind === "gsheet") continue;
+      assertWorkFolderLoad(plan.source, ctx.workFolder, ctx.dataDir);
+    }
+  }
   const create = async (name: string, relation: string, plan: LoadPlan, options: Record<string, string | number | boolean>) => {
     const sql = (reader: string) => `CREATE ${replace ? "OR REPLACE " : ""}TABLE ${quoteIdent(name)} AS SELECT * FROM ${reader}`;
     const execute = (statement: string) => ctx.database.run(statement, runOptions(ctx, { extensions: plan.extensions }));
@@ -573,7 +581,7 @@ export async function describeTarget(ctx: DataContext, target: string): Promise<
     sql = target;
     relation = queryRelation(target);
   }
-  const described = await ctx.database.describe(relation, runOptions(ctx));
+  const described = await ctx.database.describe(relation, runOptions(ctx, sql ? { confined: true } : {}));
   const { columns, truncated } = boundColumns(described.columns, DATA_LIMITS.describeBytesMax);
   return { ...(name ? { name } : {}), ...(sql ? { sql } : {}), rowCount: described.rowCount, columns, ...(truncated ? { truncated } : {}), elapsedMs: Date.now() - started };
 }
@@ -629,18 +637,21 @@ export async function runSql(ctx: DataContext, input: SqlInput): Promise<SqlOutp
   const kind = gateSql(input.sql, { allowCreate: true });
   await assertLocalSql(input.sql);
   if (kind.kind === "create") {
+    const body = createSelectBody(input.sql);
+    if (!body) throw fail("write_refused", "CREATE is not allowed here.", { sql: input.sql });
+    await ctx.database.run(body, runOptions(ctx, { confined: true, maxRows: 1 }));
     await ctx.database.run(input.sql, runOptions(ctx));
     const described = await ctx.database.describe(kind.target, runOptions(ctx));
     const bounded = boundColumns(described.columns, DATA_LIMITS.describeBytesMax);
     return { table: kind.target, columns: bounded.columns, rowCount: described.rowCount, rows: [], truncated: bounded.truncated, elapsedMs: Date.now() - started };
   }
   if (!kind.materialisable) {
-    const result = await ctx.database.run(input.sql, runOptions(ctx, { maxRows: limit + 1 }));
+    const result = await ctx.database.run(input.sql, runOptions(ctx, { maxRows: limit + 1, confined: true }));
     const bounded = boundRows(result.rows, limit, DATA_LIMITS.sqlBytesMax);
     return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: Date.now() - started };
   }
   const name = input.name ? tableNameFrom(input.name) : ctx.sheet.nextResultName();
-  const materialised = await ctx.database.materialise(input.sql, name, runOptions(ctx));
+  const materialised = await ctx.database.materialise(input.sql, name, runOptions(ctx, { confined: true }));
   const page = await ctx.database.run(`SELECT * FROM ${materialised.table} LIMIT ${limit + 1}`, runOptions(ctx, { maxRows: limit + 1 }));
   const bounded = boundRows(page.rows, limit, DATA_LIMITS.sqlBytesMax);
   return {
@@ -739,23 +750,25 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
     }
     assertCurrent();
     if (input.sql) await assertLocalSql(input.sql);
+    const locked = Boolean(input.sql);
+    const queryOptions = (extra: Partial<RunOptions> = {}) => runOptions(ctx, locked ? { confined: true, ...extra } : extra);
     // A query never overwrites the displayed table before its validation and ownership checks finish.
     resultName = input.id ? `${card.id}_${randomUUID().replaceAll("-", "")}` : card.id;
     let patch: Partial<DataCard>;
     if (kind === "table") {
       const limit = Math.min(Math.max(1, Math.trunc(input.limit ?? DATA_LIMITS.showTableRowsMax)), DATA_LIMITS.showTableRowsMax);
-      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit}`, resultName, runOptions(ctx));
+      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit}`, resultName, queryOptions());
       const truncated = materialised.rowCount >= limit;
       if (truncated) warnings.push(`The card keeps the first ${limit.toLocaleString("en-US")} rows.`);
       patch = { result: resultName, columns: materialised.columns, rowCount: materialised.rowCount, truncated, chart: undefined, vegaLite: undefined, reduction: undefined };
     } else if (input.chart) {
-      const probe = await ctx.database.run(`SELECT * FROM ${from} LIMIT 0`, runOptions(ctx, { maxRows: 0 }));
+      const probe = await ctx.database.run(`SELECT * FROM ${from} LIMIT 0`, queryOptions({ maxRows: 0 }));
       const compiled = ctx.compileChart(input.chart, probe.columns, from);
-      const materialised = await ctx.database.materialise(compiled.sql, resultName, runOptions(ctx));
+      const materialised = await ctx.database.materialise(compiled.sql, resultName, queryOptions());
       if (materialised.rowCount > DATA_LIMITS.chartMaxMarks) {
         throw fail("output_too_large", `The chart would draw ${materialised.rowCount.toLocaleString("en-US")} marks; the limit is ${DATA_LIMITS.chartMaxMarks.toLocaleString("en-US")}.`, { sql: compiled.sql, hint: OUTPUT_TOO_LARGE_HINT });
       }
-      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, runOptions(ctx, { maxRows: 1 }));
+      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, queryOptions({ maxRows: 1 }));
       const inputRows = Number(counted.rows[0]?.[0] ?? 0);
       const method = inputRows === materialised.rowCount ? "none" : compiled.reduction.method;
       const reduction: DataReduction = { ...compiled.reduction, method, inputRows, outputRows: materialised.rowCount };
@@ -763,11 +776,11 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
     } else {
       const vegaLite = await ctx.validateVegaLite(input.vegaLite);
       const limit = Math.min(Math.max(1, Math.trunc(input.limit ?? DATA_LIMITS.chartMaxMarks)), DATA_LIMITS.chartMaxMarks);
-      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit + 1}`, resultName, runOptions(ctx));
+      const materialised = await ctx.database.materialise(`SELECT * FROM ${from} LIMIT ${limit + 1}`, resultName, queryOptions());
       if (materialised.rowCount > limit) {
         throw fail("output_too_large", `The chart would bind more than ${limit.toLocaleString("en-US")} rows.`, { sql: cardSql, hint: OUTPUT_TOO_LARGE_HINT });
       }
-      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, runOptions(ctx, { maxRows: 1 }));
+      const counted = await ctx.database.run(`SELECT count(*) FROM ${from}`, queryOptions({ maxRows: 1 }));
       const reduction: DataReduction = { method: "none", inputRows: Number(counted.rows[0]?.[0] ?? 0), outputRows: materialised.rowCount };
       patch = { result: resultName, columns: materialised.columns, rowCount: materialised.rowCount, truncated: false, chart: undefined, vegaLite, reduction };
     }
@@ -889,8 +902,11 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
   let stem: string;
   if (card) {
     if (card.result) relation = resultRelation(card.result);
-    else if (card.sql) relation = queryRelation(card.sql);
-    else throw fail("invalid_input", `${card.id} has no data to export.`);
+    else if (card.sql) {
+      await assertLocalSql(card.sql);
+      await ctx.database.run(card.sql, runOptions(ctx, { confined: true, maxRows: 1 }));
+      relation = queryRelation(card.sql);
+    } else throw fail("invalid_input", `${card.id} has no data to export.`);
     stem = card.title;
   } else if (input.table) {
     relation = await ctx.database.resolveTable(input.table);
@@ -899,6 +915,7 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
     const kind = gateSql(input.sql!);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Export takes a SELECT.", { sql: input.sql });
     await assertLocalSql(input.sql!);
+    await ctx.database.run(input.sql!, runOptions(ctx, { confined: true, maxRows: 1 }));
     relation = queryRelation(input.sql!);
     stem = "query";
   }
@@ -951,7 +968,6 @@ export async function runDataTool(ctx: DataContext, name: string, args: Record<s
         return ok(target ? { ...(await describeTarget(ctx, target)) } : await describeSavedResult(ctx, id));
       }
       case "data_sql": return ok({ ...(await runSql(ctx, args as unknown as SqlInput)) });
-      case "data_write": return ok(await runDataWrite(ctx, args));
       case "data_show": return ok({ ...(await showCard(ctx, args as unknown as ShowInput, onCardReady)) });
       case "data_export": return ok({ ...(await exportData(ctx, args as unknown as ExportInput)) });
       default: return dataErrorResult({ code: "invalid_input", message: "Unknown Data tool." });

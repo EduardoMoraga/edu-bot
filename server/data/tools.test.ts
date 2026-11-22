@@ -7,8 +7,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DATA_LIMITS, DATA_TOOL_NAMES, type DataColumn } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
 import { ConnectionStore } from "./connections.ts";
-import { flushDecisionLog } from "../decision-log.ts";
-import { resolveDataWrite } from "./writes.ts";
 import { FakeDataDatabase } from "../testing/fake-data-database.ts";
 import { DataSheetStore } from "./sheet.ts";
 import {
@@ -82,7 +80,7 @@ const failure = async (promise: Promise<unknown>) => {
 };
 
 describe("the catalog", () => {
-  it("lists the six tools in the shared order, each with a schema Ajv compiles", () => {
+  it("lists the tools in the shared order, each with a schema Ajv compiles", () => {
     expect(DATA_TOOLS.map((tool) => tool.name)).toEqual([...DATA_TOOL_NAMES]);
     expect(dataToolCallProblem("data_sql", { sql: "SELECT 1" })).toBeNull();
     expect(dataToolCallProblem("data_sql", { sql: "SELECT 1", limit: 5000 })).toContain("limit");
@@ -434,8 +432,9 @@ describe("data_sql", () => {
   it("runs CREATE … AS and metadata statements directly", async () => {
     const { ctx, database } = context();
     const created = await runSql(ctx, { sql: "CREATE OR REPLACE TABLE paid AS SELECT * FROM orders WHERE paid" });
-    expect(database.calls.map((call) => call.method)).toEqual(["run", "describe"]);
-    expect(database.calls[1]!.target).toBe("paid");
+    expect(database.calls.map((call) => call.method)).toEqual(["run", "run", "describe"]);
+    expect(database.calls[0]).toMatchObject({ sql: "SELECT * FROM orders WHERE paid", maxRows: 1 });
+    expect(database.calls[2]!.target).toBe("paid");
     expect(created).toMatchObject({ table: "paid", rows: [], truncated: false, rowCount: 3 });
     database.calls.length = 0;
     const described = await runSql(ctx, { sql: "DESCRIBE orders" });
@@ -815,7 +814,7 @@ describe("runDataTool", () => {
 });
 
 describe("named connections", () => {
-  function shop(grant: { tables?: string[]; write?: "never" | "ask" } | undefined, behavior?: "allow" | "deny") {
+  function shop(grant: { tables?: string[] } | undefined) {
     const base = context();
     const root = freshDir();
     const file = join(root, "shop.sqlite");
@@ -825,19 +824,14 @@ describe("named connections", () => {
     const store = new ConnectionStore(base.dir, { secret: () => null });
     store.addFolder(root);
     store.add({ name: "shop", type: "sqlite", path: file });
-    const cards: string[] = [];
     base.ctx.named = {
       botId: "bot-1",
       threadId: "thread-1",
       dataDir: base.dir,
       allowlist: () => (grant ? { shop: grant } : undefined),
       secret: () => null,
-      postCard: (_text, card) => {
-        cards.push(card.subtitle);
-        if (behavior) resolveDataWrite("thread-1", card.requestId, behavior);
-      },
     };
-    return { ...base, file, cards };
+    return { ...base, file };
   }
 
   it("reads an allowlisted table, including main.table, and caps the rows", async () => {
@@ -911,46 +905,5 @@ describe("named connections", () => {
     const loaded = await runDataTool(ctx, "data_load", { source: file });
     expect(loaded.structuredContent).toMatchObject({ code: "invalid_input" });
     expect(JSON.stringify(loaded.structuredContent)).toContain("Allow the folder");
-  });
-
-  it("runs an approved write, logs it before a later failure, and shows the statement past a leading comment", async () => {
-    const allowed = shop({ tables: ["orders"], write: "ask" }, "allow");
-    const wrote = await runDataTool(allowed.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (5, 11)" });
-    expect(wrote.isError, JSON.stringify(wrote.structuredContent)).toBeUndefined();
-    const after = await runDataTool(allowed.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 5" });
-    expect(after.structuredContent).toMatchObject({ rows: [["11"]] });
-    expect(allowed.database.calls).toEqual([]);
-    const denied = shop({ tables: ["orders"], write: "ask" }, "deny");
-    const refused = await runDataTool(denied.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders WHERE id = 1" });
-    expect(refused.structuredContent).toMatchObject({ code: "write_refused" });
-    const still = await runDataTool(denied.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
-    expect(still.structuredContent).toMatchObject({ rows: [["42"]] });
-    const never = shop({ tables: ["orders"], write: "never" }, "allow");
-    const blocked = await runDataTool(never.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders WHERE id = 1" });
-    expect(blocked.structuredContent).toMatchObject({ code: "write_refused" });
-    expect(never.cards).toEqual([]);
-    const commented = shop({ tables: ["orders"], write: "ask" }, "deny");
-    await runDataTool(commented.ctx, "data_write", { on: "shop", sql: "/* hide */\n-- note\nINSERT INTO orders VALUES (6, 12)" });
-    expect(commented.cards[0]).toMatch(/^INSERT /);
-    const spaced = shop({ tables: ["orders"], write: "ask" }, "allow");
-    const spaces = await runDataTool(spaced.ctx, "data_write", { on: "shop", sql: "INSERT\u00a0INTO orders VALUES (7, 1)" });
-    expect(spaces.structuredContent).toMatchObject({ code: "invalid_input" });
-    expect(spaced.cards).toEqual([]);
-    const dup = shop({ tables: ["orders"], write: "ask" }, "allow");
-    const failed = await runDataTool(dup.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (1, 1)" });
-    expect(failed.isError).toBe(true);
-    await flushDecisionLog(dup.dir);
-    const month = new Date().toISOString().slice(0, 7);
-    const log = readFileSync(join(dup.dir, "decisions", `${month}.ndjson`), "utf8");
-    expect(log).toContain('"decision":"user-approved"');
-    const using = shop({ tables: ["orders"], write: "ask" }, "allow");
-    const leaked = await runDataTool(using.ctx, "data_write", { on: "shop", sql: "DELETE FROM orders USING secrets s WHERE orders.id = s.id" });
-    expect(leaked.structuredContent, JSON.stringify(leaked.structuredContent)).toMatchObject({ code: "write_refused" });
-    expect(using.cards).toEqual([]);
-    const nested = await runDataTool(using.ctx, "data_write", { on: "shop", sql: "INSERT INTO orders VALUES (99, (SELECT CASE WHEN (')' || (SELECT note FROM secrets LIMIT 1) || '(') != '' THEN 777 ELSE 0 END))" });
-    expect(nested.structuredContent).toMatchObject({ code: "write_refused" });
-    const kept = await runDataTool(using.ctx, "data_sql", { on: "shop", sql: "SELECT amount FROM orders WHERE id = 1" });
-    expect(kept.structuredContent).toMatchObject({ rows: [["42"]] });
-    expect(JSON.stringify(kept)).not.toContain("hidden");
   });
 });

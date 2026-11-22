@@ -282,8 +282,10 @@ const connectorsSchema = z.record(z.string(), z.object({
 const dataGrantSchema = z.record(z.string(), z.object({
   schemas: z.array(z.string().min(1).max(63)).max(50).optional(),
   tables: z.array(z.string().min(1).max(128)).max(200).optional(),
-  write: z.enum(["never", "ask"], { error: "must be never or ask" }).optional(),
-}, { error: "must be { schemas, tables, write }" }).strict(), { error: "must map each connection name to its grant" }).superRefine((grants, context) => {
+  write: z.unknown().optional(),
+}, { error: "must be { schemas, tables }" }).strict().superRefine((grant, context) => {
+  if (grant.write !== undefined) context.addIssue({ code: "custom", path: ["write"], message: "writes come in a later update" });
+}), { error: "must map each connection name to its grant" }).superRefine((grants, context) => {
   const names = Object.keys(grants);
   if (names.length > 32) context.addIssue({ code: "custom", message: "must name at most 32 connections" });
   for (const name of names) {

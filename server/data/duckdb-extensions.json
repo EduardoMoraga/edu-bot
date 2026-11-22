@@ -1,0 +1,28 @@
+{
+  "library": "v1.5.6",
+  "scanners": ["sqlite_scanner", "postgres_scanner"],
+  "gzipSha256": {
+    "linux_amd64/sqlite_scanner": "edc79e292b069187f9dc95bfa735fbe578718e0b1df71d4f9ce2ca671b6dd51b",
+    "linux_amd64/postgres_scanner": "f3720b2c67f770b1060f39d01c7b0127ef9135bc045e7f1dbb82de472664e544",
+    "linux_arm64/sqlite_scanner": "f6afdebec449521c68adc17019d55c93179fa0a4b7f0d655b53caa12366ef0fe",
+    "linux_arm64/postgres_scanner": "381e87ff1bf82d8c41b24256168f8710ff7f5be936caa69a1ce2b4384073339f",
+    "osx_amd64/sqlite_scanner": "38a9d9dc346ee947a41d42f50011a50cd52a74189ed57ec4de3512c0fa4fb9a2",
+    "osx_amd64/postgres_scanner": "ddfc6f682c381699aacef8750fd24aad4384da0654310f32bef6223cee7b8986",
+    "osx_arm64/sqlite_scanner": "a31273b2b143a8fc78cfe51aa72903eacac0900d76b2aa4b5029a98fbec73bec",
+    "osx_arm64/postgres_scanner": "9d5f9f7b9873bfebd161b88675a5dbcc52355046dadbbc38f774db147a824240",
+    "windows_amd64/sqlite_scanner": "3d51afafdcdcfef9c945f975258552f48ca7774a67e65f149bc2f934d28fc710",
+    "windows_amd64/postgres_scanner": "c78f47fb78e1b79daa830f5f7d3ab5f1061096a37b6166fd4ffab0c4d12eb93e"
+  },
+  "fileSha256": {
+    "linux_amd64/sqlite_scanner": "0b3c576e7a9b65846285e5e7f4980a700d79d9c14b10b2fb56d495f4d36b566a",
+    "linux_amd64/postgres_scanner": "6706047a549bbb4b73afe6c81c87df2f6daf863545bf38b8af2fc2d60e501fc3",
+    "linux_arm64/sqlite_scanner": "473216143ca24e25f97af783644edf63ef2bcee63d8961ceb4127b929bd40a7d",
+    "linux_arm64/postgres_scanner": "e8de4878f83574436f86159dbdad4839584bfcabe95411bd39eebb81dfd59623",
+    "osx_amd64/sqlite_scanner": "447ceac70f6ba75930e14c27f8740850b1be9e5a70286e746640b10dbf61ef32",
+    "osx_amd64/postgres_scanner": "df00846cc68d99970a1088c654b98297de11148c7293c970877ea9c2fd9099b1",
+    "osx_arm64/sqlite_scanner": "4396ff27307c113903a1b7fc9a3b927ab55d9870eae0423f47c43f3a5f566f21",
+    "osx_arm64/postgres_scanner": "e39b78d219ad1599d60588fb4a9aaa7b36a84ac49ba36c94e7dd46d902749e65",
+    "windows_amd64/sqlite_scanner": "8ea084754e9ba052e072b351e64a52b8dfc9498d1e0a18ef421c2c793c5af2a1",
+    "windows_amd64/postgres_scanner": "e5ccb234e0af0c16d783c8cbb342fe289c1a611528ce9a62d88f199e37e6f75b"
+  }
+}

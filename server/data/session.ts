@@ -1,31 +1,22 @@
 // One fresh in-memory DuckDB per named query. The attached database is the only file it may touch.
-import { createRequire } from "node:module";
-import { realpathSync } from "node:fs";
 import { connect as netConnect } from "node:net";
 import { join } from "node:path";
-import { DuckDBInstance, StatementType, type DuckDBConnection } from "@duckdb/node-api";
+import type * as DuckDB from "@duckdb/node-api";
 
 import { DATA_LIMITS } from "../../shared/data-surface.ts";
 import { containsRawDsn } from "../../shared/data-connections.ts";
 import type { ConnectionType, StoredConnection } from "./connections.ts";
+import { scannerPath } from "./extensions.ts";
+import { nativeRequire } from "./engine.ts";
 import { DataFailure, type RunResult } from "./types.ts";
 
-const require = createRequire(import.meta.url);
-const WRITE_TYPES = new Set<StatementType>([StatementType.INSERT, StatementType.UPDATE, StatementType.DELETE, StatementType.MERGE_INTO]);
-const BAD_OPERATOR = /^(?:READ_CSV|READ_PARQUET|READ_JSON|READ_TEXT|READ_BLOB|GLOB|PARQUET_SCAN|CSV_SCAN|JSON_SCAN)$/;
-const BAD_FUNCTION = /"(?:read_csv(?:_auto)?|read_parquet|read_json(?:_auto)?|read_ndjson(?:_auto)?|read_text|read_blob|glob|getenv|current_setting|postgres_scan|mysql_scan)"/;
+type Binding = typeof DuckDB;
+
 const PROBE_MS = 3_000;
 const REFUSED = "This statement names something this bot cannot check, so it was not run.";
 
-export interface PlanTable {
-  schema: string;
-  table: string;
-}
-
-function libraryVersion(): string {
-  const api = require.resolve("@duckdb/node-api");
-  const bindings = createRequire(api).resolve("@duckdb/node-bindings");
-  return (createRequire(bindings)("@duckdb/node-bindings") as { library_version(): string }).library_version();
+function binding(): Binding {
+  return nativeRequire()("@duckdb/node-api") as Binding;
 }
 
 function quoteIdent(name: string): string {
@@ -50,10 +41,12 @@ function refused(message = REFUSED): DataFailure {
 
 async function withSession<T>(
   options: { dataDir: string; type: ConnectionType; alias: string; target: string; readOnly: boolean },
-  fn: (connection: DuckDBConnection) => Promise<T>,
+  fn: (connection: DuckDB.DuckDBConnection) => Promise<T>,
 ): Promise<T> {
-  const instance = await DuckDBInstance.create(":memory:", {
-    extension_directory: join(options.dataDir, "duckdb-extensions", libraryVersion()),
+  const scanner = options.type === "sqlite" || options.type === "postgres"
+    ? await scannerPath(options.type === "sqlite" ? "sqlite_scanner" : "postgres_scanner")
+    : null;
+  const instance = await binding().DuckDBInstance.create(":memory:", {
     temp_directory: join(options.dataDir, "duckdb-tmp"),
     max_temp_directory_size: "1GB",
     autoinstall_known_extensions: "false",
@@ -64,10 +57,7 @@ async function withSession<T>(
   });
   const connection = await instance.connect();
   try {
-    if (options.type === "sqlite" || options.type === "postgres") {
-      await connection.run(`INSTALL ${options.type} FROM core`);
-      await connection.run(`LOAD ${options.type}`);
-    }
+    if (scanner) await connection.run(`LOAD ${quoteLiteral(scanner)}`);
     const alias = quoteIdent(options.alias);
     const literal = quoteLiteral(options.target);
     const attach = options.type === "duckdb"
@@ -85,7 +75,7 @@ async function withSession<T>(
   }
 }
 
-async function runCapped(connection: DuckDBConnection, sql: string, maxRows: number, timeoutMs: number, signal?: AbortSignal): Promise<RunResult> {
+async function runCapped(connection: DuckDB.DuckDBConnection, sql: string, maxRows: number, timeoutMs: number, signal?: AbortSignal): Promise<RunResult> {
   const started = Date.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const onAbort = () => { void connection.interrupt(); };
@@ -116,7 +106,8 @@ function columnType(value: unknown): string {
   return "VARCHAR";
 }
 
-async function oneStatement(connection: DuckDBConnection, sql: string, allowed: Set<StatementType>): Promise<void> {
+async function oneStatement(connection: DuckDB.DuckDBConnection, sql: string): Promise<void> {
+  const select = binding().StatementType.SELECT;
   let extracted;
   try { extracted = await connection.extractStatements(sql); } catch {
     throw refused();
@@ -126,58 +117,7 @@ async function oneStatement(connection: DuckDBConnection, sql: string, allowed: 
   try { prepared = await extracted.prepare(0); } catch {
     throw refused();
   }
-  if (!allowed.has(prepared.statementType)) throw refused();
-}
-
-interface PlanNode {
-  name?: string;
-  children?: PlanNode[];
-  extra_info?: Record<string, unknown>;
-}
-
-function reviewPlan(nodes: PlanNode[], attached: string | null): { ok: true; tables: PlanTable[] } | { ok: false } {
-  const tables: PlanTable[] = [];
-  const files: string[] = [];
-  let unsafe = BAD_FUNCTION.test(JSON.stringify(nodes));
-  const walk = (node: PlanNode) => {
-    if (!node || typeof node !== "object") return;
-    if (node.name && BAD_OPERATOR.test(node.name)) unsafe = true;
-    const info = node.extra_info ?? {};
-    const table = stringField(info, "Table") ?? stringField(info, "Table Name");
-    if (table) tables.push({ schema: stringField(info, "Schema") ?? stringField(info, "Schema Name") ?? "", table });
-    const file = stringField(info, "File");
-    if (file) files.push(file);
-    for (const child of node.children ?? []) walk(child);
-  };
-  for (const node of nodes) walk(node);
-  if (unsafe || !tables.length) return { ok: false };
-  const expected = attached ? tryReal(attached) : null;
-  for (const file of files) {
-    const real = tryReal(file);
-    if (!expected || !real || real !== expected) return { ok: false };
-  }
-  return { ok: true, tables };
-}
-
-function stringField(record: Record<string, unknown>, key: string): string | undefined {
-  const value = record[key];
-  return typeof value === "string" && value ? value : undefined;
-}
-
-function tryReal(path: string): string | null {
-  try { return realpathSync(path); } catch { return null; }
-}
-
-function planNodes(rows: unknown[][]): PlanNode[] {
-  for (const row of rows) {
-    for (const cell of row) {
-      if (typeof cell !== "string" || !/^\s*[[{]/.test(cell)) continue;
-      const parsed = JSON.parse(cell) as unknown;
-      if (Array.isArray(parsed)) return parsed as PlanNode[];
-      if (parsed && typeof parsed === "object") return [parsed as PlanNode];
-    }
-  }
-  return [];
+  if (prepared.statementType !== select) throw refused();
 }
 
 export async function runNamedRead(options: {
@@ -192,44 +132,8 @@ export async function runNamedRead(options: {
     return await withSession({
       dataDir: options.dataDir, type: options.connection.type, alias: options.connection.name, target: options.target, readOnly: true,
     }, async (connection) => {
-      await oneStatement(connection, options.sql, new Set([StatementType.SELECT]));
+      await oneStatement(connection, options.sql);
       return runCapped(connection, options.sql, options.maxRows, DATA_LIMITS.sqlTimeoutMs, options.signal);
-    });
-  } catch (error) {
-    if (error instanceof DataFailure) throw error;
-    throw new DataFailure({ code: "sql_error", message: scrub(error, [options.target]) });
-  }
-}
-
-export async function runNamedWrite(options: {
-  dataDir: string;
-  connection: StoredConnection;
-  target: string;
-  sql: string;
-  signal?: AbortSignal;
-  dryRun?: boolean;
-  allow(table: PlanTable): boolean;
-}): Promise<void> {
-  const attached = options.connection.type === "postgres" ? null : options.target;
-  try {
-    await withSession({
-      dataDir: options.dataDir, type: options.connection.type, alias: options.connection.name, target: options.target, readOnly: false,
-    }, async (connection) => {
-      await oneStatement(connection, options.sql, WRITE_TYPES);
-      let nodes: PlanNode[] = [];
-      try {
-        const explained = await connection.runAndReadAll(`EXPLAIN (FORMAT JSON) ${options.sql}`);
-        nodes = planNodes(explained.getRowsJson());
-      } catch {
-        throw refused();
-      }
-      const reviewed = reviewPlan(nodes, attached);
-      if (!reviewed.ok) throw refused();
-      for (const table of reviewed.tables) {
-        if (!options.allow(table)) throw refused(`This bot may not write ${table.table} on ${options.connection.name}.`);
-      }
-      if (options.dryRun) return;
-      await runCapped(connection, options.sql, 1, DATA_LIMITS.sqlTimeoutMs, options.signal);
     });
   } catch (error) {
     if (error instanceof DataFailure) throw error;
