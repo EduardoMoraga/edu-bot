@@ -621,7 +621,7 @@ describe("access floor", () => {
 
   it("does not make a new bot whose narrower tools the app refuses", async () => {
     const { app, apply } = fakeApp();
-    app.refuse = (method, path, body) => (method === "PATCH" && body.toolsOff !== undefined ? "tool groups are busy" : null);
+    app.refuse = (method, _path, body) => (method === "PATCH" && body.toolsOff !== undefined ? "tool groups are busy" : null);
     const { outcome } = await apply();
     expect(app.bots.map((candidate) => candidate.name).sort()).toEqual(["Analista BI", "Closer"]);
     const skipped = outcome.skipped.map((line) => [line.text, line.reason]);
@@ -636,7 +636,7 @@ describe("access floor", () => {
   it("says an existing bot keeps more access when the app refuses a narrower setting, and applies the rest", async () => {
     const { app, plan, apply, bot } = fakeApp();
     await apply(folder({ "areas/bi/bots/reporter.md": withField("toolsOff", "[]") }));
-    app.refuse = (method, path, body) => (method === "PATCH" && body.toolsOff !== undefined ? "tool groups are busy" : null);
+    app.refuse = (method, _path, body) => (method === "PATCH" && body.toolsOff !== undefined ? "tool groups are busy" : null);
     const { outcome } = await apply(folder({ "areas/bi/bots/reporter.md": (text) => text.replace("in plain words.", "in short words.") }));
     expect(outcome.skipped).toEqual([expect.objectContaining({ text: "Reporter: tool groups off none → images",
       reason: "tool groups are busy, so Reporter still has more access than its file gives; narrow it in the bot's settings" })]);
