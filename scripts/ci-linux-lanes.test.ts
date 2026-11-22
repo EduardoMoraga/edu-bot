@@ -19,16 +19,19 @@ function scratch() {
 describe("Linux lanes", () => {
   it("gives every Linux shard its own lane, the node tests only on the first, then evals and the packaged server", () => {
     const shards = vitestMatrix(["ubuntu-latest"]).include;
-    const lanes = lanesFor({ vitest: shards, evals: true, packaged_server: true }, "/t/retries.jsonl");
+    const composioKey = "ak_dummy_secret";
+    const lanes = lanesFor({ vitest: shards, evals: true, packaged_server: true }, "/t/retries.jsonl", { EDUBOT_COMPOSIO_TEST_KEY: composioKey });
     expect(lanes.map((lane) => lane.name)).toEqual([
       ...shards.map((entry) => `vitest (ubuntu-latest, ${entry.part})`), EVALS_LANE.name, PACKAGED_SERVER_LANE.name,
     ]);
     expect(lanes[0]).toEqual({
       name: "vitest (ubuntu-latest, shard 1/8)",
-      env: { OMB_VITEST_RETRY_LOG: "/t/retries.jsonl", OMB_VITEST_E2E: "all", OMB_VITEST_SUBSET: "", OMB_VITEST_WORKERS: 4, EDUBOT_COMPOSIO_TEST_KEY: process.env.EDUBOT_COMPOSIO_TEST_KEY ?? "" },
+      env: { OMB_VITEST_RETRY_LOG: "/t/retries.jsonl", OMB_VITEST_E2E: "all", OMB_VITEST_SUBSET: "", OMB_VITEST_WORKERS: 4, EDUBOT_COMPOSIO_TEST_KEY: composioKey },
       commands: ["pnpm exec vitest run  --shard=1/8 --reporter=default --reporter=github-actions", "pnpm broker:test && pnpm test:electron"],
     });
     expect(lanes.slice(1, 8).every((lane) => lane.commands.length === 1)).toBe(true);
+    expect(EVALS_LANE.env).toEqual({ EDUBOT_COMPOSIO_TEST_KEY: "" });
+    expect(PACKAGED_SERVER_LANE.env).toEqual({ EDUBOT_COMPOSIO_TEST_KEY: "" });
   });
 
   it("runs a subset's files and leaves out what the plan leaves out", () => {

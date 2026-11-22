@@ -390,16 +390,42 @@ describe("CI on Boat", () => {
   it("runs on Boat exactly the commands the Linux jobs run on GitHub's runners", () => {
     const steps = (job: string) => workflow.jobs[job].steps as Step[];
     const work = (job: string) => steps(job).filter((step) => step.run && step.run !== "pnpm install --frozen-lockfile").map((step) => step.run);
+    const composioKey = "ak_dummy_secret";
     for (const entry of vitestMatrix(["ubuntu-latest"]).include.slice(0, 2)) {
-      const context = { matrix: entry, runner: { temp: "/t" } };
+      const context = {
+        ...runContext({ event: "push" }),
+        matrix: entry,
+        runner: { temp: "/t" },
+        secrets: { EDUBOT_COMPOSIO_TEST_KEY: composioKey },
+      };
       const tests = steps("vitest").find((step) => step.name === "Run tests")!;
       const units = steps("vitest").find((step) => step.name === "Broker and Electron unit tests")!;
-      const lane = vitestLane(entry, "/t/vitest-retries.jsonl");
+      const lane = vitestLane(entry, "/t/vitest-retries.jsonl", { EDUBOT_COMPOSIO_TEST_KEY: composioKey });
       expect(lane.commands).toEqual([interpolate(tests.run!, context), ...(entry.node_tests ? [units.run] : [])]);
       expect(lane.env).toEqual(Object.fromEntries(Object.entries(tests.env!).map(([key, value]) => [key, interpolate(value, context)])));
     }
     expect(EVALS_LANE.commands).toEqual(work("behavior-evals"));
     expect(PACKAGED_SERVER_LANE.commands).toEqual(work("packaged-server"));
+  });
+
+  it("resolves the Composio test key to empty for a fork, a deleted fork and an absent secret, and to the secret on a same-repo run", () => {
+    const boat = (workflow.jobs.static.steps as Step[]).find((step) => step.run === "node scripts/ci-linux-lanes.mjs");
+    const tests = (workflow.jobs.vitest.steps as Step[]).find((step) => step.name === "Run tests");
+    const expressions = [boat?.env?.EDUBOT_COMPOSIO_TEST_KEY, tests?.env?.EDUBOT_COMPOSIO_TEST_KEY];
+    expect(expressions).toEqual([
+      "${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.EDUBOT_COMPOSIO_TEST_KEY || '' }}",
+      "${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.EDUBOT_COMPOSIO_TEST_KEY || '' }}",
+    ]);
+    const key = "ak_dummy_secret";
+    const resolved = (run: Parameters<typeof runContext>[0], secret?: string) => expressions.map((expression) => interpolate(expression!, {
+      ...runContext(run),
+      secrets: secret === undefined ? {} : { EDUBOT_COMPOSIO_TEST_KEY: secret },
+    }));
+    expect(resolved({ head: "someone/OpenMausBot", author: "someone", actor: "someone" }, key)).toEqual(["", ""]);
+    expect(resolved({ head: null }, key)).toEqual(["", ""]);
+    expect(resolved({})).toEqual(["", ""]);
+    expect(resolved({}, key)).toEqual([key, key]);
+    expect(resolved({ event: "push" }, key)).toEqual([key, key]);
   });
 
   it("starts Boat VMs from no other workflow", () => {
