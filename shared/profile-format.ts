@@ -5,7 +5,7 @@ import { APPROVAL_MODES, type ApprovalMode } from "./approval-mode.ts";
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "./bot-profile.ts";
 import { MCP_SERVER_NAME, RESERVED_MCP_NAMES } from "./mcp-name.ts";
 import { AGENT_MAX_SKILLS, isLoopbackHost, TEAM_BRIEF_MAX_BYTES, utf8Bytes } from "./package-format.ts";
-import { findLeaks, leakIn, type Leak } from "./profile-leaks.ts";
+import { findInvisibles, findLeaks, leakIn, type Leak } from "./profile-leaks.ts";
 import { isSkillName, parseSkillMd, scanSkillText, SKILL_FILE_MAX_BYTES } from "./skill-md.ts";
 import { TOOL_GROUPS, type ToolGroup } from "./tool-groups.ts";
 import { parseToolScope, type ToolScope } from "./tool-scope.ts";
@@ -178,7 +178,7 @@ const CREDENTIAL_NAME = /authorization|cookie|token|secret|passw|api[-_]?key|acc
 const PATH_START = String.raw`(?:^|[\s=,;:"'(\[{])`;
 const ABSOLUTE_PATH = new RegExp(String.raw`${PATH_START}(?:\/|~[\w.-]*(?:[/\\]|$|(?=[\s,;:"')\]}]))|[A-Za-z]:[\\/]|\\\\)`);
 const CLIMBING_PATH = new RegExp(String.raw`(?:^|[\s=,;:"'(\[{/\\])\.\.(?:[/\\]|$|(?=[\s,;:"')\]}]))`);
-const VARIABLE_PATH = new RegExp(String.raw`${PATH_START}(?:\$\{?[A-Za-z_][A-Za-z0-9_]*\}?|%[A-Za-z_][A-Za-z0-9_]*%)[/\\]`);
+const VARIABLE_PATH = new RegExp(String.raw`${PATH_START}(?:\$(?:env:)?[A-Za-z_][A-Za-z0-9_]*|\$\{[^}]*\}|%[A-Za-z_][A-Za-z0-9_]*%)[/\\]`, "i");
 const FILE_ADDRESS = /(?<![a-z0-9+.-])file:/i;
 const ADDRESS = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]*/gi;
 const SECRET_ARG_FLAG = /^--?[A-Za-z0-9_-]*?(?:token|passw(?:or)?d|secret|api[-_]?key|access[-_]?key|private[-_]?key|credentials?)s?(?:=(.*))?$/is;
@@ -691,12 +691,18 @@ interface Parsed {
 
 const BODY_NAME = { org: "the organization's brief", area: "the area's brief", bot: "the bot's instructions", "mcp-server": "the notes" } as const;
 
-/** A file that holds a key is reported and never kept, so no output repeats what it holds. */
+/** A file that holds a key, or an invisible character in its settings, is reported and never kept, so no output
+ * repeats what it holds. An MCP server's notes count as settings; a Markdown brief or instructions do not. */
 function parseOne(file: string, source: string, role: ProfileFileRole, parsed: Parsed, problems: Problems): void {
   if (role.role === "skill") return parseSkill(file, source, role, parsed, problems);
   const bodyLine = bodyLineOf(source);
+  const invisibles = findInvisibles(source, role.role === "mcp-server" ? Number.MAX_SAFE_INTEGER : bodyLine - 1);
+  for (const { line, codePoint } of invisibles) {
+    const name = `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
+    problems.add({ file, line, message: `has an invisible or control character (${name}) on this line; delete it, since profile settings never need one` });
+  }
   const leaks = findLeaks(source, bodyLine - 1);
-  parseProfile(file, source, role, leaks.length > 0, parsed, problems);
+  if (!invisibles.length) parseProfile(file, source, role, leaks.length > 0, parsed, problems);
   reportLeaks(file, leaks, { line: bodyLine, name: BODY_NAME[role.role] }, problems);
 }
 

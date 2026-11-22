@@ -283,12 +283,18 @@ The check refuses:
 
 - a value shaped like a key anywhere in a file, YAML comments included: a provider's key prefix, a private key block,
   `Bearer …`, `token=…`. Each line is checked, and the whole file again with line breaks, indentation and invisible
-  characters taken out, so a key split across lines is found too. A short base64 token is decoded and checked;
+  characters taken out, so a key split across lines is found too. A short base64 token is decoded and checked the same
+  way;
 - a header or variable whose name says it holds a credential (`Authorization`, `Cookie`, `*_TOKEN`, `*_KEY`,
   `*SECRET*`, `*PASSWORD*`…) written as plain text instead of a slot;
 - a server argument after a flag that names a key (`--token VALUE`, `--api-key=VALUE`): pass the key in `env` with a
   slot;
-- an address with a user name or password in it, anywhere in a file.
+- an address with a user name or password in it, anywhere in a file;
+- an invisible or control character (a zero-width space, a direction mark, a non-breaking space, a form feed…)
+  anywhere in the front matter, comments included, or anywhere in an MCP server's file. Settings never need one, and it
+  can hide a key or a path. A tab is fine. An emoji joined from several (👩‍💻) or with a style mark (❤️) holds one
+  too, so a name or title uses a single emoji. Briefs, instructions and skills may hold these characters: there they
+  are taken out before the key check runs.
 
 Prose can now and then look like a key. The problem names the line; reword it, or move the value into a slot.
 

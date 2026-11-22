@@ -66,7 +66,8 @@ describe.skipIf(process.platform === "win32")("a bots folder swapped for a link 
   });
 });
 
-describe("a bots folder that disappears between the open and the identity check", () => {
+// Windows refuses to rename a folder while a file in it is open.
+describe.skipIf(process.platform === "win32")("a bots folder that disappears between the open and the identity check", () => {
   it("is refused with a plain problem, and the load does not throw", () => {
     const folder = swappable();
     const bots = join(folder.dir, "areas", "bi", "bots");

@@ -37,6 +37,7 @@ const bot = (lines: string, body = "You are the analyst.\n") => `---\nedubot: 1\
 const withBot = (lines: string, body?: string): Files => ({ ...base(), "areas/bi/bots/analyst.md": bot(lines, body) });
 const mcp = (lines: string) => `---\nedubot: 1\nkind: mcp-server\nkey: notion\n${lines}\n---\nNotes.\n`;
 const withMcp = (lines: string): Files => ({ ...base(), "mcp/notion.md": mcp(lines) });
+const codePointName = (char: string) => `U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`;
 
 describe("profileFileRole", () => {
   it("knows each file by its place in the folder", () => {
@@ -311,8 +312,8 @@ name: Helper
       ]],
       ["broken by a line separator", withBot("title: Analyst", "Hello sk-ant-AUDIT\u2028KEY0123456789\n"),
         "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"],
-      ["broken by a zero-width space", withBot("description: use sk-ant-AUDIT\u200bKEY0123456789"),
-        "areas/bi/bots/analyst.md, line 6: description holds a key or password; put it in a secret slot instead: { secret: NAME }"],
+      ["broken by a zero-width space in the instructions", withBot("title: Analyst", "Hello sk-ant-AUDIT\u200bKEY0123456789\n"),
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }"],
       ["in a front matter comment", withBot(`# old token ${KEY}\ntitle: Analyst`),
         "areas/bi/bots/analyst.md, line 6: has a key or password on this line; take it out and put it in a secret slot instead: { secret: NAME }"],
       ["as base64", withBot("title: Analyst", `key= ${btoa(KEY)}\n`),
@@ -330,7 +331,7 @@ name: Helper
     it.each([
       "\u202a", "\u202b", "\u202c", "\u202d", "\u202e", "\u2066", "\u2067", "\u2068", "\u2069", "\u206a", "\u206f",
       "\u061c", "\u034f", "\ufe00", "\ufff9", "\u0085", "\u000b", "\u000c", "\u00a0", "\u200a", "\r",
-    ].map((char) => [`U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`, char]))("finds a key broken by %s", (_name, char) => {
+    ].map((char) => [codePointName(char), char]))("finds a key broken by %s", (_name, char) => {
       const folder = check(withBot("title: Analyst", `Hello sk-ant-AUDIT${char}KEY0123456789\n`));
       expect(folder.problems.map(problemSentence)).toEqual([
         "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }",
@@ -352,6 +353,41 @@ name: Helper
       ]);
       expect(JSON.stringify(folder)).not.toContain("s3cretvalue99");
       expect(sentences(withMcp("transport: http\nurl: https://mcp.example/mcp\nheaders: { Authorization: { secret: NOTION_TOKEN } }"))).toEqual([]);
+    });
+
+    it.each([
+      ["above the fields", withBot("# { secret: s3cretvalue99 }\ntitle: Analyst"), "areas/bi/bots/analyst.md, line 6"],
+      ["after a header name", withBot("# Authorization: { secret: s3cretvalue99 }\ntitle: Analyst"), "areas/bi/bots/analyst.md, line 6"],
+      ["after a value", withBot("title: Analyst # { secret: s3cretvalue99 }"), "areas/bi/bots/analyst.md, line 6"],
+      ["after a slot", withMcp("transport: http\nurl: https://mcp.example/mcp\nheaders: { Authorization: { secret: NOTION_TOKEN } } # { secret: s3cretvalue99 }"), "mcp/notion.md, line 7"],
+    ])("reads a password in a slot written inside a comment as a written secret: %s", (_name, files, where) => {
+      const folder = check(files);
+      expect(folder.problems.map(problemSentence)).toEqual([
+        `${where}: has a key or password on this line; take it out and put it in a secret slot instead: { secret: NAME }`,
+      ]);
+      expect(where.startsWith("mcp/") ? folder.mcpServers : folder.bots).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("s3cretvalue99");
+    });
+
+    const latin1 = (text: string) => btoa(text);
+    const utf8 = (text: string) => Buffer.from(text, "utf8").toString("base64");
+    it.each([
+      ["U+0085 in one wrap", latin1("sk-ant-AUDIT\u0085KEY0123456789")],
+      ["U+00AD in one wrap", latin1("sk-ant-AUDIT\u00adKEY0123456789")],
+      ["U+00A0 in one wrap", latin1("sk-ant-AUDIT\u00a0KEY0123456789")],
+      ["a newline in one wrap", latin1("sk-ant-AUDIT\nKEY0123456789")],
+      ["U+200B in UTF-8", utf8("sk-ant-AUDIT\u200bKEY0123456789")],
+      ["U+2066 in UTF-8", utf8("sk-ant-AUDIT\u2066KEY0123456789")],
+      ["U+0085 in two wraps", btoa(latin1("sk-ant-AUDIT\u0085KEY0123456789"))],
+    ])("finds a key split by %s of base64", (_name, token) => {
+      const folder = check(withBot("title: Analyst", `blob ${token}\n`));
+      expect(folder.problems.map(problemSentence)).toEqual([
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]);
+      expect(folder.bots).toEqual([]);
+      expect(sentences(withBot(`description: blob ${token}`))).toEqual([
+        "areas/bi/bots/analyst.md, line 6: description holds a key or password; put it in a secret slot instead: { secret: NAME }",
+      ]);
     });
 
     it("finds a key wrapped twice in base64", () => {
@@ -377,6 +413,45 @@ name: Helper
     });
   });
 
+  describe("refuses an invisible or control character anywhere in a file's settings", () => {
+    const invisible = (line: number, codePoint: string, file = "areas/bi/bots/analyst.md") =>
+      `${file}, line ${line}: has an invisible or control character (${codePoint}) on this line; delete it, since profile settings never need one`;
+
+    it.each([
+      ["--config={c}/home/ana/.ssh/id_rsa", "\u200b"],
+      ["--config=$HOME{c}/.ssh/id_rsa", "\u200b"],
+      ["--config=$HOME{c}/.ssh/id_rsa", "\u2066"],
+      ["--config=${c}HOME/.ssh/id_rsa", "\u2066"],
+      ["--config=${HOME}{c}/.ssh/id_rsa", "\u200b"],
+      ["--config=%USERPROFILE%{c}\\.ssh\\id_rsa", "\u200b"],
+      ["--dir=~{c}/keys/notion", "\u200b"],
+      ["--config=fi{c}le:///home/ana/.ssh/id_rsa", "\u200b"],
+      [".{c}./keys", "\u200b"],
+    ].map(([template, char]) => [template, codePointName(char!), template!.replace("{c}", char!)]))("in a server argument: %s with {c} = %s", (_template, codePoint, arg) => {
+      const folder = check(withMcp(`transport: stdio\ncommand: npx\nargs: [${JSON.stringify(arg)}]`));
+      expect(folder.problems.map(problemSentence)).toEqual([invisible(7, codePoint!, "mcp/notion.md")]);
+      expect(folder.mcpServers).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("id_rsa");
+    });
+
+    it("in a comment, a value, an area, the organization and a server's notes, but not in a brief or instructions", () => {
+      expect(sentences(withBot("# note\u00a0here\ntitle: Analyst"))).toEqual([invisible(6, "U+00A0")]);
+      expect(sentences(withBot("title: Ana\u200dlyst"))).toEqual([invisible(6, "U+200D")]);
+      expect(sentences(withBot("title: Analyst\u000b"))).toEqual([invisible(6, "U+000B")]);
+      expect(sentences({ ...base(), "areas/bi/area.md": AREA.replace("name: BI", "name: BI\u{e0020}") })).toEqual([invisible(5, "U+E0020", "areas/bi/area.md")]);
+      expect(sentences({ ...base(), "org.md": ORG.replace("name: Acme", "name: Acme # \u2028") })).toEqual([invisible(4, "U+2028", "org.md")]);
+      expect(sentences({ ...withMcp("transport: http\nurl: https://mcp.example/mcp"), "mcp/notion.md": mcp("transport: http\nurl: https://mcp.example/mcp").replace("Notes.", "No\u00adtes.") }))
+        .toEqual([invisible(8, "U+00AD", "mcp/notion.md")]);
+      const folder = check({ ...withBot("title: Analyst", "Hello\u200b there.\n"), "areas/bi/area.md": AREA.replace("Area brief.", "Area\u00a0brief.") });
+      expect(folder.problems).toEqual([]);
+      expect(folder.bots.map((bot) => bot.key)).toEqual(["analyst"]);
+    });
+
+    it("allows a tab in a value", () => {
+      expect(sentences(withBot("description: \"Ana\tlyst\""))).toEqual([]);
+    });
+  });
+
   describe("refuses a path anywhere in a server's command, arguments and variables", () => {
     const pathCases: Array<[string, string, string]> = [
       ["an absolute path after =", "args: [\"--config=/home/ana/.edubot-secrets/notion\"]", "args[0] holds an absolute or home path"],
@@ -390,6 +465,8 @@ name: Helper
       ["a ${HOME} path", "args: [\"--config=${HOME}/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
       ["a %USERPROFILE% path", "args: ['--config=%USERPROFILE%\\.ssh\\id_rsa']", "args[0] holds an absolute or home path"],
       ["a variable path in env", "env: { CONFIG: \"$XDG_CONFIG_HOME/notion\" }", "env.CONFIG holds an absolute or home path"],
+      ["a PowerShell $env: path", "args: ['--config=$env:USERPROFILE\\.ssh\\id_rsa']", "args[0] holds an absolute or home path"],
+      ["a ${NAME:-default} path", "args: [\"--config=${HOME:-/home/ana}/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
       ["a file: address as the url", "url: file:///home/ana/mcp.sock", "url must be an https:// address"],
     ];
     it.each(pathCases)("%s", (_name, lines, expected) => {
