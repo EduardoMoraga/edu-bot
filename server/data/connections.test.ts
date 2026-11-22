@@ -48,7 +48,7 @@ describe("connection storage", () => {
     expect(secrets.bots.get("sec-1")).toEqual([]);
     expect(secrets.saved.get("sec-1")).toBe(secret);
     const file = join(dir, "data-connections.json");
-    expect(lstatSync(file).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(lstatSync(file).mode & 0o777).toBe(0o600);
     const text = readFileSync(file, "utf8");
     expect(text).toContain("vault:sec-1");
     expect(text).not.toContain("hunter2");
@@ -58,7 +58,7 @@ describe("connection storage", () => {
     if (!probed.ok) expect(probed.error).not.toContain("hunter2");
     chmodSync(file, 0o644);
     store.list();
-    expect(lstatSync(file).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(lstatSync(file).mode & 0o777).toBe(0o600);
     store.remove("shop");
     expect(secrets.saved.has("sec-1")).toBe(false);
     expect(store.list().connections).toEqual([]);
@@ -157,8 +157,13 @@ describe("grants", () => {
     mkdirSync(dir);
     mkdirSync(allowed);
     const store = new ConnectionStore(dir, vault());
-    expect(() => store.addFolder("/")).toThrow(/data folder/);
-    expect(() => store.addFolder("/usr")).toThrow(/too broad/);
+    if (process.platform === "win32") {
+      expect(() => store.addFolder(`${root.slice(0, 2)}\\`)).toThrow(/data folder|too broad/);
+      expect(() => store.addFolder(process.env.SystemRoot ?? "C:\\Windows")).toThrow(/too broad/);
+    } else {
+      expect(() => store.addFolder("/")).toThrow(/data folder/);
+      expect(() => store.addFolder("/usr")).toThrow(/too broad/);
+    }
     expect(() => store.addFolder(homedir())).toThrow(/too broad/);
     store.addFolder(allowed);
     rmSync(allowed, { recursive: true });

@@ -247,12 +247,24 @@ function realOr(path: string): string {
   try { return realpathSync(path); } catch { return resolve(path); }
 }
 
+const WINDOWS_SYSTEM_FOLDERS = ["SystemRoot", "ProgramFiles", "ProgramFiles(x86)", "ProgramData"];
+
+function windowsTooBroad(real: string): boolean {
+  if (process.platform !== "win32") return false;
+  const path = real.toLowerCase().replace(/[\\/]+$/, "");
+  if (/^[a-z]:$/.test(path) || /^[a-z]:\\users$/.test(path)) return true;
+  return WINDOWS_SYSTEM_FOLDERS.some((name) => {
+    const folder = process.env[name]?.toLowerCase().replace(/[\\/]+$/, "");
+    return Boolean(folder) && (path === folder || path.startsWith(`${folder}\\`));
+  });
+}
+
 function folderRejected(real: string, dataDir: string): string | null {
   const data = realOr(dataDir);
   if (real === data || isInside(data, real) || isInside(real, data)) return "Edu Bot's data folder cannot hold a database connection.";
   const home = realOr(homedir());
   if (real === home || isInside(real, home)) return "That folder is too broad.";
-  if (EXACT_ROOTS.has(real)) return "That folder is too broad.";
+  if (EXACT_ROOTS.has(real) || windowsTooBroad(real)) return "That folder is too broad.";
   if (isInside("/tmp", real) || isInside("/var/tmp", real)) return null;
   for (const root of CHILD_ROOTS) {
     if (real === root || isInside(root, real)) return "That folder is too broad.";
