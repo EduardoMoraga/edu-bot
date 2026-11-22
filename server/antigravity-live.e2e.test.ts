@@ -3,7 +3,7 @@
 // Isolates Edu Bot's data dir, HOME, and Edu CLI; shares ONLY the real `agy` executable path
 // (and its existing Google login) with the Antigravity instance inside the fixture.
 import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -110,6 +110,7 @@ describe.skipIf(skipReason !== null)(
     afterAll(async () => {
       await waitForExit(child, { signal: "SIGTERM" });
       if (home) await removeTempDir(home);
+      if (logPath) rmSync(logPath, { force: true });
     });
 
     it("detects agy, refreshes Gemini models, replies OK, calls Edu Bot's agents MCP, and cancels a running turn", async () => {

@@ -14,6 +14,7 @@ import type {
 } from "../contracts.ts";
 import { createAcpDriver, type AcpConfig, type AcpSupport } from "./acp/core.ts";
 import {
+  advertisedAntigravityModeValues,
   antigravityClientInfo,
   antigravityProfileDirectory,
   antigravityRuntimeAuthenticated,
@@ -26,6 +27,7 @@ import {
   noteAntigravitySignedIn,
   noteAntigravitySignInRequired,
   prepareAntigravityProfile,
+  probeAntigravityCliModes,
   probeAntigravityModels,
   removeAntigravitySignIn,
   validateAntigravityRuntime,
@@ -60,37 +62,41 @@ export function normalizeAntigravityTurn(turn: SendTurnInput, offeredModels: rea
     : turn;
 }
 
-/** Antigravity's session modes: `yolo` / `auto_edit` / `default` on agy_acp_server 1.4.x, or `auto` / `accept-edits` / `default` on agy acp 1.5+. */
+const MISSING_MODE_ERROR = "Antigravity did not advertise a permission mode for this session, so the turn was refused.";
+const UNADVERTISED_MODE_ERROR = "Antigravity does not advertise the requested permission mode for this session, so the turn was refused.";
+
+/** Antigravity's session modes: `yolo` / `auto_edit` / `default` on agy_acp_server 1.4.x, or `auto` / `accept-edits` / `default` on agy acp 1.5+. When advertised modes are supplied, returns null if the needed mode is absent. */
+export function antigravityPermissionMode(
+  fullAuto: boolean,
+  approvalMode?: ApprovalMode,
+): "yolo" | "auto_edit" | "default";
+export function antigravityPermissionMode(
+  fullAuto: boolean,
+  approvalMode: ApprovalMode | undefined,
+  availableModes: readonly string[],
+): "yolo" | "auto_edit" | "accept-edits" | "auto" | "default" | null;
 export function antigravityPermissionMode(
   fullAuto: boolean,
   approvalMode?: ApprovalMode,
   availableModes?: readonly string[],
-): "yolo" | "auto_edit" | "accept-edits" | "auto" | "default" {
-  const modes = availableModes?.length ? new Set(availableModes) : null;
-  if (fullAuto || approvalMode === "full") {
-    if (modes && !modes.has("yolo") && modes.has("auto")) return "auto";
-    return "yolo";
-  }
-  if (approvalMode === "edits") {
-    if (modes && !modes.has("auto_edit") && modes.has("accept-edits")) return "accept-edits";
-    return "auto_edit";
-  }
-  return "default";
-}
-
-function advertisedModeValues(option: unknown): string[] {
-  const values: string[] = [];
-  const visit = (entry: unknown) => {
-    if (!entry || typeof entry !== "object") return;
-    const record = entry as { value?: unknown; options?: unknown };
-    if (Array.isArray(record.options)) {
-      record.options.forEach(visit);
-      return;
+): "yolo" | "auto_edit" | "accept-edits" | "auto" | "default" | null {
+  if (availableModes !== undefined) {
+    const modes = new Set(availableModes);
+    if (fullAuto || approvalMode === "full") {
+      if (modes.has("yolo")) return "yolo";
+      if (modes.has("auto")) return "auto";
+      return null;
     }
-    if (typeof record.value === "string" && record.value) values.push(record.value);
-  };
-  visit(option);
-  return values;
+    if (approvalMode === "edits") {
+      if (modes.has("auto_edit")) return "auto_edit";
+      if (modes.has("accept-edits")) return "accept-edits";
+      return null;
+    }
+    return modes.has("default") ? "default" : null;
+  }
+  if (fullAuto || approvalMode === "full") return "yolo";
+  if (approvalMode === "edits") return "auto_edit";
+  return "default";
 }
 
 /** agy_acp_server opens a text run after a tool call with `&_a_m_p_;_` tokens — `&` escaped
@@ -139,7 +145,7 @@ const support: AcpSupport = {
   // Named for what people look for: Google moved personal Gemini subscriptions (free, AI Pro, AI Ultra) from Gemini CLI to Antigravity on 2026-06-18.
   displayName: "Google Gemini (Antigravity)",
   get models() { return currentEngineCatalog("antigravity"); },
-  defaultCli: "agy", // migration alias: resolveAntigravityRuntime treats it as managed
+  defaultCli: "agy",
   nativeSource: "antigravity.acp",
   loginNote: "Antigravity needs a Google account — choose Sign in with Google in engine setup",
   install: {
@@ -169,8 +175,13 @@ const support: AcpSupport = {
     launchedVersions.set(instanceId, runtime.version);
     const profile = await prepareAntigravityProfile({ instanceId, runtime, baseEnv: env });
     if (profile.tempDirectory) scheduleAntigravityTempSweep(instanceId);
+    if (isAntigravityCli(runtime) && config.fullAuto === true) {
+      const advertisedModes = await probeAntigravityCliModes(runtime, profile, instanceId);
+      if (advertisedModes === null) throw new Error(MISSING_MODE_ERROR);
+      if (!antigravityPermissionMode(true, "full", advertisedModes)) throw new Error(UNADVERTISED_MODE_ERROR);
+    }
     return {
-      command: runtime.executablePath,
+      command: runtime.cliVerification?.realpath ?? runtime.executablePath,
       args: antigravitySpawnArgs(runtime, { fullAuto: config.fullAuto === true }),
       env: profile.environment,
       ro: [join(profile.directory, "omb-skills")],
@@ -239,13 +250,14 @@ const support: AcpSupport = {
   },
 
   configureSession: async ({ request, sessionId, config, turn, configOptions }) => {
-    const modeOption = Array.isArray(configOptions)
-      ? configOptions.find((option) => option?.id === "mode")
-      : undefined;
-    if (!modeOption) {
-      return;
+    const advertisedModes = advertisedAntigravityModeValues(configOptions);
+    if (advertisedModes === null) {
+      throw new Error(MISSING_MODE_ERROR);
     }
-    const wanted = antigravityPermissionMode(config.fullAuto, turn.approvalMode, advertisedModeValues(modeOption));
+    const wanted = antigravityPermissionMode(config.fullAuto, turn.approvalMode, advertisedModes);
+    if (!wanted) {
+      throw new Error(UNADVERTISED_MODE_ERROR);
+    }
     const result = await request("session/set_config_option", {
       sessionId,
       configId: "mode",
@@ -340,6 +352,7 @@ export const AntigravityDriver: ProviderDriver<AcpConfig> = {
       },
       dispose: async () => {
         auth.cancel();
+        clearAntigravityCliAuth(input.instanceId);
         await base.dispose();
       },
     };

@@ -23,13 +23,13 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 
-import { DATA_DIR, stripWorkspaceCredentialEnv } from "../config.ts";
+import { DATA_DIR, PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
 import { writeFileAtomic } from "../atomic.ts";
 import { killCliTree, spawnCli } from "../procs.ts";
 import type { BoxRelay } from "../bot-box/relay.ts";
 import type { ModelCatalog } from "../contracts.ts";
 import type { ChildProcess } from "node:child_process";
-import { antigravitySpawnArgs, isAntigravityCli, type AntigravityRuntime } from "./antigravity-runtime.ts";
+import { antigravitySpawnArgs, cliProbeKey, isAntigravityCli, type AntigravityRuntime } from "./antigravity-runtime.ts";
 import { acpVariantOption, surveyModelVariants } from "./acp/config-options.ts";
 import { StderrTail, exitDetail } from "./acp/exit-report.ts";
 import {
@@ -64,8 +64,7 @@ export interface AntigravityProfile {
 }
 
 const REMOVED_ENVIRONMENT_KEYS = new Set([
-  "GEMINI_API_KEY",
-  "GOOGLE_API_KEY",
+  ...PROVIDER_CREDENTIAL_ENV,
   "GOOGLE_APPLICATION_CREDENTIALS",
   "GOOGLE_CLOUD_PROJECT",
   "GOOGLE_CLOUD_LOCATION",
@@ -313,9 +312,44 @@ const CLI_AUTH_OK_MS = 5 * 60_000;
 const CLI_AUTH_OUT_MS = 30_000;
 const CLI_AUTH_PROBE_TIMEOUT_MS = 10_000;
 const cliAuthCache = new Map<string, { authenticated: Promise<boolean>; until: number }>();
+const cliModesCache = new Map<string, { modes: Promise<string[] | null>; until: number }>();
 
 function cliAuthKey(instanceId: string, runtime: AntigravityRuntime, profile: AntigravityProfile): string {
-  return [instanceId, runtime.executablePath, profile.environment.HOME ?? profile.environment.USERPROFILE ?? ""].join("\0");
+  const binaryId = runtime.cliVerification ? cliProbeKey(runtime.cliVerification) : runtime.executablePath;
+  return [instanceId, binaryId, profile.environment.HOME ?? profile.environment.USERPROFILE ?? ""].join("\0");
+}
+
+export function advertisedAntigravityModeValues(configOptions: unknown): string[] | null {
+  const modeOption = Array.isArray(configOptions)
+    ? configOptions.find((option: any) => option?.id === "mode")
+    : undefined;
+  if (!modeOption) return null;
+  const values: string[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== "object") return;
+    const record = entry as { value?: unknown; options?: unknown };
+    if (Array.isArray(record.options)) {
+      record.options.forEach(visit);
+      return;
+    }
+    if (typeof record.value === "string" && record.value) values.push(record.value);
+  };
+  visit(modeOption);
+  return values;
+}
+
+export function noteAntigravityCliModes(
+  instanceId: string,
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  configOptions: unknown,
+): string[] | null {
+  const modes = advertisedAntigravityModeValues(configOptions);
+  cliModesCache.set(cliAuthKey(instanceId, runtime, profile), {
+    modes: Promise.resolve(modes),
+    until: Date.now() + (modes?.length ? CLI_AUTH_OK_MS : CLI_AUTH_OUT_MS),
+  });
+  return modes;
 }
 
 export function noteAntigravityCliSignedIn(instanceId: string, runtime?: AntigravityRuntime, profile?: AntigravityProfile): void {
@@ -349,11 +383,62 @@ export function noteAntigravityCliSignInRequired(instanceId: string, runtime?: A
 export function clearAntigravityCliAuth(instanceId?: string): void {
   if (!instanceId) {
     cliAuthCache.clear();
+    cliModesCache.clear();
     return;
   }
   for (const key of cliAuthCache.keys()) {
     if (key.startsWith(`${instanceId}\0`)) cliAuthCache.delete(key);
   }
+  for (const key of cliModesCache.keys()) {
+    if (key.startsWith(`${instanceId}\0`)) cliModesCache.delete(key);
+  }
+}
+
+export async function probeAntigravityCliModes(
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  instanceId: string,
+  timeoutMs = CLI_AUTH_PROBE_TIMEOUT_MS,
+): Promise<string[] | null> {
+  const key = cliAuthKey(instanceId, runtime, profile);
+  const cached = cliModesCache.get(key);
+  if (cached && cached.until > Date.now()) return cached.modes;
+  const probe = (async () => {
+    const client = new AntigravityAcpClient(runtime, profile, profile.directory);
+    try {
+      const deadline = Date.now() + timeoutMs;
+      const initialized = await client.initialize(timeoutMs, deadline);
+      const authLeft = Math.max(1_000, deadline - Date.now());
+      await client.request("authenticate", { methodId: "oauth-personal" }, authLeft);
+      const sessionLeft = Math.max(1_000, deadline - Date.now());
+      const session = await client.request(
+        "session/new",
+        { cwd: profile.directory, mcpServers: [], ...antigravitySessionSetup(initialized) },
+        sessionLeft,
+      );
+      return advertisedAntigravityModeValues(session?.configOptions);
+    } catch (error) {
+      if (error instanceof AntigravitySignInRequired) {
+        noteAntigravityCliSignInRequired(instanceId, runtime, profile);
+      }
+      throw error;
+    } finally {
+      client.close();
+    }
+  })();
+  const entry = { modes: probe, until: Number.POSITIVE_INFINITY };
+  cliModesCache.set(key, entry);
+  void probe.then(
+    (modes) => {
+      if (cliModesCache.get(key) === entry) {
+        cliModesCache.set(key, { modes: probe, until: Date.now() + (modes?.length ? CLI_AUTH_OK_MS : CLI_AUTH_OUT_MS) });
+      }
+    },
+    () => {
+      if (cliModesCache.get(key) === entry) cliModesCache.delete(key);
+    },
+  );
+  return probe;
 }
 
 /** Checks whether the installed `agy` CLI already has a working Google sign-in via ACP `authenticate`. */
@@ -437,7 +522,7 @@ export class AntigravityAcpClient {
     this.tempDirectory = profile.tempDirectory;
     this.runtimeVersion = runtime.version;
     this.child = spawnCli(
-      runtime.executablePath,
+      runtime.cliVerification?.realpath ?? runtime.executablePath,
       antigravitySpawnArgs(runtime),
       { cwd, env: profile.environment, stdio: ["pipe", "pipe", "pipe"], box: { ro: [join(profile.directory, "omb-skills")], ...(relay ? { relay: relay.socketPath } : {}) } },
       "bot",
@@ -784,6 +869,9 @@ export async function probeAntigravityModels(input: {
       { cwd: input.cwd ?? input.profile.directory, mcpServers: [], ...antigravitySessionSetup(initialized) },
       remaining(),
     );
+    if (isAntigravityCli(input.runtime) && input.instanceId) {
+      noteAntigravityCliModes(input.instanceId, input.runtime, input.profile, session?.configOptions);
+    }
     const catalog = catalogFromAntigravityConfigOptions(session?.configOptions, input.fallbackDefault);
     if (!catalog) throw new Error("Antigravity did not return a model catalog for this Google account.");
     const budget = Math.min(VARIANT_SURVEY_MS, deadline - Date.now());

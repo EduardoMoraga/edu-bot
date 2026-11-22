@@ -207,7 +207,7 @@ describe("an Antigravity turn whose reply was an upstream failure", () => {
     const created = await AntigravityDriver.create({
       instanceId, displayName: "Antigravity", enabled: true,
       config: { cli: executable, fullAuto: false },
-      environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", FAKE_ACP_MODELS: "gemini-3.8-flash", FAKE_ACP_AGENT_NAME: "Google Antigravity", FAKE_ACP_AGENT_VERSION: "1.4.5", FAKE_ACP_AGY_STEPS_FILE: stepsFile },
+      environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", FAKE_ACP_MODELS: "gemini-3.8-flash", FAKE_ACP_MODES: "default,yolo,auto_edit", FAKE_ACP_AGENT_NAME: "Google Antigravity", FAKE_ACP_AGENT_VERSION: "1.4.5", FAKE_ACP_AGY_STEPS_FILE: stepsFile },
     });
     instances.push(created);
     return { created, directory, stepsFile };

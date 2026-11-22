@@ -8,13 +8,14 @@ import {
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
   stat,
   statfs,
   writeFile,
 } from "node:fs/promises";
-import { constants } from "node:fs";
+import { constants, createReadStream } from "node:fs";
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { DATA_DIR } from "../config.ts";
@@ -62,24 +63,45 @@ export async function retryOnWindowsFileLock<T>(step: () => Promise<T>, options:
 
 const INSTALL_RECORD = ".install-complete.json";
 
+export interface AntigravityCliVerification {
+  realpath: string;
+  dev: string;
+  ino: string;
+  size: string;
+  sha256: string;
+}
+
 export interface AntigravityRuntime {
   executablePath: string;
   harnessPath: string;
   kind?: "acp-server" | "cli";
   source: "managed" | "override" | "path";
   version: string | null;
+  cliVerification?: AntigravityCliVerification;
+}
+
+export function cliProbeKey(verification: AntigravityCliVerification): string {
+  return `${verification.realpath}\0${verification.dev}\0${verification.ino}\0${verification.size}\0${verification.sha256}`;
 }
 
 export function isAntigravityCli(runtime: Pick<AntigravityRuntime, "kind">): boolean {
   return runtime.kind === "cli";
 }
 
+export function isVerifiedAntigravityCli(
+  runtime: Pick<AntigravityRuntime, "kind" | "cliVerification">,
+): boolean {
+  if (runtime.kind !== "cli" || !runtime.cliVerification) return false;
+  return cliProbes.get(cliProbeKey(runtime.cliVerification))?.supported === true;
+}
+
 export function antigravitySpawnArgs(
-  runtime: Pick<AntigravityRuntime, "kind">,
+  runtime: Pick<AntigravityRuntime, "kind" | "cliVerification">,
   options: { fullAuto?: boolean } = {},
 ): string[] {
   if (isAntigravityCli(runtime)) {
-    return ["acp", "--stdio", "--disable-telemetry", ...(options.fullAuto ? ["--dangerously-skip-permissions"] : [])];
+    const skipPermissions = options.fullAuto === true && isVerifiedAntigravityCli(runtime);
+    return ["acp", "--stdio", "--disable-telemetry", ...(skipPermissions ? ["--dangerously-skip-permissions"] : [])];
   }
   return process.platform === "linux" ? ["--uid="] : [];
 }
@@ -173,12 +195,64 @@ async function externalRuntime(candidate: string, source: "override" | "path"): 
 
 const CLI_PROBE_TIMEOUT_MS = 4_000;
 const AGY_CLI_NAME = /^(?:agy|antigravity)(?:\.(?:cmd|bat|exe|ps1|mjs|js|ts))?$/iu;
-const ACP_HELP_PATTERN = /\bagy\s+acp\b|Agent Client Protocol \(ACP\)/iu;
-const CLI_VERSION_PATTERN = /\b(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\b/u;
+const ACP_HELP_PATTERN = /\b(?:agy|antigravity)\s+acp\b/iu;
+const CLI_VERSION_PATTERN = /\b(\d+)\.(\d+)\.(\d+)(?:[-+][\w.-]+)?\b/u;
+const MIN_CLI_VERSION: readonly number[] = [1, 5, 0];
 const cliProbes = new Map<string, { supported: boolean; version: string | null }>();
 
 export function clearAntigravityCliCacheForTests(): void {
   cliProbes.clear();
+}
+
+export function isSupportedAntigravityCliVersion(version: string | null | undefined): boolean {
+  if (!version) return false;
+  const match = CLI_VERSION_PATTERN.exec(version);
+  if (!match) return false;
+  const parts = [Number(match[1]), Number(match[2]), Number(match[3])];
+  return MIN_CLI_VERSION.reduce((diff, min, index) => diff || parts[index]! - min, 0) >= 0;
+}
+
+function hashFileSha256(filePath: string): Promise<string> {
+  return new Promise((done, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.once("error", reject);
+    stream.once("end", () => done(hash.digest("hex")));
+  });
+}
+
+async function cliBinaryIdentity(
+  executablePath: string,
+  env: NodeJS.ProcessEnv,
+): Promise<AntigravityCliVerification | null> {
+  try {
+    const resolvedPath = await realpath(executablePath);
+    const info = await stat(resolvedPath, { bigint: true });
+    if (!info.isFile()) return null;
+    if (process.platform !== "win32") await access(resolvedPath, constants.X_OK);
+    let sha256 = await hashFileSha256(resolvedPath);
+    if (process.platform === "win32") {
+      const spawn = resolveCliSpawn(resolvedPath, [], env);
+      const target = spawn.command !== resolvedPath ? spawn.args[0] : undefined;
+      if (target) {
+        const targetReal = await realpath(target).catch(() => null);
+        if (targetReal && targetReal !== resolvedPath) {
+          const targetHash = await hashFileSha256(targetReal);
+          sha256 = createHash("sha256").update(`${sha256}\0${targetReal}\0${targetHash}`).digest("hex");
+        }
+      }
+    }
+    return {
+      realpath: resolvedPath,
+      dev: info.dev.toString(),
+      ino: info.ino.toString(),
+      size: info.size.toString(),
+      sha256,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function runCliProbe(executablePath: string, args: string[], env: NodeJS.ProcessEnv): Promise<{ ok: boolean; output: string }> {
@@ -206,32 +280,39 @@ async function cliRuntime(
 ): Promise<AntigravityRuntime | null> {
   const executablePath = resolve(candidate);
   if (!AGY_CLI_NAME.test(basename(executablePath))) return null;
-  if (!(await executableFile(executablePath))) return null;
-  let key: string;
-  try {
-    const info = await stat(executablePath);
-    key = `${executablePath}\0${info.mtimeMs}\0${info.size}`;
-  } catch {
-    return null;
-  }
+  const verification = await cliBinaryIdentity(executablePath, env);
+  if (!verification) return null;
+  const key = cliProbeKey(verification);
   let probed = cliProbes.get(key);
-  if (!probed) {
-    const help = await runCliProbe(executablePath, ["acp", "--help"], env);
+  if (probed) {
+    cliProbes.delete(key);
+    cliProbes.set(key, probed);
+  } else {
+    const help = await runCliProbe(verification.realpath, ["acp", "--help"], env);
     if (!help.ok || !ACP_HELP_PATTERN.test(help.output)) {
       probed = { supported: false, version: null };
     } else {
-      const ver = await runCliProbe(executablePath, ["--version"], env);
-      const match = ver.ok ? CLI_VERSION_PATTERN.exec(ver.output) : null;
-      probed = { supported: true, version: match?.[1] ?? null };
+      const ver = await runCliProbe(verification.realpath, ["--version"], env);
+      const version = ver.ok ? CLI_VERSION_PATTERN.exec(ver.output)?.[0] ?? null : null;
+      probed = version && isSupportedAntigravityCliVersion(version)
+        ? { supported: true, version }
+        : { supported: false, version: null };
     }
     if (cliProbes.size >= 64) cliProbes.delete(cliProbes.keys().next().value!);
     cliProbes.set(key, probed);
   }
   if (!probed.supported) return null;
-  return { executablePath, harnessPath: "", kind: "cli", source, version: probed.version };
+  return {
+    executablePath,
+    harnessPath: "",
+    kind: "cli",
+    source,
+    version: probed.version,
+    cliVerification: verification,
+  };
 }
 
-/** Resolves an override, the managed runtime, `agy_acp_server` on PATH, or an `agy` CLI with `acp` support (v1.5+). */
+/** Resolves an override, an installed `agy` CLI (v1.5+) on PATH, the managed runtime, or `agy_acp_server` on PATH. */
 export async function resolveAntigravityRuntime(
   binaryPath?: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -251,6 +332,12 @@ export async function resolveAntigravityRuntime(
     }
   }
 
+  for (const cliName of process.platform === "win32" ? ["agy.exe", "agy.cmd", "agy"] : ["agy"]) {
+    for (const candidate of pathCandidates(cliName, env)) {
+      const found = await cliRuntime(candidate, "path", env);
+      if (found) return found;
+    }
+  }
   const asset = resolveAntigravityReleaseAsset();
   if (asset) {
     const managed = await completedRelease(join(runtimeRoot(baseDir), "versions", asset.sha256), asset);
@@ -260,12 +347,6 @@ export async function resolveAntigravityRuntime(
   for (const candidate of pathCandidates(names.executable, env)) {
     const found = await externalRuntime(candidate, "path");
     if (found) return found;
-  }
-  for (const cliName of process.platform === "win32" ? ["agy.exe", "agy.cmd", "agy"] : ["agy"]) {
-    for (const candidate of pathCandidates(cliName, env)) {
-      const found = await cliRuntime(candidate, "path", env);
-      if (found) return found;
-    }
   }
   if (!asset) {
     throw new AntigravitySetupError(legacyCli

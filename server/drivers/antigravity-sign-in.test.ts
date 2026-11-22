@@ -73,7 +73,7 @@ async function create(instanceId: string, executable: string, environment: Recor
   const instance = await AntigravityDriver.create({
     instanceId, displayName: "Antigravity", enabled: true,
     config: { cli: executable, fullAuto: false },
-    environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", ...environment },
+    environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", FAKE_ACP_MODES: "default,yolo,auto_edit", ...environment },
   });
   instances.push(instance);
   return instance;

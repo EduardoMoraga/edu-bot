@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, truncateSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -20,6 +20,7 @@ import {
   antigravityProfileDirectory,
   authorizationUrlFromLine,
   catalogFromAntigravityConfigOptions,
+  clearAntigravityCliAuth,
   isValidAntigravityInitializeResult,
   parseAntigravityAuthorizationUrl,
   prepareAntigravityProfile,
@@ -38,6 +39,8 @@ import {
   clearAntigravityCliCacheForTests,
   installAntigravityRuntime,
   isAntigravityCli,
+  isSupportedAntigravityCliVersion,
+  isVerifiedAntigravityCli,
   resolveAntigravityRuntime,
 } from "./antigravity-runtime.ts";
 import * as antigravityTemp from "./antigravity-temp.ts";
@@ -74,6 +77,7 @@ afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
   clearAntigravityCliCacheForTests();
+  clearAntigravityCliAuth();
   delete process.env.FAKE_ACP_AUTH_METHOD;
   delete process.env.FAKE_ACP_MODELS;
   delete process.env.FAKE_ACP_MODES;
@@ -1203,9 +1207,10 @@ describe("Antigravity driver over shared ACP", () => {
     )).toBe(true);
   });
 
-  it("succeeds when ACP server does not advertise the mode config option", async () => {
+  it("fails closed when ACP server does not advertise the mode config option", async () => {
     ensureDirs();
     const fake = fakeRuntime();
+    const dump = join(fake.directory, "dump.json");
     const instanceId = "antigravity-unadvertised-mode";
     const tokenDirectory = join(antigravityProfileDirectory(instanceId), "antigravity-acp");
     mkdirSync(tokenDirectory, { recursive: true });
@@ -1216,6 +1221,8 @@ describe("Antigravity driver over shared ACP", () => {
       environment: {
         FAKE_ACP_AUTH_METHOD: "oauth-personal",
         FAKE_ACP_MODELS: "gemini-3.8-flash-high",
+        FAKE_ACP_DUMP: dump,
+        FAKE_ACP_DUMP_PROMPT: "1",
       },
       enabled: true,
       config: { cli: fake.executable, fullAuto: true },
@@ -1227,8 +1234,12 @@ describe("Antigravity driver over shared ACP", () => {
       cwd: fake.directory,
     });
     expect(await recorder.until((event) => event.type === "turn.completed" && event.turnId === turnId)).toMatchObject({
-      ok: true,
+      ok: false,
     });
+    expect(recorder.events.some(
+      (event) => event.type === "runtime.error" && /did not advertise a permission mode/u.test(event.message),
+    )).toBe(true);
+    expect(existsSync(`${dump}.prompt.json`)).toBe(false);
   });
 
   it("runs each turn of a pooled, resumed session under that turn's own permission mode", async () => {
@@ -1495,5 +1506,269 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
     const calls = JSON.parse(readFileSync(`${dump}.config.json`, "utf8"));
     expect(calls).toContainEqual({ method: "session/set_config_option", params: { sessionId: expect.any(String), configId: "mode", value: "accept-edits" } });
     expect(calls).toContainEqual({ method: "session/set_config_option", params: { sessionId: expect.any(String), configId: "thought_level", value: "xhigh" } });
+  }, 30_000);
+
+  function writeFakeAgyCli(
+    dir: string,
+    options: { helpText?: string; versionText?: string; versionExit?: number; name?: string; body?: string } = {},
+  ) {
+    const name = options.name ?? "agy";
+    const scriptName = process.platform === "win32" ? `${name}.mjs` : name;
+    const scriptPath = join(dir, scriptName);
+    const binPath = process.platform === "win32" ? join(dir, `${name}.cmd`) : scriptPath;
+    const helpText = options.helpText ?? "Usage: agy acp [flags]\\n\\nStart the Agent Client Protocol (ACP) stdio server";
+    const versionExit = options.versionExit ?? 0;
+    const versionText = options.versionText ?? "1.5.14";
+    const body = options.body ?? `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "acp" && args.includes("--help")) {
+  console.log(${JSON.stringify(helpText)});
+  process.exit(0);
+}
+if (args.includes("--version")) {
+  ${versionText ? `console.log(${JSON.stringify(versionText)});` : ""}
+  process.exit(${versionExit});
+}
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`;
+    writeFileSync(scriptPath, body, { mode: 0o755 });
+    if (process.platform === "win32") {
+      writeFileSync(binPath, `@echo off\r\n"${process.execPath}" "%~dp0${scriptName}" %*\r\n`);
+    }
+    return { scriptPath, binPath };
+  }
+
+  it("re-probes on in-place content rewrites with identical size, inode, and timestamps, and binds skip-permissions to verified binaries", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-agy-verify-"));
+    scratch.push(dir);
+    const { scriptPath, binPath } = writeFakeAgyCli(dir);
+    const pathWithNode = `${dir}${delimiter}${dirname(process.execPath)}`;
+    const verified = await resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir);
+    expect(isVerifiedAntigravityCli(verified)).toBe(true);
+    expect(antigravitySpawnArgs(verified, { fullAuto: true })).toContain("--dangerously-skip-permissions");
+    expect(antigravitySpawnArgs({ kind: "cli" }, { fullAuto: true })).not.toContain("--dangerously-skip-permissions");
+
+    const before = statSync(scriptPath, { bigint: true });
+    const replacement = `#!/usr/bin/env node\nconsole.log("not agy");\nprocess.exit(0);\n`;
+    const padded = replacement.padEnd(Number(before.size), " ");
+    expect(Buffer.byteLength(padded)).toBe(Number(before.size));
+    writeFileSync(scriptPath, padded, { mode: 0o755 });
+    utimesSync(scriptPath, new Date(Number(before.atimeMs)), new Date(Number(before.mtimeMs)));
+    const after = statSync(scriptPath, { bigint: true });
+    expect(after.size).toBe(before.size);
+    if (process.platform !== "win32") expect(after.ino).toBe(before.ino);
+
+    await expect(resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir)).rejects.toThrow(/official/u);
+
+    if (process.platform !== "win32") {
+      const good = writeFakeAgyCli(dir, { name: "good-bin", helpText: "Usage: antigravity acp [flags]", versionText: "1.5.14" });
+      const bad = writeFakeAgyCli(dir, { name: "bad-bin", body: "#!/usr/bin/env node\nconsole.log('nope');\n" });
+      const link = join(dir, "antigravity");
+      symlinkSync(good.binPath, link);
+      const linked = await resolveAntigravityRuntime(link, { PATH: pathWithNode }, dir);
+      expect(linked).toMatchObject({ kind: "cli", version: "1.5.14" });
+      unlinkSync(link);
+      symlinkSync(bad.binPath, link);
+      await expect(resolveAntigravityRuntime(link, { PATH: pathWithNode }, dir)).rejects.toThrow();
+    }
+  });
+
+  it("accepts the CLI only when help names the acp command and --version parses to >= 1.5.0", async () => {
+    expect(isSupportedAntigravityCliVersion("1.5.0")).toBe(true);
+    expect(isSupportedAntigravityCliVersion("1.5.14")).toBe(true);
+    expect(isSupportedAntigravityCliVersion("2.0.0")).toBe(true);
+    expect(isSupportedAntigravityCliVersion("1.4.9")).toBe(false);
+    expect(isSupportedAntigravityCliVersion("0.9.0")).toBe(false);
+    expect(isSupportedAntigravityCliVersion(null)).toBe(false);
+
+    const rejectedCases = [
+      { label: "generic ACP help text without agy acp", helpText: "Agent Client Protocol (ACP)", versionText: "1.5.14", versionExit: 0 },
+      { label: "failed --version probe", helpText: "Usage: agy acp [flags]", versionText: "", versionExit: 1 },
+      { label: "version below 1.5.0 (0.9.0)", helpText: "Usage: agy acp [flags]", versionText: "0.9.0", versionExit: 0 },
+      { label: "version below 1.5.0 (1.4.9)", helpText: "Usage: agy acp [flags]", versionText: "1.4.9", versionExit: 0 },
+    ];
+    for (const entry of rejectedCases) {
+      const dir = mkdtempSync(join(tmpdir(), "omb-agy-reject-"));
+      scratch.push(dir);
+      const { binPath } = writeFakeAgyCli(dir, entry);
+      const pathWithNode = `${dir}${delimiter}${dirname(process.execPath)}`;
+      await expect(resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir), entry.label).rejects.toThrow();
+    }
+
+    const okDir = mkdtempSync(join(tmpdir(), "omb-agy-150-"));
+    scratch.push(okDir);
+    const { binPath } = writeFakeAgyCli(okDir, { helpText: "Usage: agy acp [flags]", versionText: "1.5.0" });
+    const runtime = await resolveAntigravityRuntime(binPath, { PATH: `${okDir}${delimiter}${dirname(process.execPath)}` }, okDir);
+    expect(runtime).toMatchObject({ kind: "cli", version: "1.5.0" });
+  });
+
+  it("prefers a verified v1.5+ agy on PATH over an installed managed 1.4.3 runtime, and falls back when absent or older", async () => {
+    const asset = resolveAntigravityReleaseAsset();
+    if (!asset) return;
+    const baseDir = mkdtempSync(join(tmpdir(), "omb-agy-precedence-"));
+    scratch.push(baseDir);
+    const versionDir = join(baseDir, "tools", "antigravity-acp", `${process.platform}-${process.arch}`, "versions", asset.sha256);
+    mkdirSync(versionDir, { recursive: true });
+    for (const file of [asset.executable, asset.harness]) {
+      const target = join(versionDir, file.name);
+      writeFileSync(target, "");
+      truncateSync(target, file.bytes);
+      if (process.platform !== "win32") chmodSync(target, 0o755);
+    }
+    writeFileSync(join(versionDir, ".install-complete.json"), JSON.stringify({
+      sha256: asset.sha256,
+      version: asset.version,
+      executable: asset.executable,
+      harness: asset.harness,
+    }));
+
+    const cliDir = mkdtempSync(join(tmpdir(), "omb-agy-path-v15-"));
+    scratch.push(cliDir);
+    const { binPath } = writeFakeAgyCli(cliDir, { versionText: "1.5.14" });
+    const pathWithV15 = `${cliDir}${delimiter}${dirname(process.execPath)}`;
+    await expect(resolveAntigravityRuntime("agy", { PATH: pathWithV15 }, baseDir)).resolves.toMatchObject({
+      executablePath: binPath,
+      kind: "cli",
+      source: "path",
+      version: "1.5.14",
+    });
+
+    const oldDir = mkdtempSync(join(tmpdir(), "omb-agy-path-v14-"));
+    scratch.push(oldDir);
+    writeFakeAgyCli(oldDir, { versionText: "1.4.3" });
+    const pathWithOld = `${oldDir}${delimiter}${dirname(process.execPath)}`;
+    await expect(resolveAntigravityRuntime("agy", { PATH: pathWithOld }, baseDir)).resolves.toMatchObject({
+      source: "managed",
+      version: asset.version,
+    });
+    await expect(resolveAntigravityRuntime("agy", { PATH: "" }, baseDir)).resolves.toMatchObject({
+      source: "managed",
+      version: asset.version,
+    });
+  });
+
+  it("fails closed when the session omits or lacks the requested permission mode, and never launches Full", async () => {
+    expect(antigravityPermissionMode(false, "ask", [])).toBeNull();
+    expect(antigravityPermissionMode(false, "edits", ["plan"])).toBeNull();
+    expect(antigravityPermissionMode(false, "full", ["plan"])).toBeNull();
+    expect(antigravityPermissionMode(true, undefined, ["plan"])).toBeNull();
+
+    ensureDirs();
+    for (const scenario of [
+      { name: "missing-mode", modes: undefined, errorPattern: /did not advertise a permission mode/u },
+      { name: "plan-only", modes: "plan", errorPattern: /does not advertise the requested permission mode/u },
+    ]) {
+      const dir = mkdtempSync(join(tmpdir(), `omb-agy-${scenario.name}-`));
+      scratch.push(dir);
+      const { binPath } = writeFakeAgyCli(dir);
+      const dump = join(dir, "dump.json");
+      const spawnedArgs: string[][] = [];
+      const realSpawn = procs.spawnCli;
+      const spawnSpy = vi.spyOn(procs, "spawnCli").mockImplementation((...args) => {
+        spawnedArgs.push([...(args[1] ?? [])]);
+        return realSpawn(...args);
+      });
+
+      const localInstance = await AntigravityDriver.create({
+        instanceId: `antigravity-fail-closed-${scenario.name}`,
+        displayName: "Google Gemini (Antigravity)",
+        enabled: true,
+        config: { cli: binPath, fullAuto: false },
+        environment: {
+          FAKE_ACP_AUTH_METHOD: "oauth-personal",
+          FAKE_ACP_AGENT_NAME: "Antigravity ACP Server",
+          FAKE_ACP_AGENT_VERSION: "1.5.14",
+          FAKE_ACP_MODELS: "gemini-3.8-flash",
+          ...(scenario.modes ? { FAKE_ACP_MODES: scenario.modes } : {}),
+          FAKE_ACP_DUMP: dump,
+          FAKE_ACP_DUMP_PROMPT: "1",
+        },
+      });
+      const localRecorder = recordEvents(localInstance.adapter);
+      try {
+        await localInstance.startupModelRefresh;
+
+        const fullTurn = await localInstance.adapter.sendTurn({
+          threadId: `thread-full-${scenario.name}`,
+          text: "hello full",
+          approvalMode: "full",
+          model: "gemini-3.8-flash",
+          cwd: dir,
+        });
+        expect(await localRecorder.until((e) => e.type === "turn.completed" && e.turnId === fullTurn.turnId))
+          .toMatchObject({ ok: false });
+        expect(localRecorder.events.filter((e) => e.turnId === fullTurn.turnId))
+          .toContainEqual(expect.objectContaining({ type: "runtime.error", message: expect.stringMatching(scenario.errorPattern) }));
+        expect(spawnedArgs.some((args) => args.includes("--dangerously-skip-permissions"))).toBe(false);
+        expect(existsSync(`${dump}.prompt.json`)).toBe(false);
+
+        const askTurn = await localInstance.adapter.sendTurn({
+          threadId: `thread-ask-${scenario.name}`,
+          text: "hello ask",
+          approvalMode: "ask",
+          model: "gemini-3.8-flash",
+          cwd: dir,
+        });
+        expect(await localRecorder.until((e) => e.type === "turn.completed" && e.turnId === askTurn.turnId))
+          .toMatchObject({ ok: false });
+        expect(localRecorder.events.filter((e) => e.turnId === askTurn.turnId))
+          .toContainEqual(expect.objectContaining({ type: "runtime.error", message: expect.stringMatching(scenario.errorPattern) }));
+        expect(existsSync(`${dump}.prompt.json`)).toBe(false);
+        expect(existsSync(`${dump}.config.json`) ? JSON.parse(readFileSync(`${dump}.config.json`, "utf8")) : [])
+          .not.toContainEqual(expect.objectContaining({ params: expect.objectContaining({ configId: "mode" }) }));
+      } finally {
+        spawnSpy.mockRestore();
+        localRecorder.stop();
+        await localInstance.dispose();
+      }
+    }
+  }, 45_000);
+
+  it("strips foreign provider API keys on both prepareAntigravityProfile and the CLI sign-in path", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-agy-env-strip-"));
+    scratch.push(dir);
+    const { binPath } = writeFakeAgyCli(dir);
+    const pathWithNode = `${dir}${delimiter}${dirname(process.execPath)}`;
+    const runtime = await resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir);
+
+    const profile = await prepareAntigravityProfile({
+      instanceId: "agy-cli-strip-keys",
+      runtime,
+      baseDir: dir,
+      baseEnv: {
+        PATH: process.env.PATH,
+        GEMINI_API_KEY: "no-gemini",
+        GOOGLE_API_KEY: "no-google",
+        ANTHROPIC_API_KEY: "no-anthropic",
+        OPENAI_API_KEY: "no-openai",
+        DEEPSEEK_API_KEY: "no-deepseek",
+        CURSOR_API_KEY: "no-cursor",
+      },
+    });
+    for (const key of ["GEMINI_API_KEY", "GOOGLE_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "DEEPSEEK_API_KEY", "CURSOR_API_KEY"]) {
+      expect(profile.environment[key], key).toBeUndefined();
+    }
+
+    const authenticate = vi.spyOn(AntigravityAuthController.prototype, "start").mockResolvedValue({
+      phase: "succeeded", flowId: null, authorizationUrl: null, expiresAt: null,
+    });
+    instance = await AntigravityDriver.create({
+      instanceId: "antigravity-cli-signin-strip",
+      displayName: "Google Gemini (Antigravity)",
+      enabled: true,
+      config: { cli: binPath, fullAuto: false },
+      environment: {
+        ANTHROPIC_API_KEY: "foreign-anthropic",
+        OPENAI_API_KEY: "foreign-openai",
+        GEMINI_API_KEY: "foreign-gemini",
+        GOOGLE_API_KEY: "foreign-google",
+      },
+    });
+    await expect(instance.startAuthentication!()).resolves.toMatchObject({ phase: "succeeded" });
+    const startedProfile = authenticate.mock.calls[0]![1];
+    expect(startedProfile.environment.ANTHROPIC_API_KEY).toBeUndefined();
+    expect(startedProfile.environment.OPENAI_API_KEY).toBeUndefined();
+    expect(startedProfile.environment.GEMINI_API_KEY).toBeUndefined();
+    expect(startedProfile.environment.GOOGLE_API_KEY).toBeUndefined();
   }, 30_000);
 });
