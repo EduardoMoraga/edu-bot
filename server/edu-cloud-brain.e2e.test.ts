@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { runControlOmb } from "../scripts/control-omb.ts";
+import { EDU_CLOUD_RELAY_PATH } from "./edu-cloud.ts";
 import { SessionRegistry } from "./sessions.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
@@ -135,9 +136,13 @@ describe.skipIf(!runs)("cloud Edu brain shared by two people", () => {
 
   it("lets a bot on one computer recall what a bot on the other remembered", async () => {
     await turn(a, ana, "Remember that BI reports close on Fridays");
-    const dump = JSON.parse(readFileSync(join(a.server.dataDir, "fake-claude-dump.json"), "utf8"));
-    expect(JSON.parse(dump.mcpConfig.mcpServers.edu.env.OMB_REMOTE_MCP_SERVER)).toMatchObject({ type: "http", url });
-    expect(JSON.stringify(dump.mcpConfig.mcpServers.edu.args)).not.toContain(tokens.member);
+    const said = readFileSync(join(a.server.dataDir, "fake-claude-dump.json"), "utf8");
+    expect(said, "no MCP config, argument or engine variable holds the person's token").not.toContain(tokens.member);
+    const relay = JSON.parse(JSON.parse(said).mcpConfig.mcpServers.edu.env.OMB_REMOTE_MCP_SERVER) as { url: string; headers: { authorization: string } };
+    expect(relay.url).toBe(`${new URL(a.server.url).origin.replace("localhost", "127.0.0.1")}${EDU_CLOUD_RELAY_PATH}`);
+    const ping = { jsonrpc: "2.0", id: 1, method: "ping" };
+    const afterTurn = await fetch(relay.url, { method: "POST", headers: { authorization: relay.headers.authorization, "content-type": "application/json" }, body: JSON.stringify(ping) });
+    expect(afterTurn.status, "the turn's capability ends with the turn").toBe(401);
 
     await turn(b, luis, "When do BI reports close?");
     const transcript = (await api(b, "GET", `/api/threads/${luis.threadId}/messages?limit=100`)).text;

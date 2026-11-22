@@ -97,10 +97,12 @@ Each bot's `eduBrain` setting (`PATCH /api/bots/:id`):
   `<data folder>/brains/areas/bi/.edu`, created on first use like an own brain. Profiles set it from `area.md`.
   With `"personalBrain": false` the bot does not read your global brain either: Edu Bot runs Edu with `EDU_HOME` set to
   an empty folder, `<data folder>/edu-no-personal`, so the brief, `edu mcp` and the proposals list see only the area's
-  brain. Edu 6.0.0 has no switch of its own for this; it reads `EDU_HOME` as the global layer.
+  brain. Edu 6.0.0 has no switch of its own for this; it reads `EDU_HOME` as the global layer. Every Edu command Edu
+  Bot runs for such a bot (the brief, the mount, listing proposals after a turn and for Needs you, deciding one) runs
+  with that `EDU_HOME`.
 - `{ "mode": "cloud", "url": "https://…/mcp", "token": { "secret": "EDU_CLOUD_BI" } }`: an
   [edu-cloud](https://github.com/EduardoMoraga/edu-cloud) brain the team shares across computers. The turn mounts
-  edu-cloud's HTTP MCP as the `edu` server, through Edu Bot's remote MCP proxy, instead of `edu mcp`; the tools have
+  edu-cloud's HTTP MCP as the `edu` server instead of `edu mcp`, through Edu Bot's relay (see below); the tools have
   the same names, and the brief comes from edu-cloud's `edu_brief`. It needs no Edu install on this computer, and it
   never reads your global brain. The token is yours: save it in **Settings → Vault** under the name in `secret` (or use
   `{ "env": "NAME" }` for an environment variable of the app). Settings show only its name and what it may do there;
@@ -140,11 +142,13 @@ approve and reject canonical proposals). Edu Bot asks `GET <base>/api/v1/whoami`
 - **an older edu-cloud** (no `/api/v1/` routes): the brain works for memory; proposals are approved on the edu-cloud
   server itself (`edu-cloud approve <id>`), and Memory settings says so.
 
-A bot's turn mounts edu-cloud with the same token, but approval is only an HTTP route, never an MCP tool, so a bot
-cannot approve. Open risk: a bot whose tools can read its engine's MCP configuration can read your token; give a bot
-with a shell a member token.
+Your token never reaches the bot. The turn's `edu` server talks only to Edu Bot's own loopback route
+`POST|DELETE /api/internal/edu/mcp`, with a capability that holds only while that turn runs. Edu Bot adds your token
+in its own process and forwards MCP JSON-RPC, and nothing else, to the brain's `/mcp` address; the review routes are
+never reachable through it. So the engine's MCP configuration, its arguments and its environment hold no token a bot's
+shell could read, and approval stays an HTTP route the bot cannot call.
 
-Edu crew needs a local Edu brain, so a cloud brain bot has no crew.
+Edu crew needs a local Edu brain, so a cloud brain bot has no crew: Memory settings does not offer it.
 
 ## Settings
 

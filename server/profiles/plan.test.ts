@@ -249,7 +249,7 @@ describe("planProfiles", () => {
     expect(brains(plan().plan.lines)).toEqual([
       "access: Analista BI: Edu brain the shared brain of area bi",
       "access: Reporter: Edu brain the shared brain of area bi",
-      "access: Closer: Edu brain edu-cloud at https://brain.acme.example/mcp",
+      "access: Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES",
     ]);
     await apply(folder(), { giveAccess: false });
     expect(bot("bi/analyst").eduBrain).toBeUndefined();
@@ -271,6 +271,14 @@ describe("planProfiles", () => {
       "access: Analista BI: Edu brain the shared brain of area bi, without the person's own brain → the shared brain of area bi",
       "access: Reporter: Edu brain the shared brain of area bi, without the person's own brain → the shared brain of area bi",
     ]);
+
+    for (const [token, words] of [["{ secret: EDU_CLOUD_BI }", "secret EDU_CLOUD_BI"], ["{ env: EDU_CLOUD_TOKEN }", "environment variable EDU_CLOUD_TOKEN"]]) {
+      const otherSlot = folder({ "areas/sales/area.md": (text) => text.replace("token: { secret: EDU_CLOUD_SALES }", `token: ${token}`) });
+      expect(otherSlot.problems).toEqual([]);
+      expect(brains(plan(otherSlot).plan.lines).filter((line) => line.includes("Closer")), "another token on the same address is another person's access").toEqual([
+        `access: Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES → edu-cloud at https://brain.acme.example/mcp, token from ${words}`,
+      ]);
+    }
 
     const keyFile = folder({ "areas/sales/area.md": (text) => text.replace("token: { secret: EDU_CLOUD_SALES }", "token: { file: .secrets/edu-cloud }") });
     expect(kinds(plan(keyFile).plan.lines, "note")).toContain(

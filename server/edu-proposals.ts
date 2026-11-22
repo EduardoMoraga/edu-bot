@@ -33,7 +33,8 @@ interface Speaker { id: string; name: string; color: string; threadId?: string; 
 type CardMessage = { id: string; card?: OptionCardData; from?: { botId: string } };
 
 export interface EduProposalDeps {
-  brains: Pick<EduBrains, "detect" | "brain" | "brainFolder" | "brainKey">;
+  /** No `detect`: every Edu call here runs with the runtime of a bot on that brain. */
+  brains: Pick<EduBrains, "brain" | "brainFolder" | "brainKey">;
   /** Cloud brains' proposals; without it a cloud brain lists none. */
   cloud?: Pick<EduCloud, "list" | "decide" | "steward" | "view">;
   store: {
@@ -89,7 +90,7 @@ export function proposalBody(file: string): string | undefined {
 }
 
 /** Edu's listing as proposals of this brain or the global one; anything else, or an id that could pass for a flag, is
- * dropped. `shared`: the bot names this brain's folder itself. */
+ * dropped. `shared`: other bots may use this brain too (a folder's, an area's), so it is named, not the bot. */
 export function parseProposals(stdout: string, folder: string, globalHome: string, shared = false): EduProposal[] {
   const rows: unknown = JSON.parse(stdout);
   if (!Array.isArray(rows)) throw new Error("edu brain proposals did not print a list");
@@ -159,6 +160,16 @@ export function createEduProposals(deps: EduProposalDeps) {
     return on.find((bot) => bot.id === preferred) ?? on[0] ?? null;
   };
 
+  /** The Edu runtime of a bot whose brain is `folder`, the card's own bot first. */
+  async function runtimeOn(folder: string, preferred?: string): Promise<EduRuntime | null> {
+    const on = deps.store.bots.filter((bot) => deps.brains.brainFolder(bot) !== null && sameBrain(deps.brains.brainFolder(bot)!) === sameBrain(folder));
+    for (const bot of [...on.filter((candidate) => candidate.id === preferred), ...on.filter((candidate) => candidate.id !== preferred)]) {
+      const brain = await deps.brains.brain(bot);
+      if (brain.ok && brain.folder === folder) return brain.runtime;
+    }
+    return null;
+  }
+
   function eduEnv(runtime: EduRuntime): NodeJS.ProcessEnv {
     const clean: NodeJS.ProcessEnv = { ...env, ...AGENTS_NODE_FLAG, EDU_HOME: runtime.home };
     delete clean.EDU_CREW_JOB;
@@ -168,7 +179,7 @@ export function createEduProposals(deps: EduProposalDeps) {
   async function list(folder: string, runtime: EduRuntime, bot: Pick<Speaker, "eduBrain">): Promise<EduProposal[]> {
     const result = await run([runtime.cli!, ...eduCommands.list(folder)], { env: eduEnv(runtime), timeoutMs: LIST_TIMEOUT_MS });
     if (result.code !== 0) throw new Error(result.stderr.trim().split("\n").at(-1) || `edu exited with ${result.code}`);
-    return parseProposals(result.stdout, folder, runtime.home, bot.eduBrain?.mode === "folder");
+    return parseProposals(result.stdout, folder, runtime.home, bot.eduBrain?.mode === "folder" || bot.eduBrain?.mode === "area");
   }
 
   function remember(botId: string, folder: string, proposals: EduProposal[]) {
@@ -246,9 +257,9 @@ export function createEduProposals(deps: EduProposalDeps) {
       if (!deps.cloud || !(await deps.cloud.steward(bot))) return;
       proposals = await deps.cloud.list(bot);
     } else {
-      const runtime = await deps.brains.detect();
-      if (runtime.state !== "ready") return;
-      proposals = await list(folder, runtime, bot);
+      const brain = await deps.brains.brain(bot);
+      if (!brain.ok || brain.folder !== folder) return;
+      proposals = await list(folder, brain.runtime, bot);
     }
     remember(botId, folder, proposals);
     const pending = new Set(proposals.map(eduProposalKey));
@@ -257,20 +268,21 @@ export function createEduProposals(deps: EduProposalDeps) {
     for (const proposal of proposals) if (!proposal.global && !open.has(eduProposalKey(proposal))) post(threadId, bot, proposal);
   }
 
-  async function decide(folder: string, id: string, approve: boolean, global: boolean, cloudBot?: Speaker | null): Promise<"accepted" | "rejected" | "gone" | { status: number; error: string }> {
+  /** `on`: the runtime of a bot on this local brain, or the bot whose cloud token decides there. */
+  async function decide(folder: string, id: string, approve: boolean, global: boolean, on: { runtime: EduRuntime | null } | { cloudBot: Speaker | null }): Promise<"accepted" | "rejected" | "gone" | { status: number; error: string }> {
     if (!PROPOSAL_ID.test(id)) return { status: 400, error: "That isn't an Edu proposal id." };
     if (crewWorker()) return { status: 409, error: "Edu Bot is running inside an Edu crew job, so Edu won't let it decide proposals. Decide them in Edu itself." };
-    if (cloudBot !== undefined) {
-      if (!cloudBot || !deps.cloud) return { status: 409, error: "No bot here uses this edu-cloud brain any more." };
-      const decision = await deps.cloud.decide(cloudBot, id, approve, approve ? undefined : EDU_REJECT_REASON);
+    if ("cloudBot" in on) {
+      if (!on.cloudBot || !deps.cloud) return { status: 409, error: "No bot here uses this edu-cloud brain any more." };
+      const decision = await deps.cloud.decide(on.cloudBot, id, approve, approve ? undefined : EDU_REJECT_REASON);
       if (typeof decision === "string") {
         const cached = cache.get(folder);
         if (cached) cache.set(folder, { ...cached, proposals: cached.proposals.filter((proposal) => proposal.id !== id) });
       }
       return decision;
     }
-    const runtime = await deps.brains.detect();
-    if (runtime.state !== "ready" || !runtime.cli) return { status: 503, error: "Edu isn't available right now. Check the Edu brain in this bot's Memory settings." };
+    const runtime = on.runtime;
+    if (!runtime?.cli) return { status: 409, error: "No bot here can use this Edu brain right now. Check the Edu brain in its Memory settings." };
     const args = approve ? eduCommands.approve(folder, id) : eduCommands.reject(folder, id);
     const result = await run([runtime.cli, ...args], { env: eduEnv(runtime), timeoutMs: DECIDE_TIMEOUT_MS });
     const decision = decisionOf(result.stdout, id);
@@ -300,15 +312,13 @@ export function createEduProposals(deps: EduProposalDeps) {
       seen.add(deps.brains.brainKey(bot)!);
       try { if (await deps.cloud.steward(bot)) remember(bot.id, deps.brains.brainKey(bot)!, await deps.cloud.list(bot)); } catch {}
     }
-    const runtime = await deps.brains.detect();
-    if (runtime.state !== "ready") return;
     for (const bot of deps.store.bots) {
       const folder = bot.hidden ? null : deps.brains.brainFolder(bot);
       if (!folder || seen.has(folder) || !existsSync(join(folder, ".edu"))) continue;
       seen.add(folder);
       const brain = await deps.brains.brain(bot);
       if (!brain.ok) continue;
-      try { remember(bot.id, brain.folder, await list(brain.folder, runtime, bot)); } catch {}
+      try { remember(bot.id, brain.folder, await list(brain.folder, brain.runtime, bot)); } catch {}
     }
   }
 
@@ -338,7 +348,7 @@ export function createEduProposals(deps: EduProposalDeps) {
       settleAll(url, id, "gone", { threadId: "" });
       return { ok: true, outcome: "unavailable" };
     }
-    const decision = await decide(url, id, approve, false, bot);
+    const decision = await decide(url, id, approve, false, { cloudBot: bot });
     if (typeof decision === "object") return { ok: false, ...decision };
     const threadId = posted.get(eduProposalKey(proposal))?.threadId ?? bot.threadId ?? "";
     settleAll(url, id, decision, { threadId, botId: bot.id, botName: bot.name, summary: proposalCardWords(proposal, bot.name).subtitle });
@@ -390,8 +400,9 @@ export function createEduProposals(deps: EduProposalDeps) {
       if (!message?.card || !proposal) return null;
       if (behavior !== "allow" && behavior !== "deny") return { ok: false, status: 400, error: "Approve or reject an Edu proposal; it takes no other answer." };
       if (message.card.answered) return { ok: true, outcome: message.card.answered === "allow" ? "allowed-once" : message.card.answered === "deny" ? "rejected" : "unavailable", alreadySettled: true };
+      const cardBot = message.from?.botId ?? deps.store.bots.find((candidate) => candidate.threadId === threadId)?.id;
       const decision = await decide(proposal.brain, proposal.id, behavior === "allow", proposal.global,
-        proposal.cloud ? cloudBotFor(proposal.brain, message.from?.botId ?? deps.store.bots.find((candidate) => candidate.threadId === threadId)?.id) : undefined);
+        proposal.cloud ? { cloudBot: cloudBotFor(proposal.brain, cardBot) } : { runtime: await runtimeOn(proposal.brain, cardBot) });
       if (typeof decision === "object") return { ok: false, ...decision };
       const bot = message.from?.botId ? deps.store.bot(message.from.botId) : deps.store.bots.find((candidate) => candidate.threadId === threadId || deps.store.tasks(candidate.id).some((task) => task.threadId === threadId));
       settleAll(proposal.brain, proposal.id, decision, { threadId, requestId, botId: bot?.id, botName: bot?.name, summary: message.card.subtitle });
@@ -432,7 +443,7 @@ export function createEduProposals(deps: EduProposalDeps) {
         settleAll(brain.folder, id, "gone", { threadId: "" });
         return { ok: true, outcome: "unavailable" };
       }
-      const decision = await decide(brain.folder, id, approve, proposal.global);
+      const decision = await decide(brain.folder, id, approve, proposal.global, { runtime: brain.runtime });
       if (typeof decision === "object") return { ok: false, ...decision };
       const threadId = posted.get(eduProposalKey(proposal))?.threadId ?? deps.store.bots.find((candidate) => candidate.id === bot.id)?.threadId ?? "";
       settleAll(brain.folder, id, decision, { threadId, botId: bot.id, botName: bot.name,

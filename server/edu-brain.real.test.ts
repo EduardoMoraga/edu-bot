@@ -154,8 +154,18 @@ describe.skipIf(!cli)("the installed Edu binary", () => {
 
     const reader = await session((await brains.integration(reporter, { local: true }))!, {});
     const recalled = await reader.call("edu_recall", { query: "area real decision" });
+    const personal = await reader.call("edu_recall", { query: "global overlay note" });
     reader.close();
     expect(recalled.text).toContain("Area real decision");
+    expect(personal.text).not.toContain("Global overlay note");
+    const withPersonal = await session((await brains.integration(analyst, { local: true }))!, {});
+    expect((await withPersonal.call("edu_recall", { query: "global overlay note" })).text).toContain("Global overlay note");
+    withPersonal.close();
+
+    const brief = async (one: typeof analyst | typeof reporter) => JSON.stringify(await brains.promptParts(one, {}, true));
+    expect(await brief(analyst)).toContain("Global overlay note");
+    expect(await brief(reporter)).toContain("Area real decision");
+    expect(await brief(reporter)).not.toContain("Global overlay note");
     expect(readdirSync(eduNoPersonalHome(dataDir))).toEqual([]);
     expect(filesUnder(eduHome).some((file) => file.includes("area-real-decision"))).toBe(false);
   });

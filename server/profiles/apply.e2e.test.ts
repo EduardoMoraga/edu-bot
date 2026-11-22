@@ -68,7 +68,7 @@ posixOnly("profile apply routes", () => {
     expect(plan.body).toMatchObject({ folder, organization: "Acme", noChanges: false, problems: [], counts: { add: 7, access: 4, later: 1 } });
     expect(plan.body.commit).toBeUndefined();
     expect(plan.body.lines.filter((line: Rec) => line.kind === "access").map((line: Rec) => line.text)).toEqual(["Analista BI: Edu brain the shared brain of area bi", "Analista BI: Edu crew on",
-      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp"]);
+      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES"]);
     expect(await profileBots()).toEqual([]);
   });
 
@@ -77,7 +77,7 @@ posixOnly("profile apply routes", () => {
     expect(refused.status).toBe(403);
     expect(refused.body.error).toBe("These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.");
     expect(refused.body.lines.map((line: Rec) => line.text)).toEqual(["Analista BI: Edu brain the shared brain of area bi", "Analista BI: Edu crew on",
-      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp"]);
+      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES"]);
     expect(await profileBots()).toEqual([]);
     expect((await api("POST", "/api/profiles/apply", { giveAccess: true }, "member")).status).toBe(403);
     expect(await profileBots()).toEqual([]);
@@ -111,7 +111,7 @@ posixOnly("profile apply routes", () => {
     const applied = await api("POST", "/api/profiles/apply", { expect: plan.digest });
     expect(applied.status).toBe(200);
     expect(applied.body.applied.skipped.map((line: Rec) => line.text)).toEqual(["Analista BI: Edu brain the shared brain of area bi", "Analista BI: Edu crew on",
-      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp"]);
+      "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES"]);
     expect(applied.body.applied.skipped[0].reason).toContain("desktop app or a paired admin device");
     expect((await profileBots()).map((bot) => bot.name).sort()).toEqual(["Analista BI", "Closer", "Reporter"]);
     expect(await analyst()).toMatchObject({ section: "BI", chiefOfStaff: true, approvalMode: "auto" });
@@ -122,7 +122,7 @@ posixOnly("profile apply routes", () => {
     const again = (await api("POST", "/api/profiles/plan", {})).body;
     expect(again.lines.filter((line: Rec) => ["add", "change", "access", "conflict"].includes(line.kind)).map((line: Rec) => line.text))
       .toEqual(["Analista BI: Edu brain own → the shared brain of area bi", "Analista BI: Edu crew off → on",
-        "Reporter: Edu brain own → the shared brain of area bi", "Closer: Edu brain own → edu-cloud at https://brain.acme.example/mcp"]);
+        "Reporter: Edu brain own → the shared brain of area bi", "Closer: Edu brain own → edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES"]);
     const confirmed = await api("POST", "/api/profiles/apply", { giveAccess: true, expect: again.digest }, "admin");
     expect(confirmed.status).toBe(200);
     expect(confirmed.body.applied.skipped).toEqual([]);

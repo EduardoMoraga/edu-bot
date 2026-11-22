@@ -143,7 +143,7 @@ export function botPatch(desired: DesiredBot, echo: Rec, team: string | undefine
   return { patch, changes };
 }
 
-function canonicalBrain(setting: EduBrainSetting | undefined): string {
+export function canonicalBrain(setting: EduBrainSetting | undefined): string {
   const value = (setting ?? { mode: "own" }) as Record<string, unknown>;
   return JSON.stringify(Object.keys(value).sort().map((key) => [key, value[key]]));
 }

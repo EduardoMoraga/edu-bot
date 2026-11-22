@@ -75,7 +75,32 @@ describe("edu-cloud brains", () => {
     await expect(cloud.list(bot())).rejects.toThrow(EDU_CLOUD_NO_TOKEN);
     await expect(cloud.brief(bot())).rejects.toThrow(EDU_CLOUD_NO_TOKEN);
     expect(await cloud.decide(bot(), "C-1", true)).toEqual({ status: 409, error: EDU_CLOUD_NO_TOKEN });
-    expect(cloud.server(bot())).toBeNull();
+    expect(cloud.server(bot(), { threadId: "t1", generation: "g1" })).toBeNull();
     expect(seen).toEqual([]);
+  });
+
+  it("relays only MCP JSON-RPC to the brain's own /mcp, adding the person's token here", async () => {
+    const forwarded: Array<{ url: string; method: string; headers: Headers; body?: string; redirect?: RequestInit["redirect"] }> = [];
+    const fetcher = (async (input: string | URL | Request, init: RequestInit = {}) => {
+      forwarded.push({ url: String(input), method: init.method ?? "GET", headers: new Headers(init.headers), body: init.body as string | undefined, redirect: init.redirect });
+      return new Response("event: message\ndata: {}\n\n", { status: 200, headers: { "content-type": "text/event-stream", "mcp-session-id": "s-1", "set-cookie": "x=1" } });
+    }) as typeof fetch;
+    const cloud = createEduCloud({ token: () => TOKEN, fetch: fetcher });
+    const call = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "edu_recall", arguments: { query: "x" } } };
+    const relayed = await cloud.relay(bot(), { method: "POST", headers: { accept: "application/json, text/event-stream", "mcp-session-id": "s-1", authorization: "Bearer capability", cookie: "c=1" }, body: call });
+    expect(relayed.status).toBe(200);
+    expect(forwarded).toHaveLength(1);
+    expect(forwarded[0]).toMatchObject({ url: "https://brain.example/team/mcp", method: "POST", body: JSON.stringify(call), redirect: "error" });
+    expect(Object.fromEntries(forwarded[0]!.headers)).toEqual({ accept: "application/json, text/event-stream", authorization: `Bearer ${TOKEN}`, "content-type": "application/json", "mcp-session-id": "s-1" });
+    expect((await cloud.relay(bot(), { method: "DELETE", headers: { "mcp-session-id": "s-1" } })).status).toBe(200);
+    expect(forwarded[1]).toMatchObject({ method: "DELETE", body: undefined });
+
+    for (const [request, status] of [
+      [{ method: "GET", headers: {} }, 405],
+      [{ method: "POST", headers: {}, body: { action: "approve", id: "C-1" } }, 400],
+      [{ method: "POST", headers: {}, body: [] }, 400],
+    ] as const) expect((await cloud.relay(bot(), request)).status).toBe(status);
+    expect((await createEduCloud({ token: () => null, fetch: fetcher }).relay(bot(), { method: "POST", headers: {}, body: call })).status).toBe(409);
+    expect(forwarded).toHaveLength(2);
   });
 });

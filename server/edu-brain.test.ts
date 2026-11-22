@@ -4,7 +4,7 @@ import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { claudeEduMount, compareVersions, EDU_PREALLOWED_TOOLS, createEduBrains, eduAreaFolder, eduBrainWidens, eduNoPersonalHome, eduRegistryHome, locateEduCli, parseEduBrainSetting, type EduBrainDeps, type EduConfig } from "./edu-brain.ts";
-import { createEduCloud, EDU_CLOUD_NO_TOKEN } from "./edu-cloud.ts";
+import { createEduCloud, EDU_CLOUD_NO_TOKEN, EDU_CLOUD_RELAY_PATH } from "./edu-cloud.ts";
 import { parseStoredConfig } from "./config.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
@@ -187,18 +187,24 @@ describe("createEduBrains", () => {
     expect(brains.folderRefusal({ id: "b1" }, other)).toMatch(/inside Edu Bot's data folder/);
   });
 
-  it("mounts a cloud brain through the remote MCP proxy with this person's token, and nothing without one", async () => {
+  it("mounts a cloud brain as Edu Bot's relay with the turn's capability, never the person's token, and nothing without one", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const tokens: Record<string, string> = { EDU_CLOUD_BI: "t".repeat(40) };
-    const cloud = createEduCloud({ token: (_bot, ref) => "secret" in ref ? tokens[ref.secret] ?? null : null });
+    const minted: Array<{ id: string; threadId: string; generation: string }> = [];
+    const cloud = createEduCloud({ token: (_bot, ref) => "secret" in ref ? tokens[ref.secret] ?? null : null,
+      relay: { origin: "http://127.0.0.1:4100", mint: (bot, turn) => (minted.push({ id: bot.id, ...turn }), "c".repeat(48)) } });
     const { brains, calls } = setup({ cli: null, cloud: { ...cloud, brief: async () => JSON.stringify({ text: "## Decisions\n- BI closes on Friday\n" }) } });
     const closer = { id: "b3", name: "Closer", eduBrain: { mode: "cloud" as const, url: "https://brain.example/mcp", token: { secret: "EDU_CLOUD_BI" } } };
-    const server = await brains.integration(closer, { local: true });
+    const turn = { threadId: "t-close", generation: "g-1" };
+    const server = await brains.integration(closer, { local: true, turn });
     expect(server?.command).toBe(process.execPath);
     expect(server?.args.join(" ")).toMatch(/mcp-remote-proxy/);
-    expect(JSON.parse(server!.env.OMB_REMOTE_MCP_SERVER!)).toEqual({ type: "http", url: "https://brain.example/mcp", headers: { Authorization: `Bearer ${tokens.EDU_CLOUD_BI}` } });
-    expect(server!.args.join(" ")).not.toContain(tokens.EDU_CLOUD_BI);
-    expect(await brains.integration(closer, { local: false })).toBeNull();
+    expect(JSON.parse(server!.env.OMB_REMOTE_MCP_SERVER!)).toEqual({ type: "http", url: `http://127.0.0.1:4100${EDU_CLOUD_RELAY_PATH}`, headers: { authorization: `Bearer ${"c".repeat(48)}` } });
+    expect(minted).toEqual([{ id: "b3", ...turn }]);
+    expect(JSON.stringify(server)).not.toContain(tokens.EDU_CLOUD_BI);
+    expect(JSON.stringify(server)).not.toContain("brain.example");
+    expect(await brains.integration(closer, { local: true }), "outside a running turn").toBeNull();
+    expect(await brains.integration(closer, { local: false, turn })).toBeNull();
     expect(await brains.status(closer)).toEqual({ state: "ready", mode: "cloud", home: "", brain: "https://brain.example/mcp" });
     expect(brains.brainFolder(closer)).toBeNull();
     expect(brains.brainKey(closer)).toBe("https://brain.example/mcp");
@@ -207,7 +213,7 @@ describe("createEduBrains", () => {
     expect(calls).toEqual([]);
 
     tokens.EDU_CLOUD_BI = "short";
-    expect(await brains.integration(closer, { local: true })).toBeNull();
+    expect(await brains.integration(closer, { local: true, turn })).toBeNull();
     expect(await brains.status(closer)).toMatchObject({ state: "broken", reason: EDU_CLOUD_NO_TOKEN });
   });
 

@@ -6,7 +6,7 @@ import { problemSentence, type McpServerProfile, type ProfileFolder, type Profil
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine, ProfileSecretSlot } from "../../shared/profile-plan.ts";
 import { toolScopeWidens, type ToolScope } from "../../shared/tool-scope.ts";
 import type { ConnectorToolGrant } from "../../shared/wire.ts";
-import { APPROVAL_LABEL, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
+import { APPROVAL_LABEL, canonicalBrain, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
 import { eduBrainWidens } from "../edu-brain.ts";
 import { SECTION_CONTEXT_MAX_BYTES } from "../section-context.ts";
 import type { ProfilesState } from "./state.ts";
@@ -156,7 +156,8 @@ const connectorsWiden = (app: unknown, file: unknown, echo: Rec): boolean => {
 
 const brainMode = (setting: EduBrainSetting) => setting.mode === "folder" ? `folder ${setting.path}`
   : setting.mode === "area" ? `the shared brain of area ${setting.area}${setting.personalBrain === false ? ", without the person's own brain" : ""}`
-    : setting.mode === "cloud" ? `edu-cloud at ${setting.url}` : setting.mode;
+    : setting.mode === "cloud" ? `edu-cloud at ${setting.url}, token from ${"secret" in setting.token ? `secret ${setting.token.secret}` : `environment variable ${setting.token.env}`}`
+      : setting.mode;
 
 /** The bot setting a profile's Edu brain gives: an area brain is its own area's; a cloud token kept in a key file is not
  * one this app reads, so that brain is left to the app. */
@@ -199,7 +200,7 @@ const FIELDS: FieldSpec[] = [
     show: (v) => v === null ? "every app" : Object.keys(v as Rec).sort().join(", ") || "none", widens: connectorsWiden,
     set: (v) => ({ connectorTools: v as Record<string, ConnectorToolGrant> }) },
   { field: "eduBrain", label: "Edu brain", file: profileEduBrain,
-    app: (echo) => echo.eduBrain ?? { mode: "own" }, canon: (v) => brainMode(v as EduBrainSetting), show: (v) => brainMode(v as EduBrainSetting),
+    app: (echo) => echo.eduBrain ?? { mode: "own" }, canon: (v) => canonicalBrain(v as EduBrainSetting), show: (v) => brainMode(v as EduBrainSetting),
     widens: (app, file) => eduBrainWidens(app as EduBrainSetting, file as EduBrainSetting), set: (v) => ({ eduBrain: v as EduBrainSetting }) },
   { field: "eduCrew", label: "Edu crew", file: (bot) => bot.eduCrew, app: (echo) => echo.eduCrew === true, show: (v) => (v ? "on" : "off"),
     widens: (app, file) => file === true && app !== true, set: (v) => ({ eduCrew: v as boolean }) },

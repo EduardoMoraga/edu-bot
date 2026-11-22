@@ -16,6 +16,9 @@ export interface EduRouteDeps {
   desktop: boolean;
 }
 
+/** Edu crew needs a local Edu brain, so a cloud brain bot is offered none; one that had it on sees why it can't run. */
+const crewOffered = (bot: Bot, status: EduBrainStatus) => bot.eduCrew === true || (status.state === "ready" && bot.eduBrain?.mode !== "cloud");
+
 /** GET /api/bots/:id/edu: the bot's Edu brain, its pending proposals and its crew. POST /api/bots/:id/edu/proposals/:pid
  * `{action: "approve" | "reject"}`. GET /api/edu/rights: what this caller may decide. GET /api/edu/crew/:job: a crew
  * job's details; POST /api/edu/crew/:job/cancel stops it. */
@@ -48,7 +51,7 @@ export function createEduRoutes(deps: EduRouteDeps): RouteHandler {
         ...(status.brokenFolder ? { brokenFolder: true } : {}), ...(status.personalBrain === false ? { personalBrain: false } : {}),
         ...(status.state === "ready" || (bot.eduBrain?.mode === "cloud" && status.state !== "off")
           ? await deps.proposals.view(bot, deps.proposals.rights(auth).mayApprove) : { proposals: [], mayApprove: false }),
-        ...(status.state === "ready" || bot.eduCrew === true ? { crew: await deps.crew.view(bot) } : {}),
+        ...(crewOffered(bot, status) ? { crew: await deps.crew.view(bot) } : {}),
       };
       return json(res, 200, body);
     }
