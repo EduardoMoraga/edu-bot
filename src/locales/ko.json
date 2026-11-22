@@ -7747,6 +7747,7 @@
   "profiles.group.notes": "알아 두기",
   "profiles.access.hint": "봇이 더 많은 일을 할 수 있게 합니다. 허용할 때만 적용됩니다.",
   "profiles.access.allow": "더 많은 권한 허용",
+  "profiles.access.turnOn": "남은 것은 권한 추가뿐입니다. 적용하려면 '더 많은 권한 허용'을 켜세요.",
   "profiles.conflict.hint": "나와 파일 모두 이 항목을 바꿨습니다. 각각 하나를 고르세요.",
   "profiles.conflict.values": "파일: {file} · 내 것: {mine}",
   "profiles.conflict.mine": "내 것 유지",
@@ -7760,11 +7761,13 @@
   "profiles.confirm.yes": "권한 주고 적용",
   "profiles.confirm.cancel": "취소",
   "profiles.refused.what": "이 컴퓨터에서 Edu Bot을 열어 거기서 적용하거나, 권한을 늘리지 않고 적용하세요.",
+  "profiles.refused.whatOnly": "이 컴퓨터에서 Edu Bot을 열어 거기서 적용하세요.",
   "profiles.refused.without": "권한 늘리지 않고 적용",
   "profiles.stale": "확인한 뒤에 프로필이 바뀌었습니다. 새 계획을 확인한 다음 다시 적용하세요.",
   "profiles.result.botsOne": "봇 1개를 업데이트했습니다.",
   "profiles.result.botsMany": "봇 {count}개를 업데이트했습니다.",
   "profiles.result.none": "적용했습니다. 바뀐 봇은 없습니다.",
+  "profiles.result.nothing": "아무것도 적용되지 않았습니다.",
   "profiles.result.skipped": "제외됨: {line}. {reason}",
   "profiles.error.status": "프로필 설정을 읽지 못했습니다. {error}",
   "profiles.error.plan": "프로필을 읽지 못했습니다. {error}",
@@ -7775,6 +7778,7 @@
   "profiles.bot.drift": "여기서 변경됨",
   "profiles.bot.driftHint": "프로필이 정한 뒤 이 앱에서 바뀌었습니다. 다음 적용 때도 유지됩니다.",
   "profiles.bot.needsKey": "내 키가 필요함",
+  "profiles.bot.needsFile": "키 파일이 필요함",
   "profiles.bot.keyFor": "{use}용",
   "profiles.field.name": "이름",
   "profiles.field.title": "역할",
@@ -7790,5 +7794,6 @@
   "profiles.field.eduBrain": "Edu 브레인",
   "profiles.field.eduCrew": "Edu 크루",
   "profiles.field.memory": "메모리",
-  "profiles.field.memoryUpkeep": "메모리 관리"
+  "profiles.field.memoryUpkeep": "메모리 관리",
+  "profiles.field.chief": "비서실장"
 }

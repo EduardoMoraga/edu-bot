@@ -8054,6 +8054,7 @@
   "profiles.group.notes": "お知らせ",
   "profiles.access.hint": "これらはボットができることを増やします。許可した場合だけ適用されます。",
   "profiles.access.allow": "アクセスの追加を許可",
+  "profiles.access.turnOn": "残っているのはアクセスの追加だけです。適用するには「アクセスの追加を許可」をオンにしてください。",
   "profiles.conflict.hint": "あなたとファイルの両方が変更しました。それぞれ一つ選んでください。",
   "profiles.conflict.values": "ファイル: {file} · あなた: {mine}",
   "profiles.conflict.mine": "自分のものを残す",
@@ -8067,11 +8068,13 @@
   "profiles.confirm.yes": "アクセスを与えて適用",
   "profiles.confirm.cancel": "キャンセル",
   "profiles.refused.what": "このコンピューターで Edu Bot を開いてそこで適用するか、アクセスを増やさずに適用してください。",
+  "profiles.refused.whatOnly": "このコンピューターで Edu Bot を開いてそこで適用してください。",
   "profiles.refused.without": "アクセスを増やさずに適用",
   "profiles.stale": "確認した後にプロファイルが変わりました。新しいプランを確認してから、もう一度適用してください。",
   "profiles.result.botsOne": "1 件のボットを更新しました。",
   "profiles.result.botsMany": "{count} 件のボットを更新しました。",
   "profiles.result.none": "適用しました。変わったボットはありません。",
+  "profiles.result.nothing": "何も適用されませんでした。",
   "profiles.result.skipped": "対象外: {line}。{reason}",
   "profiles.error.status": "プロファイルの設定を読み込めませんでした。{error}",
   "profiles.error.plan": "プロファイルを読み込めませんでした。{error}",
@@ -8082,6 +8085,7 @@
   "profiles.bot.drift": "ここで変更",
   "profiles.bot.driftHint": "プロファイルが設定した後、このアプリで変更されました。次の適用でもそのまま残ります。",
   "profiles.bot.needsKey": "あなたのキーが必要",
+  "profiles.bot.needsFile": "キーファイルが必要",
   "profiles.bot.keyFor": "{use} 用",
   "profiles.field.name": "名前",
   "profiles.field.title": "仕事",
@@ -8097,5 +8101,6 @@
   "profiles.field.eduBrain": "Edu ブレイン",
   "profiles.field.eduCrew": "Edu クルー",
   "profiles.field.memory": "メモリー",
-  "profiles.field.memoryUpkeep": "メモリーの手入れ"
+  "profiles.field.memoryUpkeep": "メモリーの手入れ",
+  "profiles.field.chief": "Chief of Staff"
 }

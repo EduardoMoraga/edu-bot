@@ -52,6 +52,12 @@ export function planHasWork(plan: ProfilePlan, choices: Readonly<Record<string, 
   return !plan.noChanges && (Object.keys(choices).length > 0 || plan.lines.some((line) => ["add", "change", "access", "remove"].includes(line.kind)));
 }
 
+/** What is left needs more access and nothing else: applying without it would change nothing. */
+export function onlyAccessLeft(plan: ProfilePlan, choices: Readonly<Record<string, ProfileChoice>>): boolean {
+  return planHasWork(plan, choices) && Object.keys(choices).length === 0 && plan.lines.some((line) => line.kind === "access")
+    && !plan.lines.some((line) => ["add", "change", "remove"].includes(line.kind));
+}
+
 /** The bots an apply changed, each counted once. */
 export function botsUpdated(result: ProfileApplyResult): number {
   return new Set(result.applied.lines.filter((line) => line.subject.kind === "bot").map((line) => line.subject.id)).size;

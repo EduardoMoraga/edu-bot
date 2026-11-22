@@ -148,11 +148,14 @@ posixOnly("profile apply routes", () => {
     const closer = bots.find((bot) => bot.profileSource.key === "closer")!;
     const reporter = bots.find((bot) => bot.profileSource.key === "reporter")!;
     expect((await api("GET", `/api/profiles/bots/${closer.id}`)).body).toEqual({
-      changedHere: [], secrets: [{ name: "EDU_CLOUD_SALES", for: "Edu brain" }, { name: "NOTION_TOKEN", for: "notion" }],
+      changedHere: [], secrets: [{ kind: "secret", name: "EDU_CLOUD_SALES", for: "Edu brain" }, { kind: "secret", name: "NOTION_TOKEN", for: "notion" }],
     });
     expect((await api("PATCH", `/api/bots/${reporter.id}`, { title: "Writes the weekly report", soul: "Changed here." })).status).toBe(200);
     expect((await api("PATCH", `/api/bots/${reporter.id}`, { description: "Left to the app by its file." })).status).toBe(200);
     expect((await api("GET", `/api/profiles/bots/${reporter.id}`)).body.changedHere).toEqual(["title", "soul"]);
+    const analyst = bots.find((bot) => bot.profileSource.key === "analyst")!;
+    expect((await api("PATCH", `/api/bots/${analyst.id}`, { chiefOfStaff: false })).status).toBe(200);
+    expect((await api("GET", `/api/profiles/bots/${analyst.id}`)).body.changedHere).toEqual(["chief"]);
     expect((await api("GET", `/api/profiles/bots/${reporter.id}`, undefined, "member")).status).toBe(403);
     expect((await api("GET", "/api/profiles/bots/no-such-bot")).status).toBe(404);
   });

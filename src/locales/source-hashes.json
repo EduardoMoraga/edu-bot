@@ -4169,7 +4169,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -4203,7 +4203,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "es": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -10730,7 +10735,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -10764,7 +10769,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "fr": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -14700,7 +14710,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -14734,7 +14744,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "hi": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -18524,7 +18539,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -18558,7 +18573,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "ja": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -26625,7 +26645,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -26659,7 +26679,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "pt-br": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -38083,7 +38108,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -38117,7 +38142,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "zh": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -48316,7 +48346,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -48350,7 +48380,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "zh-tw": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -58648,7 +58683,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -58682,7 +58717,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "uk": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -62892,7 +62932,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -62926,7 +62966,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "vi": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -68955,7 +69000,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -68989,7 +69034,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "tr": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -75018,7 +75068,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -75052,7 +75102,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "pl": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -82282,7 +82337,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -82316,7 +82371,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "ru": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -89600,7 +89660,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -89634,7 +89694,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "it": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -96730,7 +96795,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -96764,7 +96829,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     },
     "ko": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -104524,7 +104594,7 @@
       "profiles.apply": "31e392d1c0378beca611de66c0f4c71cba29159905cc54242d9bddee5b23d851",
       "profiles.applying": "3329a9bb48b9c8d4a5e6182042ea9737427233c72b853b93d0a6365050ae476d",
       "profiles.confirm.title": "6c76bd4936e250fcb54837a7f625171f782f87955c46e9a667f242efbb1756f3",
-      "profiles.confirm.body": "23301f77a9c961ffe2e9e77885d9df583bc4866604fdb743dcc035872738be36",
+      "profiles.confirm.body": "e96aca2996cd140966822984717040fdd698a2de12fdedfb8484c2baf2740d86",
       "profiles.confirm.yes": "3fcb837ffd829e5017a3a68599932864ef666f8e93044b4fc6c762ae8355bc5a",
       "profiles.confirm.cancel": "19766ed6ccb2f4a32778eed80d1928d2c87a18d7c275ccb163ec6709d3eb2e27",
       "profiles.refused.what": "d865f0432ebc4b1c8c383cc63f79a939986943e0664b8ad3c37f24e18c39b8d5",
@@ -104558,7 +104628,12 @@
       "profiles.field.eduBrain": "e10405bdd88afdec17c09011b3943bd1bb99b247e2a9c8a492b8d38e638e7925",
       "profiles.field.eduCrew": "233a78dbc0d715d246be0b3259a773b092f6000d9feb17fb323b65918c7d1f31",
       "profiles.field.memory": "c064fbca9d9de8dd9bb0624984403b28d0da807a69365d4f7fb09123ecb0c405",
-      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0"
+      "profiles.field.memoryUpkeep": "9b0aa60e6ef1908e80b235e3dec012b5161c14ec5864e98fba584eba1d6d82b0",
+      "profiles.access.turnOn": "16e63a474c51592387eb76bb3160fd8ef89cb88b27eaf3bd425ff12215ddaf9b",
+      "profiles.refused.whatOnly": "60a7c31d6ee23ffb3cc5b04df2dbca784a3aaaf1e70f5af1d3c4134d9bdabdcd",
+      "profiles.result.nothing": "acd51363a5b22eaee0742d747ae0a25ee4e922ba67509e04852e8e233a7f406d",
+      "profiles.bot.needsFile": "02e9ceda54d3b3b1809bbdaa87763b08ba3c14e8e79127b2835d575111af3da9",
+      "profiles.field.chief": "245b630a86a9f2753c86a86f1a9cdeaed80b74704dfa2fc3193d6e312c294a38"
     }
   }
 }

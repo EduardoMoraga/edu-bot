@@ -3777,6 +3777,7 @@
   "profiles.group.notes": "जानने लायक",
   "profiles.access.hint": "इनसे बॉट ज़्यादा काम कर सकता है। ये तभी लागू होंगे जब आप अनुमति देंगे।",
   "profiles.access.allow": "ज़्यादा एक्सेस की अनुमति दें",
+  "profiles.access.turnOn": "बस ज़्यादा एक्सेस बाकी है। इसे लागू करने के लिए \"ज़्यादा एक्सेस की अनुमति दें\" चालू करें।",
   "profiles.conflict.hint": "आपने और फ़ाइल दोनों ने इन्हें बदला है। हर एक के लिए एक चुनें।",
   "profiles.conflict.values": "फ़ाइल: {file} · आपका: {mine}",
   "profiles.conflict.mine": "मेरा रखें",
@@ -3790,11 +3791,13 @@
   "profiles.confirm.yes": "एक्सेस दें और लागू करें",
   "profiles.confirm.cancel": "रद्द करें",
   "profiles.refused.what": "इस कंप्यूटर पर Edu Bot खोलकर वहीं लागू करें, या ज़्यादा एक्सेस के बिना लागू करें।",
+  "profiles.refused.whatOnly": "इस कंप्यूटर पर Edu Bot खोलकर वहीं लागू करें।",
   "profiles.refused.without": "ज़्यादा एक्सेस के बिना लागू करें",
   "profiles.stale": "आपके देखने के बाद प्रोफ़ाइल बदल गई हैं। नई योजना देखें, फिर दोबारा लागू करें।",
   "profiles.result.botsOne": "1 बॉट अपडेट हुआ।",
   "profiles.result.botsMany": "{count} बॉट अपडेट हुए।",
   "profiles.result.none": "लागू हो गया। कोई बॉट नहीं बदला।",
+  "profiles.result.nothing": "कुछ भी लागू नहीं हुआ।",
   "profiles.result.skipped": "छोड़ा गया: {line}। {reason}",
   "profiles.error.status": "प्रोफ़ाइल सेटिंग्स नहीं पढ़ी जा सकीं। {error}",
   "profiles.error.plan": "प्रोफ़ाइल नहीं पढ़ी जा सकीं। {error}",
@@ -3805,6 +3808,7 @@
   "profiles.bot.drift": "यहाँ बदला गया",
   "profiles.bot.driftHint": "प्रोफ़ाइल के सेट करने के बाद इसे इस ऐप में बदला गया। अगली बार लागू करने पर यह बना रहेगा।",
   "profiles.bot.needsKey": "आपकी कुंजी चाहिए",
+  "profiles.bot.needsFile": "कुंजी फ़ाइल चाहिए",
   "profiles.bot.keyFor": "{use} के लिए",
   "profiles.field.name": "नाम",
   "profiles.field.title": "काम",
@@ -3820,5 +3824,6 @@
   "profiles.field.eduBrain": "Edu ब्रेन",
   "profiles.field.eduCrew": "Edu क्रू",
   "profiles.field.memory": "मेमोरी",
-  "profiles.field.memoryUpkeep": "मेमोरी की देखभाल"
+  "profiles.field.memoryUpkeep": "मेमोरी की देखभाल",
+  "profiles.field.chief": "चीफ़ ऑफ़ स्टाफ़"
 }

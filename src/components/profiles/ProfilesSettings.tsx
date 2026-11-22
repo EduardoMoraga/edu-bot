@@ -3,7 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProfileApplyResult, ProfileChoice, ProfilePlan, ProfilePlanLine, ProfilesStatus } from "../../../shared/profile-plan";
 import { pageIsThisComputer } from "@/lib/companion-bridge";
 import { intlLocale, t } from "@/lib/i18n";
-import { accessNames, botsUpdated, folderIsEmpty, openConflicts, planGroups, planHasWork, type PlanGroup, type PlanGroupId } from "@/lib/profile-plan-view";
+import {
+  accessNames, botsUpdated, folderIsEmpty, onlyAccessLeft, openConflicts, planGroups, planHasWork, type PlanGroup, type PlanGroupId,
+} from "@/lib/profile-plan-view";
 import type { LocaleKey } from "@/locales";
 import { api, ApiError } from "@/state/api";
 import { SettingsSkeletonCard } from "../settings/SettingsStates";
@@ -118,6 +120,7 @@ export function ProfilesSettings() {
         setPlan(error.body.plan as ProfilePlan);
         setOutcome({ kind: "stale" });
       } else if (error instanceof ApiError && error.status === 403) {
+        if (withAccess) setGiveAccess(false);
         setOutcome({ kind: "refused", message: errorText(error) });
       } else {
         setOutcome({ kind: "failed", message: errorText(error) });
@@ -139,7 +142,9 @@ export function ProfilesSettings() {
   const waiting = plan ? openConflicts(plan, choices).length : 0;
   const work = plan ? planHasWork(plan, choices) : false;
   const empty = plan ? folderIsEmpty(plan) : false;
-  const refused = outcome?.kind === "refused" && hasAccess && giveAccess;
+  const accessOnly = plan ? onlyAccessLeft(plan, choices) : false;
+  const refused = outcome?.kind === "refused" && hasAccess && !giveAccess;
+  const canApply = work && !(accessOnly && !giveAccess);
 
   return <div className="flex flex-col gap-6" data-profiles="">
     <FolderSection status={status} onChoose={chooseFolder} />
@@ -164,8 +169,8 @@ export function ProfilesSettings() {
     {plan && !planError && !empty && (work || outcome) && <div data-profiles-apply="">
       <SettingsRows>
         {confirming && <AccessConfirm names={accessNames(plan)} lines={plan.lines.filter((line) => line.kind === "access").map((line) => line.text)} onConfirm={() => void apply(true)} onCancel={() => setConfirming(false)} />}
-        {!confirming && <SettingsFormFoot status={<OutcomeLine outcome={outcome} waiting={waiting} work={work} />}>
-          {work && (refused
+        {!confirming && <SettingsFormFoot status={<OutcomeLine outcome={outcome} waiting={waiting} work={work} accessOnly={accessOnly} giveAccess={giveAccess} />}>
+          {canApply && (refused
             ? <button type="button" data-profiles-action="apply-without" className="ui-button ui-button-md ui-button-primary rounded-full" disabled={planning || applying}
               onClick={() => { setGiveAccess(false); void apply(false); }}>{applying ? t("profiles.applying") : t("profiles.refused.without")}</button>
             : <button type="button" data-profiles-action="apply" className="ui-button ui-button-md ui-button-primary rounded-full" disabled={planning || applying}
@@ -286,31 +291,43 @@ function AccessConfirm({ names, lines, onConfirm, onCancel }: { names: string[];
       {lines.map((text, index) => <li key={index} dir="auto" data-profiles-confirm-line="">{text}</li>)}
     </ul>
     <div className="flex flex-wrap justify-end gap-2">
-      <button ref={cancel} type="button" data-profiles-action="cancel-access" className="ui-button ui-button-md rounded-full" onClick={onCancel}>{t("profiles.confirm.cancel")}</button>
+      <button ref={cancel} type="button" data-profiles-action="cancel-access"
+        className="ui-button ui-button-md rounded-full focus:outline-2 focus:outline-offset-2 focus:outline-focus" onClick={onCancel}>{t("profiles.confirm.cancel")}</button>
       <button type="button" data-profiles-action="confirm-access" className="ui-button ui-button-md ui-button-primary rounded-full" onClick={onConfirm}>{t("profiles.confirm.yes")}</button>
     </div>
   </div>;
 }
 
-function OutcomeLine({ outcome, waiting, work }: { outcome: Outcome | null; waiting: number; work: boolean }) {
+function OutcomeLine({ outcome, waiting, work, accessOnly, giveAccess }: {
+  outcome: Outcome | null;
+  waiting: number;
+  work: boolean;
+  accessOnly: boolean;
+  giveAccess: boolean;
+}) {
+  const turnOn = accessOnly && !giveAccess && outcome?.kind !== "refused"
+    ? <span data-profiles-access-only="">{t("profiles.access.turnOn")}</span> : null;
   if (outcome?.kind === "applied") {
     const count = botsUpdated(outcome.result);
-    const skipped = outcome.result.applied.skipped;
+    const { lines, skipped } = outcome.result.applied;
+    const summary = count === 1 ? t("profiles.result.botsOne") : count > 1 ? t("profiles.result.botsMany", { count })
+      : lines.length === 0 && skipped.length > 0 ? t("profiles.result.nothing") : t("profiles.result.none");
     return <span role="status" data-profiles-result="" className="flex flex-col gap-1">
-      <span className="text-ink">{count === 0 ? t("profiles.result.none") : count === 1 ? t("profiles.result.botsOne") : t("profiles.result.botsMany", { count })}</span>
+      <span className="text-ink">{summary}</span>
       {skipped.map((line, index) => <span key={index} dir="auto" data-profiles-skipped="">{t("profiles.result.skipped", { line: line.text, reason: asSentence(line.reason) })}</span>)}
+      {turnOn}
     </span>;
   }
   if (outcome?.kind === "refused") {
     return <span role="alert" data-profiles-refused="" className="flex flex-col gap-1">
       <span className="text-ink">{outcome.message}</span>
-      <span>{t("profiles.refused.what")}</span>
+      <span>{accessOnly ? t("profiles.refused.whatOnly") : t("profiles.refused.what")}</span>
     </span>;
   }
   if (outcome?.kind === "stale") return <span role="status" data-profiles-stale="">{t("profiles.stale")}</span>;
   if (outcome?.kind === "failed") return <span role="alert" className="text-danger">{t("profiles.error.apply", { error: outcome.message })}</span>;
   if (waiting && work) return <span>{waiting === 1 ? t("profiles.conflict.waitingOne") : t("profiles.conflict.waitingMany", { count: waiting })}</span>;
-  return null;
+  return turnOn;
 }
 
 function ErrorRow({ message, onRetry }: { message: string; onRetry: () => void }) {

@@ -9676,7 +9676,6 @@
   "routines.drawer.cancelRun": "取消运行",
   "routines.paused.title": "已暂停的例行任务",
   "routines.paused.help": "历史记录会保留；不会运行新的任务。",
-
   "mascot.body.blob": "团块",
   "mascot.body.circle": "圆形",
   "mascot.body.squircle": "圆角方形",
@@ -10186,6 +10185,7 @@
   "profiles.group.notes": "须知",
   "profiles.access.hint": "这些会让机器人能做更多事。只有在你允许时才会应用。",
   "profiles.access.allow": "允许更多权限",
+  "profiles.access.turnOn": "只剩下更多权限。请打开“允许更多权限”来应用。",
   "profiles.conflict.hint": "你和文件都更改了这些。请为每一项选择一个。",
   "profiles.conflict.values": "文件：{file} · 你的：{mine}",
   "profiles.conflict.mine": "保留我的",
@@ -10199,11 +10199,13 @@
   "profiles.confirm.yes": "给予权限并应用",
   "profiles.confirm.cancel": "取消",
   "profiles.refused.what": "请在这台电脑上打开 Edu Bot 并在那里应用，或不给予更多权限直接应用。",
+  "profiles.refused.whatOnly": "请在这台电脑上打开 Edu Bot 并在那里应用。",
   "profiles.refused.without": "不给予更多权限直接应用",
   "profiles.stale": "你查看之后配置档案已更改。请检查新计划，然后再次应用。",
   "profiles.result.botsOne": "已更新 1 个机器人。",
   "profiles.result.botsMany": "已更新 {count} 个机器人。",
   "profiles.result.none": "已应用。没有机器人发生变化。",
+  "profiles.result.nothing": "没有应用任何内容。",
   "profiles.result.skipped": "已略过：{line}。{reason}",
   "profiles.error.status": "无法读取配置档案设置。{error}",
   "profiles.error.plan": "无法读取配置档案。{error}",
@@ -10214,6 +10216,7 @@
   "profiles.bot.drift": "已在此处更改",
   "profiles.bot.driftHint": "配置档案设置后，在此应用中被更改。下次应用会保留它。",
   "profiles.bot.needsKey": "需要你的密钥",
+  "profiles.bot.needsFile": "需要密钥文件",
   "profiles.bot.keyFor": "用于 {use}",
   "profiles.field.name": "名称",
   "profiles.field.title": "职务",
@@ -10229,5 +10232,6 @@
   "profiles.field.eduBrain": "Edu 大脑",
   "profiles.field.eduCrew": "Edu 团队",
   "profiles.field.memory": "记忆",
-  "profiles.field.memoryUpkeep": "记忆维护"
+  "profiles.field.memoryUpkeep": "记忆维护",
+  "profiles.field.chief": "参谋长"
 }

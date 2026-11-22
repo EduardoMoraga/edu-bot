@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderGit2, KeyRound, PenLine } from "lucide-react";
 
 import type { ProfileBotView } from "../../../shared/profile-plan";
+import { onEduSettingsChanged } from "@/lib/edu-brain";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { api } from "@/state/api";
@@ -12,14 +13,16 @@ const FIELD_LABEL: Record<string, LocaleKey> = {
   model: "profiles.field.model", effort: "profiles.field.effort", approval: "profiles.field.approval", tools: "profiles.field.tools",
   toolsOff: "profiles.field.toolsOff", mcpServers: "profiles.field.mcpServers", connectors: "profiles.field.connectors",
   eduBrain: "profiles.field.eduBrain", eduCrew: "profiles.field.eduCrew", "memory.enabled": "profiles.field.memory", "memory.upkeep": "profiles.field.memoryUpkeep",
+  chief: "profiles.field.chief",
 };
 
 const fieldLabel = (field: string) => (FIELD_LABEL[field] ? t(FIELD_LABEL[field]) : field);
 
-/** What a bot's own settings change, as one string: the view is read again after the person edits one of them. */
+/** What a bot's own settings change, as one string: the view is read again after the person edits one of them. Its Edu
+ * brain and crew are not on `Bot`; their change is heard from `onEduSettingsChanged`. */
 const settingsKey = (bot: Bot) => JSON.stringify([
   bot.name, bot.title, bot.description, bot.soul, bot.approvalMode, bot.modelSelection, bot.toolScope, bot.toolsOff, bot.mcpServers,
-  bot.connectorTools, bot.memoryEnabled, bot.memoryUpkeep, bot.profileSource?.appliedAt,
+  bot.connectorTools, bot.memoryEnabled, bot.memoryUpkeep, bot.chiefOfStaff, bot.profileSource?.appliedAt,
 ]);
 
 /** Which fields were changed here and which keys the bot needs; null for a bot not from a profile, or when this person
@@ -28,6 +31,8 @@ export function useProfileBotView(bot: Bot): ProfileBotView | null {
   const [view, setView] = useState<ProfileBotView | null>(null);
   const from = Boolean(bot.profileSource);
   const key = from ? settingsKey(bot) : "";
+  const [eduChanges, setEduChanges] = useState(0);
+  useEffect(() => onEduSettingsChanged((botId) => { if (botId === bot.id) setEduChanges((count) => count + 1); }), [bot.id]);
   useEffect(() => {
     if (!from) {
       setView(null);
@@ -43,7 +48,7 @@ export function useProfileBotView(bot: Bot): ProfileBotView | null {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [bot.id, from, key]);
+  }, [bot.id, from, key, eduChanges]);
   return view;
 }
 
@@ -62,10 +67,12 @@ export function ProfileBotBadge({ bot, view }: { bot: Bot; view: ProfileBotView 
       <PenLine size={14} aria-hidden="true" className="mt-px shrink-0" />
       <span>{t("profiles.bot.changed", { fields: changed.map(fieldLabel).join(", ") })}</span>
     </div>}
-    {secrets.map((secret) => <div key={secret.name} data-profile-secret={secret.name} className="flex min-w-0 items-start gap-1.5">
+    {secrets.map((secret) => <div key={secret.kind === "file" ? `file:${secret.for}` : `${secret.kind}:${secret.name}`}
+      data-profile-secret={secret.kind === "file" ? "" : secret.name} data-profile-secret-kind={secret.kind} className="flex min-w-0 items-start gap-1.5">
       <KeyRound size={14} aria-hidden="true" className="mt-px shrink-0" />
       <span className="flex min-w-0 flex-1 flex-wrap gap-x-1.5">
-        <span className="[overflow-wrap:anywhere]"><span dir="ltr" className="font-mono">{secret.name}</span>{" · "}{t("profiles.bot.needsKey")}</span>
+        <span className="[overflow-wrap:anywhere]">{secret.kind === "file" ? t("profiles.bot.needsFile")
+          : <><span dir="ltr" className="font-mono">{secret.name}</span>{" · "}{t("profiles.bot.needsKey")}</>}</span>
         <span className="ms-auto text-ink-tertiary">{t("profiles.bot.keyFor", { use: secret.for })}</span>
       </span>
     </div>)}

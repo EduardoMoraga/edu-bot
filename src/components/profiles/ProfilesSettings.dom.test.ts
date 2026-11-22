@@ -32,9 +32,9 @@ const FULL = plan([
   line("add", "Closer: new bot in Sales", { subject: bot("sales/closer", "Closer") }),
   line("change", "Reporter: instructions 2 changed", { subject: bot("bi/reporter", "Reporter", "b2"), field: "soul" }),
   line("access", "Analista BI: Edu crew off → on", { field: "eduCrew" }),
-  line("changed-here", "Reporter: memory was changed here (off), so it is kept", { subject: bot("bi/reporter", "Reporter", "b2") }),
+  line("changed-here", "Reporter: memory changed in this app to off; that change stays", { subject: bot("bi/reporter", "Reporter", "b2") }),
   conflict,
-  line("gone", "Old helper is no longer in the profiles; it is kept", { subject: bot("bi/old", "Old helper", "b3") }),
+  line("gone", "Old helper is no longer in your profiles; it stays in this app as it is", { subject: bot("bi/old", "Old helper", "b3") }),
   line("later", "MCP server notion (mcp/notion.md) is set up from profiles in a later update; until then nothing here changes for it"),
   line("note", "Closer: this app has no codex engine, so the bot uses this app's default model"),
   line("blocked", "Seller is left as it is: its file has problems"),
@@ -128,9 +128,9 @@ it("shows the folder, the last apply with its commit, and every plan group in or
   expect(group("change")).toContain("Reporter: instructions 2 changed");
   expect(group("access")).toContain("Analista BI: Edu crew off → on");
   expect(group("access")).toContain("These let a bot do more. They apply only if you allow them.");
-  expect(group("changedHere")).toContain("Reporter: memory was changed here (off), so it is kept");
+  expect(group("changedHere")).toContain("Reporter: memory changed in this app to off; that change stays");
   expect(group("conflict")).toContain("File: \"Data analyst\" · Yours: \"Numbers\"");
-  expect(group("gone")).toContain("Old helper is no longer in the profiles; it is kept");
+  expect(group("gone")).toContain("Old helper is no longer in your profiles; it stays in this app as it is");
   expect(group("later")).toContain("MCP server notion");
   expect(group("notes")).toContain("Closer: this app has no codex engine");
   expect(group("notes")).toContain("notes.txt: is not a profile file, so it is ignored");
@@ -178,9 +178,10 @@ it("applies without more access unless it is allowed, and asks a second time bef
   expect(calls("/api/profiles/apply")).toHaveLength(1);
   const confirm = host.querySelector("[data-profiles-confirm]")!;
   expect(confirm.textContent).toContain("Give more access?");
-  expect(confirm.textContent).toContain("Analista BI will get this access:");
+  expect(confirm.textContent).toContain("This gives more access to Analista BI:");
   expect([...confirm.querySelectorAll("[data-profiles-confirm-line]")].map((item) => item.textContent)).toEqual(["Analista BI: Edu crew off → on"]);
   expect(document.activeElement?.textContent).toBe("Cancel");
+  expect(document.activeElement?.className).toContain("focus:outline-focus");
   await click(button("Cancel"));
   expect(host.querySelector("[data-profiles-confirm]")).toBeNull();
   expect(calls("/api/profiles/apply")).toHaveLength(1);
@@ -201,6 +202,7 @@ it("shows the server's refusal with what to do, and can apply the rest without m
   expect(refused.getAttribute("role")).toBe("alert");
   expect(refused.textContent).toContain(refusal);
   expect(refused.textContent).toContain("Open Edu Bot on this computer and apply there, or apply without more access.");
+  expect(host.querySelector("[data-profiles-action=allow-access]")?.getAttribute("aria-checked")).toBe("false");
   expect(button("Apply")).toBeUndefined();
   applyAnswer = async () => ({ ...plan([]), applied: { lines: [FULL.lines[0]!], skipped: [] } });
   await click(button("Apply without more access"));
@@ -224,6 +226,35 @@ it("after an apply, says how many bots were updated and what was left out, and p
   expect(calls("/api/profiles/plan")).toHaveLength(2);
   expect(calls("/api/profiles")).toHaveLength(2);
   expect(groups()).toEqual(["Gives more access"]);
+  expect(button("Apply")).toBeUndefined();
+  expect(text()).toContain("Only more access is left. Turn on Allow more access to apply it.");
+});
+
+it("with only more access left, offers the switch instead of Apply, and after a refusal turns the switch off", async () => {
+  const refusal = "These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.";
+  applyAnswer = async () => { throw new ApiError(refusal, 403, { error: refusal }); };
+  plans = [plan([line("access", "Analista BI: Edu crew off → on", { field: "eduCrew" })])];
+  await render();
+  expect(button("Apply")).toBeUndefined();
+  expect(host.querySelector("[data-profiles-access-only]")?.textContent).toBe("Only more access is left. Turn on Allow more access to apply it.");
+  await click(host.querySelector("[data-profiles-action=allow-access]"));
+  expect(host.querySelector("[data-profiles-access-only]")).toBeNull();
+  await click(button("Apply"));
+  await click(button("Give access and apply"));
+  expect(calls("/api/profiles/apply")).toEqual([{ choices: {}, giveAccess: true, expect: "d1" }]);
+  expect(host.querySelector("[data-profiles-action=allow-access]")?.getAttribute("aria-checked")).toBe("false");
+  expect(host.querySelector("[data-profiles-refused]")?.textContent).toContain("Open Edu Bot on this computer and apply there.");
+  expect(text()).not.toContain("apply without more access");
+  expect(button("Apply")).toBeUndefined();
+  expect(button("Apply without more access")).toBeUndefined();
+});
+
+it("says nothing was applied when every line was left out", async () => {
+  applyAnswer = async () => ({ ...plan([]), applied: { lines: [], skipped: [{ ...FULL.lines[2]!, reason: "More access was not confirmed." }] } });
+  await render();
+  await click(button("Apply"));
+  expect(host.querySelector("[data-profiles-result]")?.textContent).toContain("Nothing was applied.");
+  expect(text()).not.toContain("Applied. No bot changed.");
 });
 
 it("shows the new plan when the profiles changed since the person looked", async () => {

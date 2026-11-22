@@ -6016,6 +6016,7 @@
   "profiles.group.notes": "Nên biết",
   "profiles.access.hint": "Những điều này cho bot làm được nhiều hơn. Chỉ áp dụng khi bạn cho phép.",
   "profiles.access.allow": "Cho phép thêm quyền",
+  "profiles.access.turnOn": "Chỉ còn lại phần cấp thêm quyền. Bật \"Cho phép thêm quyền\" để áp dụng.",
   "profiles.conflict.hint": "Bạn và tệp đều đã đổi những mục này. Hãy chọn một cho mỗi mục.",
   "profiles.conflict.values": "Tệp: {file} · Của bạn: {mine}",
   "profiles.conflict.mine": "Giữ của tôi",
@@ -6029,11 +6030,13 @@
   "profiles.confirm.yes": "Cấp quyền và áp dụng",
   "profiles.confirm.cancel": "Hủy",
   "profiles.refused.what": "Mở Edu Bot trên máy tính này và áp dụng ở đó, hoặc áp dụng mà không cấp thêm quyền.",
+  "profiles.refused.whatOnly": "Mở Edu Bot trên máy tính này và áp dụng ở đó.",
   "profiles.refused.without": "Áp dụng không cấp thêm quyền",
   "profiles.stale": "Hồ sơ đã thay đổi từ lúc bạn xem. Hãy xem kế hoạch mới rồi áp dụng lại.",
   "profiles.result.botsOne": "Đã cập nhật 1 bot.",
   "profiles.result.botsMany": "Đã cập nhật {count} bot.",
   "profiles.result.none": "Đã áp dụng. Không bot nào thay đổi.",
+  "profiles.result.nothing": "Không có gì được áp dụng.",
   "profiles.result.skipped": "Bỏ qua: {line}. {reason}",
   "profiles.error.status": "Không đọc được cài đặt hồ sơ. {error}",
   "profiles.error.plan": "Không đọc được hồ sơ. {error}",
@@ -6044,6 +6047,7 @@
   "profiles.bot.drift": "Đã đổi ở đây",
   "profiles.bot.driftHint": "Đã đổi trong ứng dụng này sau khi hồ sơ đặt giá trị. Lần áp dụng sau sẽ giữ lại.",
   "profiles.bot.needsKey": "Cần khóa của bạn",
+  "profiles.bot.needsFile": "Cần tệp khóa",
   "profiles.bot.keyFor": "cho {use}",
   "profiles.field.name": "tên",
   "profiles.field.title": "vai trò",
@@ -6059,5 +6063,6 @@
   "profiles.field.eduBrain": "bộ não Edu",
   "profiles.field.eduCrew": "nhóm Edu",
   "profiles.field.memory": "bộ nhớ",
-  "profiles.field.memoryUpkeep": "bảo trì bộ nhớ"
+  "profiles.field.memoryUpkeep": "bảo trì bộ nhớ",
+  "profiles.field.chief": "Chief of Staff"
 }
