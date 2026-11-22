@@ -122,7 +122,7 @@ function offReason(missing: readonly string[], unread: readonly string[]): strin
 const CONFIRM = "it stays off until you check this command and turn it on in Apps → MCP servers";
 
 /** The parts a profile sets of the app's server, and the app's own settings for it, or null when it cannot be read. */
-function appSide(name: string, raw: unknown): { spec: ProfileMcpSpec; keep: Record<string, unknown> } | null {
+function appSide(name: string, raw: unknown): { spec: ProfileMcpSpec; keep: Record<string, unknown>; enabled: boolean } | null {
   const parsed = parseStoredMcpServer(name, raw);
   if (!parsed.ok) return null;
   const server = parsed.server;
@@ -131,9 +131,9 @@ function appSide(name: string, raw: unknown): { spec: ProfileMcpSpec; keep: Reco
     if (server.oauth) {
       keep.oauth = { clientId: server.oauth.clientId, ...(server.oauth.scopes ? { scopes: server.oauth.scopes } : {}), ...(server.oauth.clientSecret ? { clientSecret: true } : {}) };
     }
-    return { spec: { type: server.type, url: server.url, headers: server.headers }, keep };
+    return { spec: { type: server.type, url: server.url, headers: server.headers }, keep, enabled: server.enabled };
   }
-  return { spec: { command: server.command, args: server.args, env: server.env }, keep };
+  return { spec: { command: server.command, args: server.args, env: server.env }, keep, enabled: server.enabled };
 }
 
 /** Whether `want` lets a bot do anything `have` does not: another address or command, or a header or variable it lacks. */
@@ -215,6 +215,13 @@ export function planMcpServers(input: McpPlanInput): McpPlanOutput {
       continue;
     }
     if (outcome === "same") {
+      if (off && current?.enabled) {
+        kept[key] = base;
+        const turnedOff = line("change", `MCP server ${key}: ${off}`);
+        lines.push(turnedOff);
+        actions.push({ kind: "mcp-server", key, op: "change", line: turnedOff, access: false, spec, ...(current ? { keep: current.keep } : {}), enabled: false, vaultKeys: keys, state: applied });
+        continue;
+      }
       kept[key] = applied;
       if (off) lines.push(line("note", `MCP server ${key}: ${off}`));
       continue;

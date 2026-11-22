@@ -741,6 +741,23 @@ A local test server.
     expect(plan().plan.noChanges).toBe(true);
   });
 
+  it("turns an enabled server off when a second secret slot is missing, even though the filled spec matches", async () => {
+    const { app, plan, apply } = fakeApp({ mcpServers: [], vault: { NOTION_TOKEN: ITEM } });
+    await apply();
+    expect(app.mcp.notion.enabled).toBe(true);
+    const extra = folder({ "mcp/notion.md": (text) => text.replace("  Authorization: { secret: NOTION_TOKEN }", "  Authorization: { secret: NOTION_TOKEN }\n  X-Extra: { secret: OTHER }") });
+    const waiting = plan(extra).plan;
+    expect(waiting.noChanges).toBe(false);
+    expect(mcpLines(waiting.lines)).toEqual(["change: MCP server notion: Needs your key: it stays off until you save OTHER in Settings → Vault and apply again"]);
+    const turnedOff = await apply(extra, { giveAccess: false });
+    expect(turnedOff.outcome.skipped).toEqual([]);
+    expect(app.mcp.notion).toEqual({ type: "http", url: "https://mcp.notion.com/mcp", headers: { Authorization: `vault:${ITEM}` }, enabled: false });
+    expect(app.state.mcpServers.notion).toMatchObject({ needsKey: true });
+    const again = plan(extra).plan;
+    expect(again.noChanges).toBe(true);
+    expect(mcpLines(again.lines)).toEqual(["note: MCP server notion: Needs your key: it stays off until you save OTHER in Settings → Vault and apply again"]);
+  });
+
   it("shows a command server's exact command, and keeps it off until the person turns it on, again after each change", async () => {
     const { app, plan, apply } = fakeApp({ mcpServers: [], vault: { NOTION_TOKEN: ITEM, FAKE_TOKEN: OTHER_ITEM } });
     expect(mcpLines(plan(fake()).plan.lines)).toContain("access: Adds MCP server fake that runs `node fake-server.mjs --mode \"read only\"` on this computer, "
