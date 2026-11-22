@@ -164,5 +164,9 @@ export class FakeDataDatabase implements BotDatabase {
     return `"${match}"`;
   }
 
+  async exclusive<T>(connection: DataConnection, options: Omit<RunOptions, "connection">, work: (run: (sql: string, maxRows?: number) => Promise<RunResult>) => Promise<T>): Promise<T> {
+    return work((sql, maxRows) => this.run(sql, { ...options, connection, ...(maxRows === undefined ? {} : { maxRows }) }));
+  }
+
   async close(): Promise<void> {}
 }

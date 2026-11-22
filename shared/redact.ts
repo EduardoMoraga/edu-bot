@@ -65,6 +65,8 @@ const KEY_SUFFIX_ASSIGNMENT = /\b([A-Za-z][A-Za-z0-9_-]*[_-]key)s?(=)(["']?)([A-
 const SECRET_FLAG = /(--(?:token|password|passwd|api-key|apikey|secret|access-key|auth-token)(?:=|\s+))(["']?)(?!-)([A-Za-z0-9._~+/=-]+)\2/gi;
 /** `scheme://user:secret@host` — the password in a URL's userinfo. */
 const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@'"]+:)([^\s/@'"«»]+)(@)/gi;
+/** A database URL is a credential end to end, host included. Masked before URL_USERINFO so the host does not remain. */
+const DATABASE_URL = /\b(?:postgres(?:ql)?|mysql):\/\/\S+/gi;
 
 // A saved website password has no shape: it is known by value. The server
 // registers a scrubber for the values it holds, and every redaction below
@@ -101,6 +103,7 @@ export function redactSecretsInText(text: string): string {
   out = out.replace(KEY_VALUE, (_m, key: string, sep: string, quote: string, value: string) => `${key}${sep}${quote}${mask(value)}${quote}`);
   out = out.replace(KEY_SUFFIX_ASSIGNMENT, (_m, key: string, sep: string, quote: string, value: string) => `${key}${sep}${quote}${mask(value)}${quote}`);
   out = out.replace(SECRET_FLAG, (_m, flag: string, quote: string, value: string) => `${flag}${quote}${mask(value)}${quote}`);
+  out = out.replace(DATABASE_URL, (url) => mask(url));
   out = out.replace(URL_USERINFO, (_m, lead: string, secret: string, at: string) => `${lead}${mask(secret)}${at}`);
   return out;
 }

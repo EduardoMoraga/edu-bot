@@ -12,6 +12,7 @@ import { UsageSection } from "../../UsageSection";
 import { VaultSettings } from "../../VaultSettings";
 import { WorkspaceBackupSettings } from "../../WorkspaceBackupSettings";
 import { WorkspacesSection } from "../../WorkspacesSection";
+import { DataConnectionsSection } from "../DataConnectionsSection";
 import { useSettingsShell } from "../settings-shell";
 import { MoveSection } from "./PlacePages";
 
@@ -41,6 +42,7 @@ export function ImportExportPage() {
 export function DataPage() {
   const { ctx } = useSettingsShell();
   return <>
+    <AdminOnly><DataConnectionsSection /></AdminOnly>
     <SettingsGroup label={t("settings.data.storage")} block="storage">
       <SettingsRows><AttachmentStorageSettings /></SettingsRows>
     </SettingsGroup>

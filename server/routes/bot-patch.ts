@@ -32,6 +32,7 @@ import { recordProfileChange } from "../profile-versions.ts";
 import { memberBotPatchViolation, requestSource, type RequestAuth } from "../request-auth.ts"; import { defaultBotPatchRefusal, ownsDefaultBot } from "../default-bot.ts";
 import type { RoutineManager } from "../routines.ts";
 import type { SessionRegistry } from "../sessions.ts";
+import { parseDataGrants } from "../../shared/data-connections.ts";
 import { parseConnectorTools } from "../connector-tools.ts";
 import { sectionKey, type BotRecord, type GroupRecord, type Store, type TaskRecord } from "../store.ts";
 import * as vps from "../vps-computer.ts";
@@ -343,6 +344,14 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       if (body.eduCrew !== undefined) {
         if (typeof body.eduCrew !== "boolean") return json(res, 400, { error: "eduCrew must be true or false" });
         patch.eduCrew = body.eduCrew || undefined;
+      }
+      if (body.dataConnections !== undefined) {
+        if (body.dataConnections === null) patch.dataConnections = undefined;
+        else {
+          const parsed = parseDataGrants(body.dataConnections);
+          if (!parsed.ok) return json(res, 400, { error: parsed.error });
+          patch.dataConnections = Object.keys(parsed.grants).length ? parsed.grants : undefined;
+        }
       }
       // null drops the per-tool grants; {} means no tools.
       if (body.connectorTools !== undefined) {

@@ -17,6 +17,9 @@ import {
   type DataSource,
   type OmbChartSpec,
 } from "../../shared/data-surface.ts";
+import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
+import { queryNamed, type NamedDataAccess } from "./live.ts";
+import { DATA_WRITE_TOOL, runDataWrite } from "./writes.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
@@ -50,7 +53,7 @@ const CHART_SPEC_SCHEMA = {
 export const DATA_TOOLS = [
   tool(
     "data_load",
-    "Load data into a named table of this bot's database: a local file, folder or glob (csv, tsv, json, ndjson, parquet, xlsx, sqlite; .gz/.zst too), an http(s)/s3/gs/az URL, a postgres:// or mysql:// connection string (snapshots the tables read-only), or a Google Sheets URL. Replaces a table of the same name unless replace is false. Returns each table's columns, row count and sample values.",
+    "Load data into a named table of this bot's database: a local file, folder or glob (csv, tsv, json, ndjson, parquet, xlsx, sqlite; .gz/.zst too), an http(s)/s3/gs/az URL, or a Google Sheets URL. A live database is a named connection: data_sql on that name. Replaces a table of the same name unless replace is false. Returns each table's columns, row count and sample values.",
     {
       source: { type: "string", minLength: 1, maxLength: 4000 },
       name: { type: "string", pattern: IDENT, description: "Table name. Default: from the file name." },
@@ -82,9 +85,10 @@ export const DATA_TOOLS = [
   ),
   tool(
     "data_sql",
-    "Run one DuckDB statement. SELECT-like statements are kept as a result table (omb_results.q_<n>) you can show or export, and return columns, the exact row count and the first rows. CREATE [OR REPLACE] TABLE|VIEW … AS … is allowed; other writes are refused (load data with data_load instead).",
+    "Run one DuckDB statement. SELECT-like statements are kept as a result table (omb_results.q_<n>) you can show or export, and return columns, the exact row count and the first rows. CREATE [OR REPLACE] TABLE|VIEW … AS … is allowed on this bot's own database; other writes are refused. Pass on to read a named connection live and read-only. Writes to a named connection use data_write.",
     {
       sql: { type: "string", minLength: 1, maxLength: 100000 },
+      on: { type: "string", pattern: "^[a-z][a-z0-9_]{0,31}$", description: "Named connection from Settings → Data. Reads it live and read-only. Omit to query this bot's own database." },
       limit: { type: "integer", minimum: 1, maximum: DATA_LIMITS.sqlRowsMax, description: `Rows to return. Default ${DATA_LIMITS.sqlRowsDefault}.` },
       name: { type: "string", pattern: IDENT, description: "Name for the result table instead of q_<n>." },
     },
@@ -116,6 +120,7 @@ export const DATA_TOOLS = [
     },
     ["format"],
   ),
+  DATA_WRITE_TOOL,
 ];
 
 let validators: Map<string, ValidateFunction> | undefined;
@@ -123,7 +128,7 @@ let validators: Map<string, ValidateFunction> | undefined;
 export function dataToolCallProblem(name: unknown, args: unknown): string | null {
   validators ??= new Map(DATA_TOOLS.map((entry) => [entry.name, compileToolSchema(entry.inputSchema, { allErrors: true })]));
   const validate = typeof name === "string" ? validators.get(name) : undefined;
-  if (!validate) return "Unknown Data tool. Use one of data_load, data_describe, data_sql, data_show, data_export.";
+  if (!validate) return "Unknown Data tool. Use one of data_load, data_describe, data_sql, data_show, data_export, data_write.";
   if (!args || typeof args !== "object" || Array.isArray(args) || !validate(args)) {
     return `Tool arguments do not match the advertised input schema: ${schemaProblems(validate.errors).join("; ") || "use its required fields and types"}.`;
   }
@@ -269,15 +274,21 @@ function hintFor(message: string, sql: string | undefined): string | undefined {
 }
 
 export function toDataError(error: unknown, sql?: string, signal?: AbortSignal): DataError {
-  if (error instanceof DataFailure) return { ...error.error, ...(sql && !error.error.sql ? { sql } : {}) };
-  const message = error instanceof Error ? error.message : String(error);
-  if (signal?.aborted || (error instanceof Error && error.name === "AbortError") || /\binterrupt(ed)?\b/i.test(message)) {
-    return { code: "cancelled", message: "The statement was cancelled.", ...(sql ? { sql } : {}) };
+  const safeSql = sql && !containsRawDsn(sql) ? sql : undefined;
+  if (error instanceof DataFailure) {
+    const body = { ...error.error, ...(safeSql && !error.error.sql ? { sql: safeSql } : {}) };
+    if (body.sql && containsRawDsn(body.sql)) delete body.sql;
+    if (containsRawDsn(body.message)) body.message = NAMED_CONNECTION_SENTENCE;
+    return body;
   }
-  if (/timed out|timeout/i.test(message)) return { code: "timeout", message, retryable: true, ...(sql ? { sql } : {}) };
+  const message = containsRawDsn(error instanceof Error ? error.message : String(error)) ? NAMED_CONNECTION_SENTENCE : (error instanceof Error ? error.message : String(error));
+  if (signal?.aborted || (error instanceof Error && error.name === "AbortError") || /\binterrupt(ed)?\b/i.test(message)) {
+    return { code: "cancelled", message: "The statement was cancelled.", ...(safeSql ? { sql: safeSql } : {}) };
+  }
+  if (/timed out|timeout/i.test(message)) return { code: "timeout", message, retryable: true, ...(safeSql ? { sql: safeSql } : {}) };
   const line = /LINE (\d+):/.exec(message);
-  const hint = hintFor(message, sql);
-  return { code: "sql_error", message, ...(sql ? { sql } : {}), ...(line ? { line: Number(line[1]) } : {}), ...(hint ? { hint } : {}) };
+  const hint = hintFor(message, safeSql);
+  return { code: "sql_error", message, ...(safeSql ? { sql: safeSql } : {}), ...(line ? { line: Number(line[1]) } : {}), ...(hint ? { hint } : {}) };
 }
 
 export interface DataContext {
@@ -290,6 +301,7 @@ export interface DataContext {
   signal: AbortSignal;
   connection: DataConnection;
   by: DataCard["by"];
+  named?: NamedDataAccess;
 }
 
 const runOptions = (ctx: DataContext, extra: Partial<RunOptions> = {}): RunOptions =>
@@ -406,8 +418,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
   }
   const database = /^(postgres(ql)?|mysql):\/\//i.exec(source);
   if (kind === "postgres" || kind === "mysql" || (kind === "auto" && database)) {
-    const type = kind === "mysql" || /^mysql/i.test(source) ? "mysql" : "postgres";
-    return [{ kind: type, source: stripCredentials(source), stem: input.name ?? type, attach: { type, connection: source, table: input.sheet }, warnings }];
+    throw fail("invalid_input", NAMED_CONNECTION_SENTENCE);
   }
   if (/^(https?|s3|gs|az|azure|r2|hf):\/\//i.test(source) || kind === "url") {
     const pathname = (() => { try { return new URL(source).pathname; } catch { return source; } })();
@@ -587,7 +598,7 @@ async function describeSavedResult(ctx: DataContext, id?: string): Promise<Recor
   return result;
 }
 
-export interface SqlInput { sql: string; limit?: number; name?: string }
+export interface SqlInput { sql: string; limit?: number; name?: string; on?: string }
 export interface SqlOutput {
   table: string | null;
   columns: DataColumn[];
@@ -600,6 +611,13 @@ export interface SqlOutput {
 export async function runSql(ctx: DataContext, input: SqlInput): Promise<SqlOutput> {
   const started = Date.now();
   const limit = Math.min(Math.max(1, Math.trunc(input.limit ?? DATA_LIMITS.sqlRowsDefault)), DATA_LIMITS.sqlRowsMax);
+  if (containsRawDsn(input.sql) || (input.on !== undefined && containsRawDsn(input.on))) throw fail("invalid_input", NAMED_CONNECTION_SENTENCE);
+  if (input.on) {
+    gateSql(input.sql);
+    const result = await queryNamed(ctx, { sql: input.sql, on: input.on, limit });
+    const bounded = boundRows(result.rows, limit, DATA_LIMITS.sqlBytesMax);
+    return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: result.elapsedMs };
+  }
   const kind = gateSql(input.sql, { allowCreate: true });
   if (kind.kind === "create") {
     await ctx.database.run(input.sql, runOptions(ctx));
@@ -895,11 +913,19 @@ export function dataErrorResult(error: DataError): DataToolResult {
 const ok = (structured: Record<string, unknown>): DataToolResult =>
   ({ content: [{ type: "text", text: JSON.stringify(structured) }], structuredContent: structured });
 
+function valuesContainDsn(value: unknown): boolean {
+  if (typeof value === "string") return containsRawDsn(value);
+  if (Array.isArray(value)) return value.some(valuesContainDsn);
+  if (value && typeof value === "object") return Object.values(value as Record<string, unknown>).some(valuesContainDsn);
+  return false;
+}
+
 export async function runDataTool(ctx: DataContext, name: string, args: Record<string, unknown>, onCardReady?: (card: DataCard) => void): Promise<DataToolResult> {
   const problem = dataToolCallProblem(name, args);
   if (problem) return dataErrorResult({ code: "invalid_input", message: problem });
   try {
     ctx.signal.throwIfAborted();
+    if (valuesContainDsn(args)) return dataErrorResult({ code: "invalid_input", message: NAMED_CONNECTION_SENTENCE });
     switch (name) {
       case "data_load": return ok({ ...(await loadData(ctx, args as unknown as LoadInput)) });
       case "data_describe": {
@@ -908,6 +934,7 @@ export async function runDataTool(ctx: DataContext, name: string, args: Record<s
         return ok(target ? { ...(await describeTarget(ctx, target)) } : await describeSavedResult(ctx, id));
       }
       case "data_sql": return ok({ ...(await runSql(ctx, args as unknown as SqlInput)) });
+      case "data_write": return ok(await runDataWrite(ctx, args));
       case "data_show": return ok({ ...(await showCard(ctx, args as unknown as ShowInput, onCardReady)) });
       case "data_export": return ok({ ...(await exportData(ctx, args as unknown as ExportInput)) });
       default: return dataErrorResult({ code: "invalid_input", message: "Unknown Data tool." });

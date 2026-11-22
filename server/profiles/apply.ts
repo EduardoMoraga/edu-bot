@@ -43,7 +43,7 @@ type Change = BotAction["changes"][number];
 
 /** Fields whose value bounds what a bot may do. Security: a bot from a profile never ends with more of these than its file
  * gives, so a refused change that would lower one is never left silently wider. */
-const GUARDS = new Set(["approval", "tools", "toolsOff", "mcpServers", "connectors", "eduBrain", "eduCrew"]);
+const GUARDS = new Set(["approval", "tools", "toolsOff", "mcpServers", "connectors", "eduBrain", "eduCrew", "data"]);
 const narrows = (change: Change) => !change.access && GUARDS.has(change.field);
 
 /** The levels to try for `target`, highest first: the target, then each lower level that is not above `current`. */

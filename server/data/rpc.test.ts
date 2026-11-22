@@ -33,7 +33,7 @@ function harness(signal = new AbortController().signal) {
 }
 
 describe("dataRpc", () => {
-  it("lists the five tools with the dialect instructions and touches no database", async () => {
+  it("lists the six tools with the dialect instructions and touches no database", async () => {
     const { deps, database, checks } = harness();
     const listed = await dataRpc({ method: "tools/list", params: {} }, deps) as { tools: Array<{ name: string; inputSchema: unknown }>; instructions: string };
     expect(listed.tools.map((tool) => tool.name)).toEqual([...DATA_TOOL_NAMES]);

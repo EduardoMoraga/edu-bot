@@ -21,6 +21,7 @@ import { PermissionsSection } from "./bot-settings/PermissionsSection";
 import { VoiceSection } from "./bot-settings/VoiceSection";
 import { HistorySection } from "./bot-settings/HistorySection";
 import { UsageSection } from "./bot-settings/UsageSection";
+import { DataSection } from "./bot-settings/DataSection";
 import { VisibilitySection } from "./bot-settings/VisibilitySection";
 import { t } from "@/lib/i18n";
 import { useAdvancedMode } from "@/lib/interface-mode";
@@ -167,6 +168,8 @@ export function BotSettingsDialog({ bot, overlay = false }: {
         );
       case "usage":
         return <UsageSection bot={bot} />;
+      case "data":
+        return <DataSection bot={bot} />;
       default:
         return null;
     }

@@ -12408,7 +12408,7 @@ ROUTES.push(createDataRoutes({
   engine: dataEngine,
   sheets: dataSheets,
   compileChart, validateVegaLite, renderer: chartRenderer,
-  exportRoots: dataExportRoots,
+  exportRoots: dataExportRoots, vault: logins, dataDir: DATA_DIR,
 }));
 ROUTES.push(createLiveRoutes({
   calls: liveCalls, deviceRevoked: (device) => { phonePush.forget(`companion:${device}`); phoneActivity.forget(`companion:${device}`); },
@@ -13014,7 +13014,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, { result: await dataRpc(body, {
           database, sheet: dataSheets.for(internalSender.id),
           compileChart, validateVegaLite, renderer: chartRenderer,
-          exportRoots: () => dataExportRoots(internalSender),
+          exportRoots: () => dataExportRoots(internalSender), named: { botId: internalSender.id, threadId: internalCapability.threadId, dataDir: DATA_DIR, allowlist: () => store.bot(internalSender.id)?.dataConnections, secret: (id: string) => logins.secret(id)?.value ?? null, postCard: (text: string, card: { title: string; subtitle: string; options: string[]; requestId: string; tool: string; requestType: "permission" }) => { store.appendMessage(internalCapability.threadId, { role: "bot", kind: "options", text, card, ...(store.groupByThread(internalCapability.threadId) ? { from: { botId: internalSender.id, name: internalSender.name, color: internalSender.color } } : {}) }); } },
           signal: abort.signal, assertActive: requireActiveInternalCapability,
           onShow: (card) => {
             store.appendMessage(internalCapability.threadId, {

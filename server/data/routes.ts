@@ -4,11 +4,12 @@ import { z } from "zod";
 
 import { DATA_LIMITS, type DataError, type DataErrorCode } from "../../shared/data-surface.ts";
 import { PASS, type RouteContext, type RouteHandler } from "../routes/table.ts";
+import { handleDataConnectionRoute, type ConnectionRouteDeps } from "./connection-routes.ts";
 import type { DataSheetRegistry } from "./sheet.ts";
 import { cancelCardRun, exportData, renderCard, resultRelation, showCard, toDataError, type DataContext } from "./tools.ts";
 import { DataFailure, type ChartCompiler, type ChartRenderer, type DataEngine, type VegaLiteValidator } from "./types.ts";
 
-export interface DataRouteDeps {
+export interface DataRouteDeps extends ConnectionRouteDeps {
   bot(id: string): { id: string; cwd?: string } | null | undefined;
   engine: Pick<DataEngine, "unavailable" | "forBot">;
   sheets: Pick<DataSheetRegistry, "for">;
@@ -92,6 +93,7 @@ export function createDataRoutes(deps: DataRouteDeps): RouteHandler {
   }
 
   return async (ctx) => {
+    if (ctx.path.startsWith("/api/data-connections")) return handleDataConnectionRoute(ctx, deps);
     const match = ROUTE.exec(ctx.path);
     if (!match) return PASS;
     const { res, method } = ctx;

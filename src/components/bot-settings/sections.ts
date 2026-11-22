@@ -4,6 +4,7 @@ import {
   CalendarClock,
   Coins,
   Cpu,
+  Database,
   Eye,
   History,
   LayoutDashboard,
@@ -49,6 +50,7 @@ export const BOT_SECTIONS: Array<{
   { id: "voice", label: "Voice & alerts", labelKey: "botSettings.sections.voice", icon: Mic, keywords: ["voice", "alerts", "notifications", "speak"] },
   { id: "visibility", label: "Who can see it", labelKey: "botSettings.visibility.title", icon: Eye, keywords: ["visibility", "who can see", "private", "people", "admins", "members", "access", "hide"] },
   { id: "history", label: "History", labelKey: "botSettings.sections.history", icon: History, keywords: ["history", "changes", "undo", "rollback", "log"] },
+  { id: "data", label: "Data", labelKey: "botSettings.sections.data", icon: Database, keywords: ["data", "sql", "database", "postgres", "sqlite", "duckdb", "connection"], headingKeys: ["botSettings.data.help"] },
   { id: "usage", label: "Usage", labelKey: "botSettings.sections.usage", icon: Coins, keywords: ["tokens", "cost", "billing"] },
 ];
 

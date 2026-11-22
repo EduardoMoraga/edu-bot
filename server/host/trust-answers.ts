@@ -1,5 +1,6 @@
 import type { ServerResponse } from "node:http";
 
+import { resolveDataWrite } from "../data/writes.ts";
 import { appendDecision } from "../decision-log.ts";
 import { json } from "../harness/http.ts";
 import type { EduCrew } from "../edu-crew.ts";
@@ -28,6 +29,13 @@ export function createTrustAnswers(deps: TrustAnswerDeps) {
   const DATA_DIR = deps.dataDir;
 
   async function resolveAndSendTrust(res: ServerResponse, threadId: string, requestId: string, behavior: "allow" | "deny" | "answer"): Promise<boolean> {
+    const dataWrite = resolveDataWrite(threadId, requestId, behavior);
+    if (dataWrite) {
+      const card = store.messagesFor(threadId).find((message) => message.card?.requestId === requestId && message.card.tool === "data_write");
+      if (card?.card) store.patchMessage(threadId, card.id, { card: { ...card.card, answered: behavior === "allow" ? "allow" : "deny" } });
+      json(res, 200, dataWrite);
+      return true;
+    }
     const remembered = teamMemoryRequests.resolve(threadId, requestId, behavior) ?? outsideWrites.resolve(threadId, requestId, behavior);
     if (remembered) {
       json(res, 200, remembered);

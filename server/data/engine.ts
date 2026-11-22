@@ -407,6 +407,11 @@ class BotDb implements BotDatabase {
     return this.statement(options.connection, sql, options, (open, conn) => this.read(open, conn, sql, maxRows));
   }
 
+  async exclusive<T>(connection: DataConnection, options: Omit<RunOptions, "connection">, work: (run: (sql: string, maxRows?: number) => Promise<RunResult>) => Promise<T>): Promise<T> {
+    await this.loadExtensions({ ...options, connection });
+    return this.statement(connection, "named connection", options, (open, conn) => work((sql, maxRows = Infinity) => this.read(open, conn, sql, maxRows)));
+  }
+
   /** A first-time INSTALL is a download, so extensions load as their own step, off the statement's timeout. */
   private async loadExtensions(options: RunOptions): Promise<void> {
     const extensions = options.extensions ?? [];

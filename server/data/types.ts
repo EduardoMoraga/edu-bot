@@ -67,6 +67,8 @@ export interface BotDatabase {
   interrupt(connection: DataConnection): void;
   /** Resolves a bare or qualified identifier; `table_not_found` with candidates otherwise. */
   resolveTable(name: string): Promise<string>;
+  /** One lane turn: attach, the statement and detach cannot be interleaved with another statement. */
+  exclusive<T>(connection: DataConnection, options: Omit<RunOptions, "connection">, work: (run: (sql: string, maxRows?: number) => Promise<RunResult>) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 

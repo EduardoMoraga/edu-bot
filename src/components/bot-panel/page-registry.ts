@@ -87,6 +87,7 @@ const SECTION_TARGET: Record<BotSettingsSection, PanelTarget> = {
   visibility: { tab: "details" },
   history: { tab: "details" },
   usage: { tab: "details" },
+  data: { tab: "details" },
 };
 
 export function sectionTarget(section: BotSettingsSection): PanelTarget {

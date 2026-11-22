@@ -1,0 +1,133 @@
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { NAMED_CONNECTION_SENTENCE, containsRawDsn, dataGrantWidens, parseDataGrants } from "../../shared/data-connections.ts";
+import { ConnectionStore, type ConnectionVault } from "./connections.ts";
+
+const dirs: string[] = [];
+function freshDir(): string {
+  const dir = mkdtempSync(join(tmpdir(), "omb-data-connections-"));
+  dirs.push(dir);
+  return dir;
+}
+afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+
+function vault(saved: Map<string, string> = new Map()): ConnectionVault & { saved: Map<string, string> } {
+  let n = 0;
+  return {
+    saved,
+    saveSecret(input) {
+      const id = `sec-${++n}`;
+      saved.set(id, input.value);
+      return { id };
+    },
+    secret(id) {
+      const value = saved.get(id);
+      return value === undefined ? null : { value };
+    },
+    removeSecret(id) {
+      return saved.delete(id);
+    },
+  };
+}
+
+describe("connection storage", () => {
+  it("stores a postgres URL only in the vault and writes the file mode 0600", () => {
+    const dir = freshDir();
+    const secrets = vault();
+    const store = new ConnectionStore(dir, secrets);
+    const secret = "postgres://bob:hunter2@db.internal:5432/shop";
+    const added = store.add({ name: "shop", type: "postgres", dsn: secret });
+    expect(added).toEqual({ name: "shop", type: "postgres", readOnly: true, where: "vault" });
+    expect(secrets.saved.get("sec-1")).toBe(secret);
+    const file = join(dir, "data-connections.json");
+    expect(lstatSync(file).mode & 0o777).toBe(0o600);
+    const text = readFileSync(file, "utf8");
+    expect(text).toContain("vault:sec-1");
+    expect(text).not.toContain("hunter2");
+    expect(JSON.stringify(store.list())).not.toContain("hunter2");
+    expect(store.test("shop")).toEqual({ ok: true });
+    chmodSync(file, 0o644);
+    store.list();
+    expect(lstatSync(file).mode & 0o777).toBe(0o600);
+    store.remove("shop");
+    expect(secrets.saved.has("sec-1")).toBe(false);
+    expect(store.list().connections).toEqual([]);
+  });
+
+  it("refuses a second name, a bad name, and a postgres value that is not a URL, without echoing it", () => {
+    const dir = freshDir();
+    const store = new ConnectionStore(dir, vault());
+    store.add({ name: "shop", type: "postgres", dsn: "postgresql://bob:hunter2@db/shop" });
+    expect(() => store.add({ name: "shop", type: "postgres", dsn: "postgres://other:pw@db/x" })).toThrow(/already exists/);
+    expect(() => store.add({ name: "Shop", type: "postgres", dsn: "postgres://a:b@h/db" })).toThrow(/lowercase/);
+    const keyword = "host=db password=hunter2";
+    expect(() => store.add({ name: "other", type: "postgres", dsn: keyword })).toThrow(/postgres:\/\//);
+    expect(() => store.add({ name: "other", type: "postgres", dsn: keyword })).not.toThrow(/hunter2/);
+  });
+
+  it("keeps sqlite and duckdb files inside an allowed folder, including through a symlink", () => {
+    const dir = freshDir();
+    const allowed = join(dir, "allowed");
+    const outside = join(dir, "outside");
+    mkdirSync(allowed);
+    mkdirSync(outside);
+    const inside = join(allowed, "shop.sqlite");
+    const hidden = join(outside, "hidden.sqlite");
+    const duck = join(allowed, "notes.duckdb");
+    writeFileSync(inside, "");
+    writeFileSync(hidden, "");
+    writeFileSync(duck, "");
+    const db = new DatabaseSync(inside);
+    db.exec("CREATE TABLE orders (id INTEGER); INSERT INTO orders VALUES (1)");
+    db.close();
+    symlinkSync(hidden, join(allowed, "escape.sqlite"));
+    const store = new ConnectionStore(dir, vault());
+    expect(() => store.add({ name: "shop", type: "sqlite", path: inside })).toThrow(/folder/);
+    store.addFolder(allowed);
+    const added = store.add({ name: "shop", type: "sqlite", path: inside });
+    expect(added.where).toBe(inside);
+    expect(store.add({ name: "notes", type: "duckdb", path: duck }).where).toBe(duck);
+    expect(() => store.add({ name: "gone", type: "sqlite", path: hidden })).toThrow(/folder/);
+    expect(() => store.add({ name: "escape", type: "sqlite", path: join(allowed, "escape.sqlite") })).toThrow(/folder/);
+    expect(JSON.stringify(store.list())).not.toContain("password");
+    expect(store.test("shop")).toEqual({ ok: true });
+    expect(() => store.removeFolder(allowed)).toThrow(/Remove the connections/);
+    store.remove("shop");
+    store.remove("notes");
+    store.removeFolder(allowed);
+    expect(store.list().folders).toEqual([]);
+  });
+
+  it("replaces a corrupt file's contents with a fixed sentence", () => {
+    const dir = freshDir();
+    writeFileSync(join(dir, "data-connections.json"), '{ "dsn": "postgres://bob:hunter2@db/shop"');
+    const store = new ConnectionStore(dir, vault());
+    expect(() => store.list()).toThrow("data-connections.json could not be read.");
+    try { store.list(); } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).message).not.toContain("hunter2");
+    }
+  });
+
+  it("does not treat a column named password as a connection string", () => {
+    expect(containsRawDsn("SELECT password FROM users")).toBe(false);
+    expect(containsRawDsn("postgres://bob:hunter2@db/shop")).toBe(true);
+    expect(NAMED_CONNECTION_SENTENCE).not.toMatch(/postgres:\/\//);
+  });
+});
+
+describe("grants", () => {
+  it("parses a grant and treats a wider file as more access", () => {
+    expect(parseDataGrants({ shop: { tables: ["orders"], write: "ask" } })).toEqual({ ok: true, grants: { shop: { tables: ["orders"], write: "ask" } } });
+    expect(parseDataGrants({ shop: { password: "x" } }).ok).toBe(false);
+    expect(dataGrantWidens({}, { shop: {} })).toBe(true);
+    expect(dataGrantWidens({ shop: { tables: ["orders"] } }, { shop: { tables: ["orders"] } })).toBe(false);
+    expect(dataGrantWidens({ shop: { tables: ["orders"] } }, { shop: {} })).toBe(true);
+    expect(dataGrantWidens({ shop: { write: "never" } }, { shop: { write: "ask" } })).toBe(true);
+    expect(dataGrantWidens({ shop: { write: "ask" } }, {})).toBe(false);
+  });
+});

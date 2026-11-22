@@ -6,7 +6,8 @@ import { problemSentence, type McpServerProfile, type ProfileFolder, type Profil
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine, ProfileSecretSlot } from "../../shared/profile-plan.ts";
 import { toolScopeWidens, type ToolScope } from "../../shared/tool-scope.ts";
 import type { ConnectorToolGrant } from "../../shared/wire.ts";
-import { APPROVAL_LABEL, canonicalBrain, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
+import { dataGrantWidens } from "../../shared/data-connections.ts";
+import { APPROVAL_LABEL, canonicalBrain, canonicalData, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
 import { eduBrainWidens } from "../edu-brain.ts";
 import { SECTION_CONTEXT_MAX_BYTES } from "../section-context.ts";
 import { planMcpServers, type McpServerAction } from "./mcp-plan.ts";
@@ -228,6 +229,9 @@ const FIELDS: FieldSpec[] = [
     app: (echo) => Array.isArray(echo.mcpServers) ? sorted(echo.mcpServers) : null, canon: (v) => v ?? "every server",
     show: (v) => v === null ? "every server" : (v as string[]).length ? (v as string[]).join(", ") : "none",
     widens: (app, file) => app !== null && (file as string[]).some((name) => !(app as string[]).includes(name)), set: (v) => ({ mcpServers: v as string[] }) },
+  { field: "data", label: "data connections", file: (bot) => bot.data, app: (echo) => echo.dataConnections ?? {},
+    canon: (v) => canonicalData(v as DesiredBot["data"]), show: (v) => Object.keys((v ?? {}) as Rec).sort().join(", ") || "none",
+    widens: (app, file) => dataGrantWidens(app as DesiredBot["data"], file as DesiredBot["data"]), set: (v) => ({ data: (v ?? {}) as DesiredBot["data"] }) },
   { field: "connectors", label: "connected apps", file: (bot) => bot.connectors, app: (echo) => echo.connectorTools ?? null,
     canon: (v) => canonicalGrants(v as Record<string, ConnectorToolGrant> | null),
     show: (v) => v === null ? "every app" : Object.keys(v as Rec).sort().join(", ") || "none", widens: connectorsWiden,

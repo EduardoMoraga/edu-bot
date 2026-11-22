@@ -322,6 +322,7 @@ export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" |
   createdBy?: string; reportsTo?: string;
   composio?: boolean;
   connectorTools?: Record<string, ConnectorToolGrant>;
+  dataConnections?: import("../../shared/data-connections").DataGrantMap | null;
   connectorScopes?: { apps: Record<string, "read" | "write"> }; phoneApps?: import("../../shared/phone-apps").PhoneApps;
   outbound?: { policy: "ask" | "allow" };
   fallback?: Array<{ instanceId: string; model: string }>;
@@ -487,7 +488,7 @@ export type BotSettingsSection =
   | "voice"
   | "visibility"
   | "history"
-  | "usage";
+  | "usage" | "data";
 
 export interface ModelVariantSession {
   instanceId: string;
@@ -1534,7 +1535,7 @@ function reduceApp(state: AppState, action: Action): AppState {
         applyToAllThreads: _allThreads,
         keepThreadModels: _keepThreadModels, threadId: _threadId, mainThreadChoice,
         computer,
-        connectorTools,
+        connectorTools, dataConnections,
         connectorScopes, phoneApps,
         defaultBot,
         ...rest
@@ -1545,8 +1546,8 @@ function reduceApp(state: AppState, action: Action): AppState {
       else if (computer !== undefined) botPatch.computer = computer;
       if (defaultBot === null) botPatch.defaultBot = undefined;
       else if (defaultBot !== undefined) botPatch.defaultBot = defaultBot;
-      if (connectorTools === null) botPatch.connectorTools = undefined;
-      else if (connectorTools !== undefined) botPatch.connectorTools = connectorTools;
+      if (connectorTools === null) botPatch.connectorTools = undefined; else if (connectorTools !== undefined) botPatch.connectorTools = connectorTools;
+      if (dataConnections === null) botPatch.dataConnections = undefined; else if (dataConnections !== undefined) botPatch.dataConnections = dataConnections;
       if (connectorScopes === null) botPatch.connectorScopes = undefined;
       else if (connectorScopes !== undefined) botPatch.connectorScopes = connectorScopes;
       return updateBot(next, action.botId, (b) => ({ ...b, ...botPatch }));
