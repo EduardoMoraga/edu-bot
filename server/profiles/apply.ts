@@ -33,6 +33,26 @@ export interface ApplyOutcome {
 
 class Refused extends Error {}
 
+type Change = BotAction["changes"][number];
+
+/** The plain changes in one PATCH, then approval and each access change alone: a refusal of one never drops the others. */
+function patchGroups(changes: readonly Change[]): Change[][] {
+  const alone = (change: Change) => change.access || change.field === "approval";
+  return [changes.filter((change) => !alone(change)), ...changes.filter(alone).map((change) => [change])].filter((group) => group.length);
+}
+
+function groupPatch(group: readonly Change[], echo: Rec): Rec {
+  const desired: DesiredBot = { name: echo.name, manages: [], skills: [] };
+  for (const change of group) Object.assign(desired, change.set ?? {});
+  const { patch } = botPatch(desired, echo, undefined);
+  // Security: a profile is someone else's commit, never the confirmation Auto on this computer needs.
+  delete patch.acknowledgeLocalAuto;
+  const section = group.find((change) => change.section !== undefined)?.section;
+  if (section !== undefined && (echo.section ?? "").trim().toLowerCase() !== section.trim().toLowerCase()) patch.section = section;
+  if (group.some((change) => change.chief === false) && echo.chiefOfStaff === true) patch.chiefOfStaff = false;
+  return patch;
+}
+
 const reason = (result: { status: number; body: Rec }) => String(result.body?.error ?? result.body?.message ?? `refused (${result.status})`);
 
 export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesState["areas"], port: ProfileAppPort, options: ApplyOptions): Promise<ApplyOutcome> {
@@ -98,24 +118,19 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
       continue;
     }
     const patchChanges = taking.filter((change) => !change.skill && change.chief !== true);
-    const desired: DesiredBot = { name: echo.name, manages: [], skills: [] };
-    for (const change of patchChanges) Object.assign(desired, change.set ?? {});
-    const { patch } = botPatch(desired, echo, undefined);
-    // Security: a profile is someone else's commit, never the confirmation Auto on this computer needs.
-    delete patch.acknowledgeLocalAuto;
-    const section = patchChanges.find((change) => change.section !== undefined)?.section;
-    if (section !== undefined && (echo.section ?? "").trim().toLowerCase() !== section.trim().toLowerCase()) patch.section = section;
-    if (patchChanges.some((change) => change.chief === false) && echo.chiefOfStaff === true) patch.chiefOfStaff = false;
-    try {
-      if (Object.keys(patch).length) await write("PATCH", `/api/bots/${enc(botId)}`, patch);
-      for (const change of patchChanges) {
-        if (change.hash === null) delete hashes[change.field];
-        else hashes[change.field] = change.hash;
-        fields.push(change.field);
-        if (action.botId || change.access) outcome.applied.push(change.line);
+    for (const group of patchGroups(patchChanges)) {
+      const patch = groupPatch(group, echo);
+      try {
+        if (Object.keys(patch).length) echo = (await write("PATCH", `/api/bots/${enc(botId)}`, patch)).bot ?? echo;
+        for (const change of group) {
+          if (change.hash === null) delete hashes[change.field];
+          else hashes[change.field] = change.hash;
+          fields.push(change.field);
+          if (action.botId || change.access) outcome.applied.push(change.line);
+        }
+      } catch (error) {
+        for (const change of group) skip(change.line, (error as Error).message);
       }
-    } catch (error) {
-      for (const change of patchChanges) skip(change.line, (error as Error).message);
     }
     for (const change of taking.filter((candidate) => candidate.skill)) {
       const op = change.skill!;

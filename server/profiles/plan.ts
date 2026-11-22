@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { APPROVAL_MODES, approvalModeFor } from "../../shared/approval-mode.ts";
+import { approvalModeFor, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import type { EduBrainSetting } from "../../shared/edu-brain.ts";
 import { problemSentence, type ProfileFolder, type ProfileProblem, type ResolvedBot, type SkillProfile } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine } from "../../shared/profile-plan.ts";
@@ -22,14 +22,15 @@ export interface AppView {
   briefs: Record<string, string>;
   /** GET /api/bots/:id/skills for every bot a profile made. */
   skills: Record<string, Array<{ name: string; enabled: boolean; sha256: string }>>;
-  /** GET /api/instances: each engine, whether it can run now, and the models it offers. */
-  instances: Array<{ instanceId: string; available: boolean; models: string[] }>;
+  /** GET /api/instances: each engine and the models it offers. */
+  instances: Array<{ instanceId: string; models: string[] }>;
   /** The MCP servers this app has, by name. */
   mcpServers: string[];
 }
 
 export interface PlanInput {
-  folder: ProfileFolder & { root: string };
+  /** `contentHash` covers every file read, so the digest changes with any byte of the folder. */
+  folder: ProfileFolder & { root: string; contentHash: string };
   commit?: string;
   app: AppView;
   state: ProfilesState;
@@ -104,7 +105,8 @@ export interface PlanOutput {
   goneAreas: string[];
 }
 
-const RANK = (mode: string) => APPROVAL_MODES.indexOf(mode as (typeof APPROVAL_MODES)[number]);
+/** The levels POST /api/bots takes; Accept edits is set afterwards. */
+const CREATE_APPROVALS = new Set<string>(["ask", "auto", "full"]);
 const fold = (name: string | undefined) => (name ?? "").trim().toLowerCase();
 const sorted = (list: readonly string[] | undefined) => [...new Set(list ?? [])].sort();
 
@@ -169,7 +171,7 @@ const FIELDS: FieldSpec[] = [
   { field: "effort", label: "effort", file: (bot) => bot.effort, app: (echo) => echo.modelSelection?.effort ?? "", show: (v) => String(v || "the model's default"),
     set: (v) => ({ effort: v as string }) },
   { field: "approval", label: "approval", file: (bot) => bot.approval, app: (echo) => approvalModeFor(echo), show: (v) => APPROVAL_LABEL[v as string] ?? String(v),
-    widens: (app, file) => RANK(file as string) > RANK(app as string), set: (v) => ({ approval: v as DesiredBot["approval"] }) },
+    widens: (app, file) => !levelWithin(file as ApprovalMode, app as ApprovalMode), set: (v) => ({ approval: v as DesiredBot["approval"] }) },
   { field: "tools", label: "tool selection", file: (bot) => bot.tools, app: (echo) => echo.toolScope ?? null, canon: (v) => canonicalScope(v as Rec | null),
     show: (v) => everyTool(v as Rec | null) ? "every tool" : "a selection", widens: (app, file) => toolScopeWidens(app ?? undefined, file),
     set: (v) => ({ tools: everyTool(v as ToolScope) ? null : v as ToolScope }) },
@@ -202,23 +204,33 @@ export function appHashes(fields: readonly string[], echo: Rec): Record<string, 
   return Object.fromEntries(FIELDS.filter((spec) => fields.includes(spec.field)).map((spec) => [spec.field, valueHash(canonOf(spec, spec.app(echo)))]));
 }
 
-/** Which areas and bots a folder's problems leave alone: a broken file blocks itself and what depends on it. */
+/** Which areas and bots a folder's problems leave alone. A problem at a bot's file blocks that bot; anywhere else under
+ * `areas/<a>/` it blocks the whole area; in an MCP file it blocks nothing; anywhere else (a skill, org.md, the folder) it
+ * blocks everything. Security: what is blocked is never called gone, so a broken or linked path never deletes a bot. */
 function blockedBy(problems: readonly ProfileProblem[]) {
-  const all = problems.some((problem) => problem.file === "org.md" || problem.file === "." || problem.file === "areas" || /^areas\/[^/]+\/skills\//.test(problem.file));
-  const areas = new Set<string>();
-  const bots = new Set<string>();
+  let everything: string | undefined;
+  const areas = new Map<string, string>();
+  const bots = new Map<string, string>();
   for (const { file } of problems) {
-    const area = /^areas\/([^/]+)(?:\/area\.md)?$/.exec(file);
-    if (area) areas.add(area[1]!);
-    const bot = /^areas\/([^/]+)\/bots\/([^/]+)\.md$/.exec(file);
-    if (bot) bots.add(`${bot[1]}/${bot[2]}`);
+    const path = file.toLowerCase();
+    const bot = /^areas\/([^/]+)\/bots\/([^/]+)\.md$/.exec(path);
+    const area = /^areas\/([^/]+)(?:\/|$)/.exec(path);
+    if (path === "mcp" || path.startsWith("mcp/")) continue;
+    if (bot) bots.set(`${bot[1]}/${bot[2]}`, bots.get(`${bot[1]}/${bot[2]}`) ?? file);
+    else if (area && !/^areas\/[^/]+\/skills(?:\/|$)/.test(path)) areas.set(area[1]!, areas.get(area[1]!) ?? file);
+    else everything ??= file;
   }
+  const all = everything !== undefined;
+  const areaOf = (id: string) => id.split("/")[0]!.toLowerCase();
   return {
     all,
-    area: (area: string) => all || areas.has(area),
-    bot: (id: string) => all || areas.has(id.split("/")[0]!) || bots.has(id),
-    file: (id: string) => problems.find((problem) => problem.file === `areas/${id.replace("/", "/bots/")}.md`)?.file
-      ?? problems.find((problem) => problem.file === `areas/${id.split("/")[0]}/area.md`)?.file,
+    /** The file that blocks everything. */
+    everything,
+    area: (area: string) => all || areas.has(area.toLowerCase()),
+    /** A problem anywhere under the area's folder: the folder is there, so the area is not gone. */
+    under: (area: string) => all || areas.has(area.toLowerCase()) || [...bots.keys()].some((id) => areaOf(id) === area.toLowerCase()),
+    bot: (id: string) => all || areas.has(areaOf(id)) || bots.has(id.toLowerCase()),
+    file: (id: string) => bots.get(id.toLowerCase()) ?? areas.get(areaOf(id)),
   };
 }
 
@@ -231,10 +243,15 @@ export function planProfiles(input: PlanInput): PlanOutput {
   const lines: ProfilePlanLine[] = [];
   const actions: ProfileAction[] = [];
   const blocked = blockedBy(folder.problems);
+  let settled = 0;
+  const kept = (line: Omit<ProfilePlanLine, "kind" | "text">, what: string) => {
+    settled += 1;
+    lines.push({ ...line, kind: "note", text: `${what}: you keep yours; the file's value is recorded, so this is no longer a conflict` });
+  };
   const sectionNamed = (name: string) => app.sections.find((section) => fold(section) === fold(name));
 
   if (blocked.all) {
-    const file = folder.problems.find((problem) => problem.file === "org.md" || /\/skills\//.test(problem.file))?.file ?? folder.problems[0]!.file;
+    const file = folder.problems.some((problem) => problem.file === "org.md") ? "org.md" : blocked.everything!;
     lines.push({ kind: "blocked", subject: { kind: "organization", id: ".", name: folder.org?.name ?? "Profiles" }, file,
       text: `${file === "." || file === "areas" ? "The folder" : file} has problems that every bot depends on, so nothing is applied until they are fixed` });
   }
@@ -249,11 +266,12 @@ export function planProfiles(input: PlanInput): PlanOutput {
     const existing = (stored && sectionNamed(stored.section)) ?? sectionNamed(area.name);
     if (blocked.area(area.key)) {
       if (existing) areaSection.set(area.key, existing);
-      if (!blocked.all) lines.push({ kind: "blocked", subject, file: area.file, text: `${area.file} has problems, so area ${area.name} and its bots are left as they are` });
+      const file = blocked.file(area.key) ?? area.file;
+      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: `${file} has problems, so area ${area.name} and its bots are left as they are` });
       continue;
     }
     const base = stored?.hashes ?? {};
-    const hashes: Record<string, string> = {};
+    const hashes: Record<string, string> = { ...base };
     const nameHash = valueHash(area.name);
     const action: AreaAction = { kind: "area", area: area.key, section: existing ?? area.name, create: !existing, hashes, nameHash };
     if (!existing) {
@@ -261,12 +279,11 @@ export function planProfiles(input: PlanInput): PlanOutput {
     } else {
       const choice = `area:${area.key}:name`;
       const outcome = settle(decide(base.name, nameHash, valueHash(existing)), choices[choice]);
+      if (outcome === "mine") kept({ subject, field: "name", file: area.file }, `Area ${area.name}: its name`);
       if (outcome === "same" || outcome === "mine") hashes.name = nameHash;
       else if (outcome === "here") {
-        hashes.name = base.name!;
         lines.push({ kind: "changed-here", subject, field: "name", file: area.file, text: `Area ${area.name}: its department was renamed here to ${existing}, so that name is kept` });
       } else if (outcome === "conflict") {
-        hashes.name = base.name!;
         lines.push({ kind: "conflict", subject, field: "name", file: area.file, text: `Area ${area.name}: the file names it ${area.name}, you named it ${existing}`,
           conflict: { choice, file: area.name, mine: existing } });
       } else if (sectionNamed(area.name) && fold(sectionNamed(area.name)) !== fold(existing)) {
@@ -289,12 +306,11 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const choice = `area:${area.key}:brief`;
       const fileHash = valueHash(brief);
       const outcome = settle(decide(base.brief, fileHash, valueHash(current)), choices[choice]);
+      if (outcome === "mine") kept({ subject, field: "brief", file: area.file }, `Area ${area.name}: its brief`);
       if (outcome === "same" || outcome === "mine") hashes.brief = fileHash;
       else if (outcome === "here") {
-        hashes.brief = base.brief!;
         lines.push({ kind: "changed-here", subject, field: "brief", file: area.file, text: `Area ${area.name}: its brief was changed here, so it is kept` });
       } else if (outcome === "conflict") {
-        hashes.brief = base.brief!;
         lines.push({ kind: "conflict", subject, field: "brief", file: area.file, text: `Area ${area.name}: the file and this app both changed its brief`,
           conflict: { choice, file: short(brief), mine: short(current) } });
       } else {
@@ -306,7 +322,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
     if (action.brief) lines.push(action.brief.line);
     actions.push(action);
   }
-  const goneAreas = Object.keys(state.areas).filter((key) => !areaNames.has(key) && !blocked.area(key));
+  const goneAreas = Object.keys(state.areas).filter((key) => !areaNames.has(key) && !blocked.under(key));
   for (const key of goneAreas) {
     const section = state.areas[key]!.section;
     lines.push({ kind: "gone", subject: { kind: "area", id: key, name: section }, text: `Area ${section} is no longer in your profiles; its department is kept` });
@@ -349,7 +365,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
       if (!instance) {
         modelSkipped = true;
         note(`${bot.name}: this app has no ${instanceId} engine, so the bot uses ${echo ? "its current model" : "this app's default model"}`, "model");
-      } else if (instance.available && !instance.models.includes(model)) {
+      } else if (!instance.models.includes(model)) {
         modelSkipped = true;
         note(`${bot.name}: ${instanceId} here offers no model ${model}, so the bot uses ${echo ? "its current model" : "this app's default model"}`, "model");
       }
@@ -362,6 +378,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const fileHash = valueHash(fileCanon);
       const choice = `${bot.id}:${field}`;
       const outcome = echo ? settle(decide(base[field], fileHash, valueHash(appCanon)), choices[choice]) : "take";
+      if (outcome === "mine") kept({ subject, field, file: bot.file }, `${bot.name}: ${label}`);
       if (outcome === "same" || outcome === "mine") { action.hashes[field] = fileHash; return; }
       if (outcome === "here") {
         action.hashes[field] = base[field]!;
@@ -389,7 +406,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const fileValue = spec.file(bot);
       const appValue = spec.app(action.echo);
       if (fileValue === undefined) {
-        if (echo) action.hashes[spec.field] = valueHash(canonOf(spec, appValue));
+        if (echo) action.hashes[spec.field] = base[spec.field] ?? valueHash(canonOf(spec, appValue));
         else action.unmanaged.push(spec.field);
         continue;
       }
@@ -428,6 +445,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const fileHash = valueHash(fileValue);
       const choice = `${bot.id}:${field}`;
       const outcome = echo ? settle(decide(base[field], fileHash, valueHash(appValue)), choices[choice]) : "take";
+      if (outcome === "mine") kept({ subject, field, file: bot.file }, `${bot.name}: ${label}`);
       if (outcome === "same" || outcome === "mine") { if (fileValue) action.hashes[field] = fileHash; continue; }
       if (outcome === "here") {
         if (fileValue) action.hashes[field] = base[field]!;
@@ -448,10 +466,16 @@ export function planProfiles(input: PlanInput): PlanOutput {
     if (!echo) {
       const describe = [bot.title, bot.chief ? `Chief of ${section}` : "", bot.model && !modelSkipped ? bot.model : "", bot.approval ? APPROVAL_LABEL[bot.approval] : ""].filter(Boolean).join(" · ");
       action.createLine = { kind: "add", subject, file: bot.file, text: `Adds ${bot.name} to area ${section}${describe ? ` (${describe})` : ""}` };
+      const approval = action.changes.find((change) => change.field === "approval" && !change.access && CREATE_APPROVALS.has(change.set!.approval!));
+      if (approval) {
+        action.changes.splice(action.changes.indexOf(approval), 1);
+        action.hashes.approval = approval.hash!;
+      }
       action.create = {
         useDefaults: false, name: bot.name, section,
         ...(bot.title !== undefined ? { title: bot.title } : {}), ...(bot.description !== undefined ? { description: bot.description } : {}),
         ...(bot.model && !modelSkipped ? { modelSelection: modelSelection(bot.model, bot.effort), requireAvailableModel: true } : {}),
+        ...(approval ? { settings: { approvalMode: approval.set!.approval } } : {}),
       };
       lines.push(action.createLine);
       lines.push(...action.changes.filter((change) => change.access).map((change) => change.line));
@@ -464,8 +488,9 @@ export function planProfiles(input: PlanInput): PlanOutput {
   for (const echo of stamped.filter((bot) => !claimed.has(bot.id))) {
     const id = `${echo.profileSource.area}/${echo.profileSource.key}`;
     const subject = { kind: "bot" as const, id, name: echo.name, botId: echo.id };
-    if (blocked.bot(id) && (folder.bots.some((bot) => bot.id === id) || blocked.file(id) || blocked.all || blocked.area(echo.profileSource.area))) {
-      if (!blocked.all) lines.push({ kind: "blocked", subject, file: blocked.file(id) ?? echo.profileSource.file, text: `${echo.profileSource.file} has problems, so ${echo.name} is left as it is` });
+    if (blocked.bot(id)) {
+      const file = blocked.file(id) ?? echo.profileSource.file;
+      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: `${file} has problems, so ${echo.name} is left as it is` });
       continue;
     }
     if (folder.bots.some((bot) => bot.id === id)) continue;
@@ -488,16 +513,28 @@ export function planProfiles(input: PlanInput): PlanOutput {
     actions.length = 0;
   }
   const counts = countLines(lines);
-  const noChanges = counts.add + counts.change + counts.access + counts.conflict + counts.remove === 0;
-  const digest = createHash("sha256").update(JSON.stringify({ lines, commit: input.commit ?? null })).digest("hex").slice(0, 32);
+  const noChanges = counts.add + counts.change + counts.access + counts.conflict + counts.remove + settled === 0;
+  const keptAreas = blocked.all ? [] : goneAreas;
+  const digest = planDigest({ folder, commit: input.commit, lines, actions, goneAreas: keptAreas, choices, prune: input.prune === true });
   return {
     plan: {
       folder: folder.root, ...(input.commit ? { commit: input.commit } : {}), ...(folder.org ? { organization: folder.org.name } : {}),
       digest, lines, counts, noChanges, problems: folder.problems.map(sentence), warnings: folder.warnings.map(sentence),
     },
     actions,
-    goneAreas: blocked.all ? [] : goneAreas,
+    goneAreas: keptAreas,
   };
+}
+
+/** Binds a plan to exactly what applying it writes: every file's bytes, the commit, the lines, every action's payload with
+ * its hashes, the areas it forgets, the choices and prune. Security: any change between plan and apply gives a 409. */
+function planDigest(input: { folder: PlanInput["folder"]; commit: string | undefined; lines: readonly ProfilePlanLine[]; actions: readonly ProfileAction[];
+  goneAreas: readonly string[]; choices: Record<string, ProfileChoice>; prune: boolean }): string {
+  const mutations = input.actions.map((action) => (action.kind === "bot" ? { ...action, echo: action.echo.id ?? null } : action));
+  return createHash("sha256").update(JSON.stringify({
+    folder: input.folder.root, contents: input.folder.contentHash, problems: input.folder.problems, commit: input.commit ?? null, lines: input.lines,
+    mutations, goneAreas: input.goneAreas, choices: Object.entries(input.choices).sort(([a], [b]) => a.localeCompare(b)), prune: input.prune,
+  })).digest("hex").slice(0, 32);
 }
 
 /** A conflict with a choice becomes "take" (the file) or "mine". */

@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -51,6 +51,11 @@ posixOnly("profile apply routes", () => {
     expect((await api("PUT", "/api/profiles/folder", { folder: "acme" })).status).toBe(400);
     expect((await api("PUT", "/api/profiles/folder", { folder: join(scratch, "missing") })).status).toBe(400);
     expect((await api("PUT", "/api/profiles/folder", { folder: join(server.dataDir, "profiles") })).body.error).toBe("A profile folder cannot be inside this app's data folder.");
+    cpSync(ACME, join(server.dataDir, "acme"), { recursive: true });
+    symlinkSync(join(server.dataDir, "acme"), join(scratch, "into-data"));
+    expect((await api("PUT", "/api/profiles/folder", { folder: join(scratch, "into-data") })).body.error).toBe("A profile folder cannot be inside this app's data folder.");
+    expect((await api("POST", "/api/profiles/plan", { folder: join(scratch, "into-data") })).status).toBe(400);
+    expect((await api("GET", "/api/profiles")).body).toEqual({ areas: {} });
     expect((await api("POST", "/api/profiles/plan", {})).body.error).toBe("Choose a profile folder first.");
     const chosen = await api("PUT", "/api/profiles/folder", { folder });
     expect(chosen).toEqual({ status: 200, body: { folder, areas: {} } });
@@ -83,6 +88,22 @@ posixOnly("profile apply routes", () => {
     expect(await profileBots()).toEqual([]);
   });
 
+  it("refuses a plan whose files changed since, even when every line reads the same", async () => {
+    const plan = (await api("POST", "/api/profiles/plan", {})).body;
+    const file = join(folder, "areas", "bi", "bots", "analyst.md");
+    const text = readFileSync(file, "utf8");
+    writeFileSync(file, text.replace("Check every number against its source", "Send every number without checking"));
+    try {
+      const stale = await api("POST", "/api/profiles/apply", { expect: plan.digest });
+      expect(stale.status).toBe(409);
+      expect(stale.body.plan.lines).toEqual(plan.lines);
+      expect(stale.body.plan.digest).not.toBe(plan.digest);
+      expect(await profileBots()).toEqual([]);
+    } finally {
+      writeFileSync(file, text);
+    }
+  });
+
   it("applies the rest without the more-access lines, then those from an admin session", async () => {
     const plan = (await api("POST", "/api/profiles/plan", {})).body;
     const applied = await api("POST", "/api/profiles/apply", { expect: plan.digest });
@@ -111,5 +132,14 @@ posixOnly("profile apply routes", () => {
     expect(rows.find((row) => row.changed?.includes("sales/closer.approval"))?.after).toMatchObject({ folder });
     const status = (await api("GET", "/api/profiles")).body;
     expect(status).toMatchObject({ folder, applied: { folder, digest: expect.any(String) }, areas: { bi: { section: "BI" }, sales: { section: "Sales" } } });
+  });
+
+  it("follows a department renamed in the app, so the next plan keeps it instead of making another", async () => {
+    expect((await api("PATCH", "/api/sidebar-sections?section=BI", { name: "Analytics" })).status).toBe(200);
+    expect((await api("GET", "/api/profiles")).body.areas.bi).toEqual({ section: "Analytics" });
+    const plan = (await api("POST", "/api/profiles/plan", {})).body;
+    expect(plan.lines.filter((line: Rec) => line.kind === "add")).toEqual([]);
+    expect(plan.lines.filter((line: Rec) => line.kind === "changed-here").map((line: Rec) => line.text)).toEqual(["Area BI: its department was renamed here to Analytics, so that name is kept"]);
+    expect((await api("GET", "/api/sidebar-sections")).body.sections).toEqual(["Analytics", "Sales"]);
   });
 });

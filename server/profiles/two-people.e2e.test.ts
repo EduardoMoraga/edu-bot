@@ -148,4 +148,17 @@ posixOnly("two people, one profile repository", () => {
     expect(decisions(await plan(a))).toEqual([]);
     expect(await projection(b)).toEqual(await projection(a));
   });
+
+  it("records --keep-mine from the command line even when it is the only thing to apply", async () => {
+    const [a] = people as [Person, Person];
+    expect((await api(a, "PATCH", `/api/bots/${(await botOf(a, "analyst")).id}`, { title: "A's analyst again" })).status).toBe(200);
+    commit("areas/bi/bots/analyst.md", (text) => text.replace("title: Senior data analyst", "title: Lead data analyst"), "Retitle analyst again");
+    expect(decisions(await plan(a)).map((line) => line.kind)).toEqual(["conflict"]);
+    const cli = spawnSync(process.execPath, ["--experimental-strip-types", join(ROOT, "server", "openmausbot.ts"), "profiles", "apply", folder,
+      "--keep-mine", "bi/analyst:title", "--url", a.server.url], { cwd: ROOT, encoding: "utf8", env: { PATH: process.env.PATH ?? "", HOME: scratch }, timeout: 60_000 });
+    expect(cli.status, cli.stderr).toBe(0);
+    expect(cli.stdout).not.toContain("No changes.");
+    expect(decisions(await plan(a))).toEqual([]);
+    expect((await botOf(a, "analyst")).title).toBe("A's analyst again");
+  });
 });

@@ -51,7 +51,7 @@ export interface ProfilePlan {
   digest: string;
   lines: ProfilePlanLine[];
   counts: ProfilePlanCounts;
-  /** Nothing to apply and nothing to decide. */
+  /** Nothing to apply, nothing to decide and no settled conflict to record. */
   noChanges: boolean;
   problems: Array<ProfileProblem & { sentence: string }>;
   warnings: Array<ProfileProblem & { sentence: string }>;

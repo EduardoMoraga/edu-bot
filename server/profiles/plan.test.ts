@@ -7,15 +7,16 @@ import { checkProfileFiles } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlanLine } from "../../shared/profile-plan.ts";
 import type { ProfileSource } from "../../shared/wire.ts";
 import { applyProfilePlan } from "./apply.ts";
+import { profileFilesHash } from "./load.ts";
 import { decide, planProfiles, type AppView } from "./plan.ts";
-import type { ProfilesState } from "./state.ts";
+import { withDepartmentRenamed, type ProfilesState } from "./state.ts";
 
 type Rec = Record<string, any>;
 const ACME = join(import.meta.dirname, "..", "testing", "fixtures", "profiles", "acme");
 
 function filesOf(dir: string): Array<{ path: string; text: string }> {
   return readdirSync(dir, { recursive: true }).map(String).filter((path) => statSync(join(dir, path)).isFile())
-    .map((path) => ({ path: relative(dir, join(dir, path)).split("\\").join("/"), text: readFileSync(join(dir, path), "utf8") }));
+    .map((path) => ({ path: relative(dir, join(dir, path)).split("\\").join("/"), text: readFileSync(join(dir, path), "utf8").replace(/\r\n/g, "\n") }));
 }
 const ACME_FILES = filesOf(ACME);
 
@@ -27,13 +28,18 @@ function folder(edits: Record<string, string | null | ((text: string) => string)
     return [{ path: file.path, text: typeof edit === "function" ? edit(file.text) : edit ?? file.text }];
   });
   for (const [path, text] of Object.entries(edits)) if (typeof text === "string" && !files.some((file) => file.path === path)) files.push({ path, text });
-  return { ...checkProfileFiles(files), root: "/profiles/acme" };
+  return { ...checkProfileFiles(files), root: "/profiles/acme", contentHash: profileFilesHash(files) };
 }
+
+/** `profiles` with a problem at `file`, as the loader reports a link or an unreadable path there. */
+const withProblem = (profiles: ReturnType<typeof folder>, file: string) =>
+  ({ ...profiles, problems: [...profiles.problems, { file, message: "is a link; profiles never follow links, so put the file itself in the folder" }] });
 
 const sha = (text: string) => createHash("sha256").update(text).digest("hex");
 
-/** An app in memory, answering the routes apply calls the way the server does. */
-function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[] } = {}) {
+/** An app in memory, answering the routes apply calls the way the server does. `thisComputer`: the desktop app with its
+ * computer connected, where a new bot not on Auto works on this computer and Auto there needs the person's confirmation. */
+function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[]; models?: string[]; thisComputer?: boolean } = {}) {
   const app = {
     bots: (seed.bots ?? []) as Rec[],
     sections: seed.sections ?? [],
@@ -57,18 +63,23 @@ function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[
         app.sections = app.sections.map((section) => (section === from ? body.name : section));
         for (const bot of app.bots) if (bot.section === from) bot.section = body.name;
         app.briefs[body.name] = app.briefs[from] ?? "";
+        app.state = withDepartmentRenamed(app.state, from, body.name);
         return { status: 200, body: {} };
       }
       if (url.pathname === "/api/section-context") { app.briefs[url.searchParams.get("section")!] = body.text; return { status: 200, body: {} }; }
       if (url.pathname === "/api/bots" && method === "POST") {
-        const bot = { id: `bot-${++ids}`, name: body.name, title: body.title ?? "", description: body.description ?? "", section: body.section,
-          modelSelection: body.modelSelection ?? { instanceId: "claude", model: "claude-sonnet-5-5" } };
+        const bot: Rec = { id: `bot-${++ids}`, name: body.name, title: body.title ?? "", description: body.description ?? "", section: body.section,
+          modelSelection: body.modelSelection ?? { instanceId: "claude", model: "claude-sonnet-5-5" }, ...(body.settings?.approvalMode ? { approvalMode: body.settings.approvalMode } : {}),
+          ...(seed.thisComputer && body.settings?.approvalMode !== "auto" ? { computer: "local" } : {}) };
         app.bots.push(bot);
         return { status: 200, body: { bot } };
       }
       const bot = app.bots.find((candidate) => candidate.id === m[2]);
       if (!bot) return { status: 404, body: { error: "no such bot" } };
       if (m.length === 3 && method === "PATCH") {
+        if (body.approvalMode === "auto" && bot.computer === "local" && body.acknowledgeLocalAuto !== true) {
+          return { status: 400, body: { error: "Auto mode on this computer requires confirming the warning first (acknowledgeLocalAuto)" } };
+        }
         const { applyToAllThreads: _all, requireAvailableModel: _require, ...fields } = body;
         Object.assign(bot, fields);
         return { status: 200, body: { bot } };
@@ -85,7 +96,7 @@ function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[
   const view = (): AppView => ({
     bots: app.bots, sections: app.sections, briefs: app.briefs,
     skills: Object.fromEntries(Object.entries(app.skills).map(([id, skills]) => [id, Object.entries(skills).map(([name, skill]) => ({ name, enabled: skill.enabled, sha256: sha(skill.text) }))])),
-    instances: [{ instanceId: "claude", available: true, models: ["claude-sonnet-5-5", "claude-haiku-5"] }],
+    instances: [{ instanceId: "claude", models: seed.models ?? ["claude-sonnet-5-5", "claude-haiku-5"] }],
     mcpServers: seed.mcpServers ?? ["notion"],
   });
   const plan = (profiles = folder(), options: { choices?: Record<string, ProfileChoice>; prune?: boolean } = {}) =>
@@ -97,7 +108,7 @@ function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[
     return { planned, outcome };
   };
   const bot = (id: string) => app.bots.find((candidate) => `${candidate.profileSource?.area}/${candidate.profileSource?.key}` === id)!;
-  return { app, plan, apply, bot };
+  return { app, port, plan, apply, bot };
 }
 
 const kinds = (lines: readonly ProfilePlanLine[], kind: ProfilePlanLine["kind"]) => lines.filter((line) => line.kind === kind).map((line) => line.text);
@@ -272,7 +283,7 @@ describe("planProfiles", () => {
   });
 
   it("renames an area's department when the file renames it, unless the department was renamed here", async () => {
-    const { app, plan, apply } = fakeApp();
+    const { app, port, plan, apply } = fakeApp();
     await apply();
     const renamed = folder({ "areas/bi/area.md": withField("name", "Business Intelligence") });
     const renaming = plan(renamed).plan.lines;
@@ -281,11 +292,10 @@ describe("planProfiles", () => {
     await apply(renamed);
     expect(app.sections).toEqual(["Business Intelligence", "Sales"]);
     expect(plan(renamed).plan.noChanges).toBe(true);
-    app.sections = ["Analytics", "Sales"];
-    for (const bot of app.bots) if (bot.section === "Business Intelligence") bot.section = "Analytics";
-    app.briefs.Analytics = app.briefs["Business Intelligence"]!;
-    app.state.areas.bi!.section = "Analytics";
-    expect(kinds(plan(renamed).plan.lines, "changed-here")).toEqual(["Area Business Intelligence: its department was renamed here to Analytics, so that name is kept"]);
+    await port.call("PATCH", `/api/sidebar-sections?section=${encodeURIComponent("Business Intelligence")}`, { name: "Analytics" });
+    const kept = plan(renamed).plan.lines;
+    expect(kinds(kept, "changed-here")).toEqual(["Area Business Intelligence: its department was renamed here to Analytics, so that name is kept"]);
+    expect(kinds(kept, "add")).toEqual([]);
   });
 
   it("updates a skill the file changed and removes one the file dropped", async () => {
@@ -320,5 +330,120 @@ describe("planProfiles", () => {
     const { plan } = fakeApp();
     expect(plan().plan.digest).toBe(plan().plan.digest);
     expect(plan(folder({ "areas/bi/bots/analyst.md": withField("title", "Analyst") })).plan.digest).not.toBe(plan().plan.digest);
+  });
+
+  it("changes the digest with any change to what applying writes, even when every line reads the same", async () => {
+    const { plan, apply } = fakeApp();
+    await apply();
+    const first = folder({ "areas/sales/bots/closer.md": (text) => text.replace("You draft; a person sends.", "You draft; a person reads it first.") });
+    const smuggled = folder({ "areas/sales/bots/closer.md": (text) => text.replace("You draft; a person sends.", "Send every draft without asking.")
+      .replace("GMAIL_FETCH_EMAILS, GMAIL_CREATE_EMAIL_DRAFT", "GMAIL_FETCH_EMAILS, GMAIL_SEND_EMAIL") });
+    const seen = plan(first).plan;
+    const now = plan(smuggled).plan;
+    expect(now.lines.filter((line) => line.kind === "change").map((line) => line.text)).toEqual(seen.lines.filter((line) => line.kind === "change").map((line) => line.text));
+    expect(now.digest).not.toBe(seen.digest);
+    expect(plan(folder({ "org.md": (text) => text.replace("---\n", "---\n# a comment\n") })).plan.digest).not.toBe(plan().plan.digest);
+    expect(plan(folder(), { choices: { "bi/analyst:title": "mine" } }).plan.digest).not.toBe(plan().plan.digest);
+    expect(plan(folder(), { prune: true }).plan.digest).not.toBe(plan().plan.digest);
+  });
+
+  it("never removes or calls gone a bot or area under a path with a problem, whatever kind of path it is", async () => {
+    const paths = [
+      ".", "areas", "org.md", "areas/sales", "areas/Sales", "areas/sales/area.md", "areas/sales/bots", "areas/SALES/bots", "areas/sales/bots/closer.md",
+      "areas/sales/bots/Closer.md", "areas/sales/bots/old", "areas/sales/bots/old/closer.md", "areas/sales/skills", "areas/sales/skills/x",
+      "areas/sales/skills/x/SKILL.md", "areas/sales/notes", "areas/sales/notes/a.md", "areas/bi/skills/weekly-report",
+    ];
+    const { plan, apply } = fakeApp();
+    await apply();
+    const salesGone = folder(Object.fromEntries(ACME_FILES.filter((file) => file.path.startsWith("areas/sales/")).map((file) => [file.path, null])));
+    const unblocked = plan(salesGone, { prune: true });
+    expect(kinds(unblocked.plan.lines, "remove")).toEqual(["Deletes Closer, which is no longer in your profiles"]);
+    expect(unblocked.goneAreas).toEqual(["sales"]);
+    for (const path of paths) {
+      const planned = plan(withProblem(salesGone, path), { prune: true });
+      expect({ path, removed: planned.actions.filter((action) => action.kind === "remove"), gone: planned.goneAreas,
+        lines: planned.plan.lines.filter((line) => line.kind === "remove" || line.kind === "gone").map((line) => line.text) })
+        .toEqual({ path, removed: [], gone: [], lines: [] });
+    }
+  });
+
+  it("applies a conflict settled as mine, so the next plan no longer asks", async () => {
+    const { plan, apply, bot } = fakeApp();
+    await apply();
+    bot("bi/analyst").title = "Local analyst";
+    const edited = folder({ "areas/bi/bots/analyst.md": withField("title", "Analyst") });
+    expect(plan(edited).plan.counts.conflict).toBe(1);
+    const settled = plan(edited, { choices: { "bi/analyst:title": "mine" } }).plan;
+    expect(settled.noChanges).toBe(false);
+    expect(kinds(settled.lines, "note")).toContain("Analista BI: title: you keep yours; the file's value is recorded, so this is no longer a conflict");
+    await apply(edited, { choices: { "bi/analyst:title": "mine" } });
+    expect(bot("bi/analyst").title).toBe("Local analyst");
+    const after = plan(edited).plan;
+    expect(after.counts.conflict).toBe(0);
+    expect(after.noChanges).toBe(true);
+  });
+
+  it("keeps the first stored value of a field the file leaves out, so a later file value meets a change made here as a conflict", async () => {
+    const { plan, apply, bot } = fakeApp();
+    await apply();
+    const stored = bot("bi/reporter").profileSource.hashes.description;
+    bot("bi/reporter").description = "Mine";
+    await apply();
+    expect(bot("bi/reporter").profileSource.hashes.description).toBe(stored);
+    const managed = folder({ "areas/bi/bots/reporter.md": withField("description", "From the file") });
+    expect(kinds(plan(managed).plan.lines, "conflict")).toEqual(['Reporter: description: the file says "From the file", you have "Mine"']);
+  });
+
+  it("keeps an area's stored name and brief when the app refuses to rename it or set its brief", async () => {
+    const { app, plan, apply } = fakeApp();
+    await apply();
+    const before = app.state.areas.bi!.hashes;
+    app.refuse = (_method, path) => (path.startsWith("/api/sidebar-sections") || path.startsWith("/api/section-context") ? "busy" : null);
+    const renamed = folder({ "areas/bi/area.md": (text) => withField("name", "Business Intelligence")(`${text}\nMore context.\n`) });
+    const { outcome } = await apply(renamed);
+    expect(outcome.skipped.map((line) => line.reason)).toEqual(["busy", "busy"]);
+    expect(app.state.areas.bi).toEqual({ section: "BI", hashes: before });
+    app.refuse = null;
+    app.briefs.BI = "Changed here.";
+    expect(kinds(plan(renamed).plan.lines, "conflict")).toEqual(["Area Business Intelligence: the file and this app both changed its brief"]);
+  });
+
+  it("makes a new bot on Auto with Auto on the POST, so this computer's warning never drops its instructions or tools", async () => {
+    const { app, apply, bot } = fakeApp({ thisComputer: true });
+    const { outcome } = await apply();
+    expect(outcome.skipped).toEqual([]);
+    expect(bot("bi/analyst")).toMatchObject({ approvalMode: "auto", soul: expect.stringContaining("BI area's analyst"), eduCrew: true, mcpServers: ["notion"],
+      toolScope: { allow: ["native:*", "mcp:edu:*", "mcp:notion:*"] } });
+    expect(bot("bi/analyst").computer).toBeUndefined();
+    expect(bot("bi/analyst").profileSource.hashes.approval).toBeDefined();
+    expect(bot("bi/reporter")).toMatchObject({ approvalMode: "ask", computer: "local", toolsOff: ["images"] });
+    expect(app.calls.filter((call) => call === "POST /api/bots")).toHaveLength(3);
+  });
+
+  it("applies the rest of a bot's changes when the app refuses its approval, and offers the approval again", async () => {
+    const { plan, apply, bot } = fakeApp({ thisComputer: true });
+    await apply();
+    const auto = folder({ "areas/bi/bots/reporter.md": (text) => withField("approval", "auto")(text).replace("in plain words.", "in short words.") });
+    const { outcome } = await apply(auto, { giveAccess: true });
+    expect(outcome.skipped).toEqual([expect.objectContaining({ text: "Reporter: approval Ask → Auto", reason: expect.stringContaining("acknowledgeLocalAuto") })]);
+    expect(bot("bi/reporter")).toMatchObject({ approvalMode: "ask", soul: expect.stringContaining("in short words.") });
+    expect(kinds(plan(auto).plan.lines, "access")).toEqual(["Reporter: approval Ask → Auto"]);
+  });
+
+  it("counts leaving Custom approval as more access", async () => {
+    const { plan, apply, bot } = fakeApp();
+    await apply();
+    bot("bi/reporter").approvalMode = "custom";
+    const auto = folder({ "areas/bi/bots/reporter.md": withField("approval", "auto") });
+    expect(kinds(plan(auto).plan.lines, "conflict")).toEqual(["Reporter: approval: the file says Auto, you have Custom"]);
+    expect(kinds(plan(auto, { choices: { "bi/reporter:approval": "file" } }).plan.lines, "access")).toEqual(["Reporter: approval Custom → Auto"]);
+  });
+
+  it("leaves the model to the app when its engine is there but does not offer that model", () => {
+    const { plan } = fakeApp({ models: [] });
+    const planned = plan();
+    expect(kinds(planned.plan.lines, "note")).toContain("Analista BI: claude here offers no model claude-sonnet-5-5, so the bot uses this app's default model");
+    const create = (planned.actions.find((action) => action.kind === "bot" && action.id === "bi/analyst") as Rec).create;
+    expect(create).not.toHaveProperty("modelSelection");
   });
 });

@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import { basename, isAbsolute, relative, resolve } from "node:path";
+import { basename, isAbsolute, resolve } from "node:path";
 
 import { z } from "zod";
 
@@ -11,6 +11,7 @@ import { gitCommitOf } from "../profiles/git-commit.ts";
 import { loadProfileFolder, ProfileFolderError, type LoadedProfileFolder } from "../profiles/load.ts";
 import { planProfiles, type AppView, type PlanOutput } from "../profiles/plan.ts";
 import { readProfilesState, writeProfilesState, type ProfilesState } from "../profiles/state.ts";
+import { isInside, resolveThroughLinks } from "../sentinel/paths.ts";
 import { callRoutes } from "./in-process.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -40,6 +41,19 @@ const requestSchema = z.object({
   expect: z.string().max(100).optional(),
 }).strict();
 
+/** Security: on Windows a profile folder is on a local drive (C:\...), never a network share (\\server\share), a device
+ * path (\\?\..., \\.\...) or a path relative to the current drive (\folder, C:folder). */
+export function windowsFolderRefusal(folder: string, platform: NodeJS.Platform = process.platform): string | null {
+  return platform === "win32" && !/^[A-Za-z]:[\\/]/.test(folder) ? "A profile folder must be on a drive of this computer, such as C:\\Profiles." : null;
+}
+
+/** Security: a profile folder is never this app's data folder or inside it, judged by the path as given and where its
+ * links lead, against the data folder as given and where its own links lead. */
+export function insideDataFolder(paths: readonly string[], dataDir: string): boolean {
+  const roots = [resolve(dataDir), resolveThroughLinks(dataDir)];
+  return paths.some((path) => roots.some((root) => isInside(path, root)));
+}
+
 class RouteRefusal extends Error {
   readonly status: number;
   constructor(status: number, message: string) {
@@ -55,21 +69,24 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     areas: Object.fromEntries(Object.entries(state.areas).map(([key, area]) => [key, { section: area.section }])),
   });
 
-  const insideData = (folder: string) => {
-    const path = relative(resolve(deps.dataDir), resolve(folder));
-    return path === "" || (!path.startsWith("..") && !isAbsolute(path));
-  };
-
   const load = (folder: string | undefined, state: ProfilesState): LoadedProfileFolder => {
     const chosen = folder ?? state.folder;
     if (!chosen) throw new RouteRefusal(400, "Choose a profile folder first.");
-    if (insideData(chosen)) throw new RouteRefusal(400, "A profile folder cannot be inside this app's data folder.");
+    const refusal = windowsFolderRefusal(chosen);
+    if (refusal) throw new RouteRefusal(400, refusal);
+    const inside = () => new RouteRefusal(400, "A profile folder cannot be inside this app's data folder.");
+    if (insideDataFolder([resolve(chosen), resolveThroughLinks(chosen)], deps.dataDir)) throw inside();
+    let loaded: LoadedProfileFolder;
     try {
-      return loadProfileFolder(chosen);
+      loaded = loadProfileFolder(chosen);
     } catch (error) {
       if (error instanceof ProfileFolderError) throw new RouteRefusal(400, error.message);
       throw error;
     }
+    const linked = windowsFolderRefusal(loaded.root);
+    if (linked) throw new RouteRefusal(400, linked);
+    if (insideDataFolder([loaded.root], deps.dataDir)) throw inside();
+    return loaded;
   };
 
   const view = async (call: (method: string, path: string, body?: unknown) => Promise<{ status: number; body: Rec }>, folder: LoadedProfileFolder,
@@ -94,7 +111,6 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     for (const bot of bots.filter((candidate) => candidate.profileSource)) skills[bot.id] = (await read(`/api/bots/${enc(bot.id)}/skills`)).skills ?? [];
     const instances = ((await read("/api/instances")).instances ?? []).map((instance: Rec) => ({
       instanceId: String(instance.instanceId),
-      available: instance.snapshot?.state === "available",
       models: [instance.models?.default, ...(instance.models?.options ?? []).map((option: Rec) => option.id)].filter((id): id is string => typeof id === "string"),
     }));
     return { bots, sections, briefs, skills, instances, mcpServers: deps.mcpServerNames() };
