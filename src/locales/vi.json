@@ -2259,7 +2259,6 @@
   "engineSetup.managedSignIn": "Mỗi thiết lập Antigravity có tài khoản Google riêng. Trình duyệt của bạn sẽ hoàn tất đăng nhập bảo mật.",
   "engineSetup.terminalSignIn": "Hoàn tất đăng nhập tài khoản trong Terminal. Mở lại menu này sau đó và chúng tôi sẽ kiểm tra lại.",
   "engineSetup.injectDesc": "Cài đặt agent một lần, sau đó bạn có thể chạy với các mô hình cục bộ—không yêu cầu đăng nhập đám mây.",
-  "engineSetup.managedDesc": "{app} cài đặt môi trường chạy (runtime) Antigravity riêng đã qua xác minh, hoàn toàn tách biệt với ứng dụng Antigravity và CLI agy. Hãy cài đặt tại đây, đăng nhập Google và danh sách mô hình này sẽ tự động cập nhật từ tài khoản của bạn.",
   "engineSetup.installDesc": "Cài đặt ứng dụng dòng lệnh một lần. Các mô hình sẽ xuất hiện ở đây ngay khi sẵn sàng.",
   "engineSetup.installDescSignIn": "Cài đặt ứng dụng dòng lệnh một lần. Các mô hình sẽ xuất hiện ở đây ngay khi hoàn tất; sau đó có thể bạn sẽ cần đăng nhập.",
   "engineSetup.notReady": "{name} chưa sẵn sàng",

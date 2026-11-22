@@ -2778,7 +2778,6 @@
   "engineSetup.managedSignIn": "Każda konfiguracja Antigravity ma własne konto Google. Przeglądarka dokończy bezpieczne logowanie.",
   "engineSetup.terminalSignIn": "Dokończ logowanie do konta w terminalu. Otwórz ponownie to menu, a sprawdzimy jeszcze raz.",
   "engineSetup.injectDesc": "Zainstaluj agenta raz, a potem możesz uruchamiać go z modelami lokalnymi—logowanie do chmury nie jest wymagane.",
-  "engineSetup.managedDesc": "{app} instaluje własne zweryfikowane środowisko uruchomieniowe Antigravity. Jest ono oddzielne od aplikacji Antigravity i CLI agy; zainstaluj je tutaj, zaloguj się przez Google, a ta lista modeli odświeży się z twojego konta.",
   "engineSetup.installDesc": "Zainstaluj aplikację wiersza poleceń raz. Modele pojawią się tutaj, gdy tylko będzie gotowa.",
   "engineSetup.installDescSignIn": "Zainstaluj aplikację wiersza poleceń raz. Modele pojawią się tutaj, gdy tylko będzie gotowa; może być wymagane logowanie.",
   "engineSetup.notReady": "{name} nie jest gotowy",

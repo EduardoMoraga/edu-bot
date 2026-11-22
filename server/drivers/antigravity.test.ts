@@ -1,6 +1,6 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -33,7 +33,13 @@ import {
   resolveAntigravityReleaseAsset,
   type AntigravityReleaseAsset,
 } from "./antigravity-release.ts";
-import { installAntigravityRuntime, resolveAntigravityRuntime } from "./antigravity-runtime.ts";
+import {
+  antigravitySpawnArgs,
+  clearAntigravityCliCacheForTests,
+  installAntigravityRuntime,
+  isAntigravityCli,
+  resolveAntigravityRuntime,
+} from "./antigravity-runtime.ts";
 import * as antigravityTemp from "./antigravity-temp.ts";
 import { VERIFICATION_TEMP_KEY, antigravityTempDir, sweepAntigravityTemp } from "./antigravity-temp.ts";
 import {
@@ -67,6 +73,7 @@ function fakeRuntime(startupDelayMs = 0): { directory: string; executable: strin
 afterEach(async () => {
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
+  clearAntigravityCliCacheForTests();
   delete process.env.FAKE_ACP_AUTH_METHOD;
   delete process.env.FAKE_ACP_MODELS;
   delete process.env.FAKE_ACP_MODES;
@@ -1394,4 +1401,99 @@ describe("Antigravity driver over shared ACP", () => {
     });
     expect(await recorder.until((event) => event.type === "turn.completed")).toMatchObject({ ok: true });
   });
+
+  it("detects and runs an installed agy CLI (v1.5+) over `agy acp --stdio` with its native mode vocabulary", async () => {
+    ensureDirs();
+    const dir = mkdtempSync(join(tmpdir(), "omb-agy-cli-"));
+    scratch.push(dir);
+    const agyScript = join(dir, process.platform === "win32" ? "agy.mjs" : "agy");
+    const agyBin = process.platform === "win32" ? join(dir, "agy.cmd") : agyScript;
+    const dump = join(dir, "dump.json");
+    writeFileSync(agyScript, `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "acp" && args.includes("--help")) {
+  console.log("Usage: agy acp [flags]\\n\\nStart the Agent Client Protocol (ACP) stdio server");
+  process.exit(0);
+}
+if (args.includes("--version")) {
+  console.log("1.5.14");
+  process.exit(0);
+}
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`, { mode: 0o755 });
+    if (process.platform === "win32") {
+      writeFileSync(agyBin, `@echo off\r\n"${process.execPath}" "%~dp0agy.mjs" %*\r\n`);
+    }
+    const pathWithNode = `${dir}${delimiter}${dirname(process.execPath)}`;
+    const runtime = await resolveAntigravityRuntime(agyBin, { PATH: pathWithNode }, dir);
+    expect(isAntigravityCli(runtime)).toBe(true);
+    expect(runtime).toMatchObject({ executablePath: agyBin, kind: "cli", source: "override", version: "1.5.14" });
+    const fromPath = await resolveAntigravityRuntime(undefined, { PATH: pathWithNode }, dir);
+    expect(fromPath).toMatchObject({ executablePath: agyBin, kind: "cli", source: "path", version: "1.5.14" });
+    expect(antigravitySpawnArgs(runtime)).toEqual(["acp", "--stdio", "--disable-telemetry"]);
+    expect(antigravitySpawnArgs(runtime, { fullAuto: true })).toEqual(["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"]);
+    expect(antigravityPermissionMode(false, "ask", ["default", "accept-edits", "auto", "plan"])).toBe("default");
+    expect(antigravityPermissionMode(false, "edits", ["default", "accept-edits", "auto", "plan"])).toBe("accept-edits");
+    expect(antigravityPermissionMode(false, "auto", ["default", "accept-edits", "auto", "plan"])).toBe("default");
+    expect(antigravityPermissionMode(false, "full", ["default", "accept-edits", "auto", "plan"])).toBe("auto");
+    expect(antigravityPermissionMode(true, undefined, ["default", "accept-edits", "auto", "plan"])).toBe("auto");
+    expect(normalizeAntigravityTurn({ threadId: "t", text: "hi", model: "gemini-4-neon-xhigh" }, ["gemini-4-neon"]))
+      .toMatchObject({ model: "gemini-4-neon", variant: "xhigh" });
+    expect(isValidAntigravityInitializeResult({
+      protocolVersion: 1,
+      agentInfo: { name: "Antigravity ACP Server", version: "1.5.14" },
+      agentCapabilities: { loadSession: true, sessionCapabilities: { resume: {} }, auth: { logout: {} } },
+      authMethods: [{ id: "oauth-personal" }],
+    }, "1.5.14")).toBe(true);
+
+    const profile = await prepareAntigravityProfile({
+      instanceId: "agy-cli-profile",
+      runtime,
+      baseDir: dir,
+      baseEnv: { PATH: process.env.PATH, GEMINI_API_KEY: "no-leak", GOOGLE_API_KEY: "no-leak" },
+    });
+    expect(profile.environment.GEMINI_API_KEY).toBeUndefined();
+    expect(profile.environment.GOOGLE_API_KEY).toBeUndefined();
+    expect(profile.environment.ANTIGRAVITY_HARNESS_PATH).toBeUndefined();
+    expect(profile.environment.GEMINI_HOME).toBeUndefined();
+
+    instance = await AntigravityDriver.create({
+      instanceId: "antigravity-cli-v15",
+      displayName: "Google Gemini (Antigravity)",
+      enabled: true,
+      config: { cli: agyBin, fullAuto: false },
+      environment: {
+        FAKE_ACP_AUTH_METHOD: "oauth-personal",
+        FAKE_ACP_AGENT_NAME: "Antigravity ACP Server",
+        FAKE_ACP_AGENT_VERSION: "1.5.14",
+        FAKE_ACP_MODELS: "gemini-4-neon,gemini-3.8-flash",
+        FAKE_ACP_VARIANTS: JSON.stringify({
+          "gemini-4-neon": {
+            id: "thought_level",
+            currentValue: "high",
+            options: [{ value: "low", name: "Low" }, { value: "medium", name: "Medium" }, { value: "high", name: "High" }, { value: "xhigh", name: "Extra" }],
+          },
+        }),
+        FAKE_ACP_MODES: "default,accept-edits,auto,plan",
+        FAKE_ACP_DUMP: dump,
+      },
+    });
+    await instance.startupModelRefresh;
+    expect(await instance.snapshot()).toMatchObject({ state: "available", authenticated: true, version: "1.5.14" });
+    expect(instance.models.options.map((option) => option.id)).toEqual(["gemini-4-neon", "gemini-3.8-flash"]);
+
+    recorder = recordEvents(instance.adapter);
+    const { turnId } = await instance.adapter.sendTurn({
+      threadId: "thread-agy-cli",
+      text: "hello",
+      approvalMode: "edits",
+      model: "gemini-4-neon-xhigh",
+      cwd: dir,
+    });
+    expect(await recorder.until((event) => event.type === "turn.completed" && event.turnId === turnId)).toMatchObject({ ok: true });
+    expect(JSON.parse(readFileSync(dump, "utf8")).argv).toEqual(["acp", "--stdio", "--disable-telemetry"]);
+    const calls = JSON.parse(readFileSync(`${dump}.config.json`, "utf8"));
+    expect(calls).toContainEqual({ method: "session/set_config_option", params: { sessionId: expect.any(String), configId: "mode", value: "accept-edits" } });
+    expect(calls).toContainEqual({ method: "session/set_config_option", params: { sessionId: expect.any(String), configId: "thought_level", value: "xhigh" } });
+  }, 30_000);
 });

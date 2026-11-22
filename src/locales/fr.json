@@ -1260,7 +1260,6 @@
   "engineSetup.managedSignIn": "Chaque configuration Antigravity a son propre compte Google. Votre navigateur termine la connexion sécurisée.",
   "engineSetup.terminalSignIn": "Terminez la connexion au compte dans le Terminal. Rouvrez ensuite ce menu et nous vérifierons à nouveau.",
   "engineSetup.injectDesc": "Installez l'agent une fois, puis utilisez-le avec des modèles locaux — sans connexion au cloud.",
-  "engineSetup.managedDesc": "{app} installe son propre runtime Antigravity vérifié. Il est distinct de l'application Antigravity et de la CLI agy ; installez-le ici, connectez-vous avec Google, et cette liste de modèles se mettra à jour depuis votre compte.",
   "engineSetup.installDesc": "Installez l'application en ligne de commande une fois. Les modèles apparaîtront ici dès qu'elle sera prête.",
   "engineSetup.installDescSignIn": "Installez l'application en ligne de commande une fois. Les modèles apparaîtront ici dès qu'elle sera prête ; une connexion peut suivre.",
   "engineSetup.notReady": "{name} n'est pas prêt",

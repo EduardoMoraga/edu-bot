@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   access,
@@ -14,12 +15,12 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { constants } from "node:fs";
-import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { DATA_DIR } from "../config.ts";
 import { antigravityRuntimesRoot } from "../engine-roots.ts";
 import { extractZipMember, readZipDirectory } from "../zip-archive.ts";
-import { augmentedPath } from "../env-path.ts";
+import { augmentedPath, resolveCliSpawn } from "../env-path.ts";
 import {
   resolveAntigravityReleaseAsset,
   type AntigravityReleaseAsset,
@@ -64,8 +65,23 @@ const INSTALL_RECORD = ".install-complete.json";
 export interface AntigravityRuntime {
   executablePath: string;
   harnessPath: string;
+  kind?: "acp-server" | "cli";
   source: "managed" | "override" | "path";
   version: string | null;
+}
+
+export function isAntigravityCli(runtime: Pick<AntigravityRuntime, "kind">): boolean {
+  return runtime.kind === "cli";
+}
+
+export function antigravitySpawnArgs(
+  runtime: Pick<AntigravityRuntime, "kind">,
+  options: { fullAuto?: boolean } = {},
+): string[] {
+  if (isAntigravityCli(runtime)) {
+    return ["acp", "--stdio", "--disable-telemetry", ...(options.fullAuto ? ["--dangerously-skip-permissions"] : [])];
+  }
+  return process.platform === "linux" ? ["--uid="] : [];
 }
 
 export class AntigravitySetupError extends Error {
@@ -155,7 +171,67 @@ async function externalRuntime(candidate: string, source: "override" | "path"): 
   return { executablePath, harnessPath, source, version: null };
 }
 
-/** Legacy `agy` commands (saved absolute paths, Windows shims) migrate without editing user config. */
+const CLI_PROBE_TIMEOUT_MS = 4_000;
+const AGY_CLI_NAME = /^(?:agy|antigravity)(?:\.(?:cmd|bat|exe|ps1|mjs|js|ts))?$/iu;
+const ACP_HELP_PATTERN = /\bagy\s+acp\b|Agent Client Protocol \(ACP\)/iu;
+const CLI_VERSION_PATTERN = /\b(\d+\.\d+\.\d+(?:[-+][\w.-]+)?)\b/u;
+const cliProbes = new Map<string, { supported: boolean; version: string | null }>();
+
+export function clearAntigravityCliCacheForTests(): void {
+  cliProbes.clear();
+}
+
+function runCliProbe(executablePath: string, args: string[], env: NodeJS.ProcessEnv): Promise<{ ok: boolean; output: string }> {
+  const spawn = resolveCliSpawn(executablePath, args, env);
+  return new Promise((done) => {
+    try {
+      execFile(spawn.command, spawn.args, {
+        env: spawn.env ? { ...env, ...spawn.env } : env,
+        timeout: CLI_PROBE_TIMEOUT_MS,
+        maxBuffer: 64 * 1024,
+        windowsHide: true,
+      }, (error, stdout, stderr) => {
+        done({ ok: !error, output: `${String(stdout ?? "")}\n${String(stderr ?? "")}` });
+      }).once("error", () => done({ ok: false, output: "" }));
+    } catch {
+      done({ ok: false, output: "" });
+    }
+  });
+}
+
+async function cliRuntime(
+  candidate: string,
+  source: "override" | "path",
+  env: NodeJS.ProcessEnv,
+): Promise<AntigravityRuntime | null> {
+  const executablePath = resolve(candidate);
+  if (!AGY_CLI_NAME.test(basename(executablePath))) return null;
+  if (!(await executableFile(executablePath))) return null;
+  let key: string;
+  try {
+    const info = await stat(executablePath);
+    key = `${executablePath}\0${info.mtimeMs}\0${info.size}`;
+  } catch {
+    return null;
+  }
+  let probed = cliProbes.get(key);
+  if (!probed) {
+    const help = await runCliProbe(executablePath, ["acp", "--help"], env);
+    if (!help.ok || !ACP_HELP_PATTERN.test(help.output)) {
+      probed = { supported: false, version: null };
+    } else {
+      const ver = await runCliProbe(executablePath, ["--version"], env);
+      const match = ver.ok ? CLI_VERSION_PATTERN.exec(ver.output) : null;
+      probed = { supported: true, version: match?.[1] ?? null };
+    }
+    if (cliProbes.size >= 64) cliProbes.delete(cliProbes.keys().next().value!);
+    cliProbes.set(key, probed);
+  }
+  if (!probed.supported) return null;
+  return { executablePath, harnessPath: "", kind: "cli", source, version: probed.version };
+}
+
+/** Resolves an override, the managed runtime, `agy_acp_server` on PATH, or an `agy` CLI with `acp` support (v1.5+). */
 export async function resolveAntigravityRuntime(
   binaryPath?: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -165,7 +241,7 @@ export async function resolveAntigravityRuntime(
   const legacyCli = override !== undefined && /(?:^|[\\/])agy(?:\.(?:cmd|bat|exe|ps1))?$/iu.test(override);
   if (override && override !== "agy") {
     for (const candidate of pathCandidates(override, env)) {
-      const found = await externalRuntime(candidate, "override");
+      const found = await externalRuntime(candidate, "override") ?? await cliRuntime(candidate, "override", env);
       if (found) return found;
     }
     if (!legacyCli) {
@@ -184,6 +260,12 @@ export async function resolveAntigravityRuntime(
   for (const candidate of pathCandidates(names.executable, env)) {
     const found = await externalRuntime(candidate, "path");
     if (found) return found;
+  }
+  for (const cliName of process.platform === "win32" ? ["agy.exe", "agy.cmd", "agy"] : ["agy"]) {
+    for (const candidate of pathCandidates(cliName, env)) {
+      const found = await cliRuntime(candidate, "path", env);
+      if (found) return found;
+    }
   }
   if (!asset) {
     throw new AntigravitySetupError(legacyCli

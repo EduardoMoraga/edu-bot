@@ -2710,7 +2710,6 @@
   "engineSetup.managedSignIn": "Ogni configurazione di Antigravity ha il suo account Google. Il browser completa l'accesso sicuro.",
   "engineSetup.terminalSignIn": "Completa l'accesso all'account nel Terminale. Riapri questo menu dopo e ricontrolliamo.",
   "engineSetup.injectDesc": "Installa l'agente una volta, poi puoi eseguirlo con modelli locali, senza accesso al cloud.",
-  "engineSetup.managedDesc": "{app} installa un proprio runtime Antigravity verificato. È separato dall'app Antigravity e dalla CLI agy; installalo qui, accedi con Google e questo elenco di modelli si aggiorna dal tuo account.",
   "engineSetup.installDesc": "Installa una volta l'app da riga di comando. I modelli compaiono qui appena è pronta.",
   "engineSetup.installDescSignIn": "Installa una volta l'app da riga di comando. I modelli compaiono qui appena è pronta; l'accesso può seguire.",
   "engineSetup.notReady": "{name} non è pronto",

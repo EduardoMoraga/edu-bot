@@ -15,11 +15,14 @@ import type {
 import { createAcpDriver, type AcpConfig, type AcpSupport } from "./acp/core.ts";
 import {
   antigravityClientInfo,
-  antigravityProfileAuthenticated,
   antigravityProfileDirectory,
+  antigravityRuntimeAuthenticated,
   antigravitySessionSetup,
   antigravityTokenPath,
   authorizationUrlFromLine,
+  clearAntigravityCliAuth,
+  noteAntigravityCliSignedIn,
+  noteAntigravityCliSignInRequired,
   noteAntigravitySignedIn,
   noteAntigravitySignInRequired,
   prepareAntigravityProfile,
@@ -32,7 +35,9 @@ import { antigravityLimitFacts, watchAntigravityPromptOutcome } from "./antigrav
 import { AntigravityAuthController } from "./antigravity-auth.ts";
 import {
   antigravityManagedInstallAvailable,
+  antigravitySpawnArgs,
   installAntigravityRuntime,
+  isAntigravityCli,
   resolveAntigravityRuntime,
 } from "./antigravity-runtime.ts";
 import { resolveAntigravityReleaseAsset } from "./antigravity-release.ts";
@@ -49,16 +54,43 @@ export const STATIC_ANTIGRAVITY_MODELS: ModelCatalog = bundledEngineCatalog("ant
  * that still offers the suffixed id, or lacks the base, or a turn that chose its own level, keeps its selection. */
 export function normalizeAntigravityTurn(turn: SendTurnInput, offeredModels: readonly string[]): SendTurnInput {
   if (turn.variant !== undefined) return turn;
-  const match = turn.model?.match(/^(.+)-(low|medium|high)$/u);
+  const match = turn.model?.match(/^(.+)-(low|medium|high|xhigh)$/u);
   return match && offeredModels.includes(match[1]) && !offeredModels.includes(match[0])
     ? { ...turn, model: match[1], variant: match[2] }
     : turn;
 }
 
-/** Antigravity's session modes: `yolo` for Full, `auto_edit` for auto-accept edits, `default` otherwise (it has no reviewer for Auto). */
-export function antigravityPermissionMode(fullAuto: boolean, approvalMode?: ApprovalMode): "yolo" | "auto_edit" | "default" {
-  if (fullAuto || approvalMode === "full") return "yolo";
-  return approvalMode === "edits" ? "auto_edit" : "default";
+/** Antigravity's session modes: `yolo` / `auto_edit` / `default` on agy_acp_server 1.4.x, or `auto` / `accept-edits` / `default` on agy acp 1.5+. */
+export function antigravityPermissionMode(
+  fullAuto: boolean,
+  approvalMode?: ApprovalMode,
+  availableModes?: readonly string[],
+): "yolo" | "auto_edit" | "accept-edits" | "auto" | "default" {
+  const modes = availableModes?.length ? new Set(availableModes) : null;
+  if (fullAuto || approvalMode === "full") {
+    if (modes && !modes.has("yolo") && modes.has("auto")) return "auto";
+    return "yolo";
+  }
+  if (approvalMode === "edits") {
+    if (modes && !modes.has("auto_edit") && modes.has("accept-edits")) return "accept-edits";
+    return "auto_edit";
+  }
+  return "default";
+}
+
+function advertisedModeValues(option: unknown): string[] {
+  const values: string[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== "object") return;
+    const record = entry as { value?: unknown; options?: unknown };
+    if (Array.isArray(record.options)) {
+      record.options.forEach(visit);
+      return;
+    }
+    if (typeof record.value === "string" && record.value) values.push(record.value);
+  };
+  visit(option);
+  return values;
 }
 
 /** agy_acp_server opens a text run after a tool call with `&_a_m_p_;_` tokens — `&` escaped
@@ -139,7 +171,7 @@ const support: AcpSupport = {
     if (profile.tempDirectory) scheduleAntigravityTempSweep(instanceId);
     return {
       command: runtime.executablePath,
-      args: process.platform === "linux" ? ["--uid="] : [],
+      args: antigravitySpawnArgs(runtime, { fullAuto: config.fullAuto === true }),
       env: profile.environment,
       ro: [join(profile.directory, "omb-skills")],
     };
@@ -148,10 +180,13 @@ const support: AcpSupport = {
   resolveModels: async (env, config, instanceId) => {
     const runtime = await resolveAntigravityRuntime(config.cli, env);
     const profile = await prepareAntigravityProfile({ instanceId, runtime, baseEnv: env });
-    if (!(await antigravityProfileAuthenticated(profile))) throw new Error(support.loginNote);
+    if (!isAntigravityCli(runtime) && !(await antigravityRuntimeAuthenticated(runtime, profile, instanceId))) {
+      throw new Error(support.loginNote);
+    }
     const catalog = await probeAntigravityModels({
       runtime,
       profile,
+      instanceId,
       fallbackDefault: currentEngineCatalog("antigravity").default,
     });
     for (const option of catalog.options) offeredModels.add(option.id);
@@ -167,7 +202,10 @@ const support: AcpSupport = {
   signInRequest: {
     stderrLine: (line) => authorizationUrlFromLine(line) !== null,
     rpcError: antigravitySignInError,
-    required: (instanceId) => noteAntigravitySignInRequired(antigravityTokenPath(instanceId)),
+    required: (instanceId) => {
+      noteAntigravitySignInRequired(antigravityTokenPath(instanceId));
+      noteAntigravityCliSignInRequired(instanceId);
+    },
   },
   processStarted: (child, instanceId) => runtimeProcesses.track(instanceId, child),
   sessionSetupParams: antigravitySessionSetup,
@@ -180,7 +218,7 @@ const support: AcpSupport = {
     try {
       const runtime = await resolveAntigravityRuntime(config.cli, env);
       const profile = await prepareAntigravityProfile({ instanceId, runtime, baseEnv: env });
-      return antigravityProfileAuthenticated(profile);
+      return antigravityRuntimeAuthenticated(runtime, profile, instanceId);
     } catch {
       return false;
     }
@@ -192,7 +230,7 @@ const support: AcpSupport = {
       return {
         state: "available",
         version: runtime.version,
-        authenticated: await antigravityProfileAuthenticated(profile),
+        authenticated: await antigravityRuntimeAuthenticated(runtime, profile, instanceId),
         account: await antigravityAccount(profile.tokenPath),
       };
     } catch (error) {
@@ -201,10 +239,13 @@ const support: AcpSupport = {
   },
 
   configureSession: async ({ request, sessionId, config, turn, configOptions }) => {
-    if (!Array.isArray(configOptions) || !configOptions.some(option => option?.id === "mode")) {
+    const modeOption = Array.isArray(configOptions)
+      ? configOptions.find((option) => option?.id === "mode")
+      : undefined;
+    if (!modeOption) {
       return;
     }
-    const wanted = antigravityPermissionMode(config.fullAuto, turn.approvalMode);
+    const wanted = antigravityPermissionMode(config.fullAuto, turn.approvalMode, advertisedModeValues(modeOption));
     const result = await request("session/set_config_option", {
       sessionId,
       configId: "mode",
@@ -227,6 +268,7 @@ export const AntigravityDriver: ProviderDriver<AcpConfig> = {
     scheduleAntigravityTempSweep(VERIFICATION_TEMP_KEY);
     const auth = new AntigravityAuthController(() => {
       noteAntigravitySignedIn(antigravityTokenPath(input.instanceId));
+      noteAntigravityCliSignedIn(input.instanceId);
       void base.refreshModels?.();
     });
     let signingOut: Promise<void> = Promise.resolve();
@@ -288,6 +330,7 @@ export const AntigravityDriver: ProviderDriver<AcpConfig> = {
       // sign-in is removed at once, and once more when those processes are gone. A new sign-in waits for that.
       signOut: async () => {
         auth.cancel();
+        clearAntigravityCliAuth(input.instanceId);
         await base.adapter.stopAll();
         await removeAntigravitySignIn(input.instanceId);
         if (!runtimeProcesses.count(input.instanceId)) return;
