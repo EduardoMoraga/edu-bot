@@ -29,7 +29,7 @@ import { killCliTree, spawnCli } from "../procs.ts";
 import type { BoxRelay } from "../bot-box/relay.ts";
 import type { ModelCatalog } from "../contracts.ts";
 import type { ChildProcess } from "node:child_process";
-import { antigravitySpawnArgs, cliProbeKey, isAntigravityCli, type AntigravityRuntime } from "./antigravity-runtime.ts";
+import { antigravityExecutablePath, antigravitySpawnArgs, cliProbeKey, isAntigravityCli, type AntigravityRuntime } from "./antigravity-runtime.ts";
 import { acpVariantOption, surveyModelVariants } from "./acp/config-options.ts";
 import { StderrTail, exitDetail } from "./acp/exit-report.ts";
 import {
@@ -316,7 +316,7 @@ const cliModesCache = new Map<string, { modes: Promise<string[] | null>; until: 
 
 function cliAuthKey(instanceId: string, runtime: AntigravityRuntime, profile: AntigravityProfile): string {
   const binaryId = runtime.cliVerification ? cliProbeKey(runtime.cliVerification) : runtime.executablePath;
-  return [instanceId, binaryId, profile.environment.HOME ?? profile.environment.USERPROFILE ?? ""].join("\0");
+  return [instanceId, binaryId, runtime.version ?? "", profile.environment.HOME ?? profile.environment.USERPROFILE ?? ""].join("\0");
 }
 
 export function advertisedAntigravityModeValues(configOptions: unknown): string[] | null {
@@ -522,7 +522,7 @@ export class AntigravityAcpClient {
     this.tempDirectory = profile.tempDirectory;
     this.runtimeVersion = runtime.version;
     this.child = spawnCli(
-      runtime.cliVerification?.realpath ?? runtime.executablePath,
+      antigravityExecutablePath(runtime),
       antigravitySpawnArgs(runtime),
       { cwd, env: profile.environment, stdio: ["pipe", "pipe", "pipe"], box: { ro: [join(profile.directory, "omb-skills")], ...(relay ? { relay: relay.socketPath } : {}) } },
       "bot",

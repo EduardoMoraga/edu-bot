@@ -35,13 +35,16 @@ import {
   type AntigravityReleaseAsset,
 } from "./antigravity-release.ts";
 import {
+  antigravityExecutablePath,
   antigravitySpawnArgs,
   clearAntigravityCliCacheForTests,
+  cliProbeKey,
   installAntigravityRuntime,
   isAntigravityCli,
   isSupportedAntigravityCliVersion,
-  isVerifiedAntigravityCli,
+  prepareAntigravitySpawn,
   resolveAntigravityRuntime,
+  verifyAntigravityCli,
 } from "./antigravity-runtime.ts";
 import * as antigravityTemp from "./antigravity-temp.ts";
 import { VERIFICATION_TEMP_KEY, antigravityTempDir, sweepAntigravityTemp } from "./antigravity-temp.ts";
@@ -536,6 +539,18 @@ describe("official Antigravity runtime", () => {
   });
 
   it.each([
+    undefined,
+    "agy",
+  ])("resolves the default command %s to the official runtime on PATH when no v1.5+ agy is present", async (defaultCommand) => {
+    const fake = fakeRuntime();
+    const officialExecutable = join(fake.directory, process.platform === "win32" ? "agy_acp_server.exe" : "agy_acp_server.par");
+    copyFileSync(fake.executable, officialExecutable);
+    if (process.platform !== "win32") chmodSync(officialExecutable, 0o755);
+    const runtime = await resolveAntigravityRuntime(defaultCommand, { PATH: fake.directory }, fake.directory);
+    expect(runtime).toMatchObject({ executablePath: officialExecutable, source: "path" });
+  });
+
+  it.each([
     "agy.cmd",
     "C:\\Users\\Someone\\AppData\\Roaming\\npm\\agy.cmd",
     "C:\\Tools\\agy.exe",
@@ -543,13 +558,13 @@ describe("official Antigravity runtime", () => {
     "C:\\Tools\\agy.ps1",
     "/opt/homebrew/bin/agy",
     "/Users/someone/.local/bin/agy",
-  ])("migrates the saved legacy CLI path %s to the official runtime", async (legacyPath) => {
+  ])("refuses to replace an explicit agy override %s with another binary on PATH", async (explicitPath) => {
     const fake = fakeRuntime();
     const officialExecutable = join(fake.directory, process.platform === "win32" ? "agy_acp_server.exe" : "agy_acp_server.par");
     copyFileSync(fake.executable, officialExecutable);
     if (process.platform !== "win32") chmodSync(officialExecutable, 0o755);
-    const runtime = await resolveAntigravityRuntime(legacyPath, { PATH: fake.directory }, fake.directory);
-    expect(runtime).toMatchObject({ executablePath: officialExecutable, source: "path" });
+    await expect(resolveAntigravityRuntime(explicitPath, { PATH: fake.directory }, fake.directory))
+      .rejects.toMatchObject({ status: 409 });
   });
 
   it("explains the official setup when a legacy CLI has no replacement installed", async () => {
@@ -1442,7 +1457,10 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
     const fromPath = await resolveAntigravityRuntime(undefined, { PATH: pathWithNode }, dir);
     expect(fromPath).toMatchObject({ executablePath: agyBin, kind: "cli", source: "path", version: "1.5.14" });
     expect(antigravitySpawnArgs(runtime)).toEqual(["acp", "--stdio", "--disable-telemetry"]);
-    expect(antigravitySpawnArgs(runtime, { fullAuto: true })).toEqual(["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"]);
+    await expect(prepareAntigravitySpawn(runtime, { PATH: pathWithNode }, { fullAuto: true })).resolves.toMatchObject({
+      command: antigravityExecutablePath(runtime),
+      args: ["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"],
+    });
     expect(antigravityPermissionMode(false, "ask", ["default", "accept-edits", "auto", "plan"])).toBe("default");
     expect(antigravityPermissionMode(false, "edits", ["default", "accept-edits", "auto", "plan"])).toBe("accept-edits");
     expect(antigravityPermissionMode(false, "auto", ["default", "accept-edits", "auto", "plan"])).toBe("default");
@@ -1538,15 +1556,22 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
     return { scriptPath, binPath };
   }
 
-  it("re-probes on in-place content rewrites with identical size, inode, and timestamps, and binds skip-permissions to verified binaries", async () => {
+  it("re-verifies live before adding skip-permissions and rejects in-place rewrites, stale runtimes, symlink retargets, and wrapper payload swaps", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-agy-verify-"));
     scratch.push(dir);
     const { scriptPath, binPath } = writeFakeAgyCli(dir);
     const pathWithNode = `${dir}${delimiter}${dirname(process.execPath)}`;
     const verified = await resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir);
-    expect(isVerifiedAntigravityCli(verified)).toBe(true);
-    expect(antigravitySpawnArgs(verified, { fullAuto: true })).toContain("--dangerously-skip-permissions");
-    expect(antigravitySpawnArgs({ kind: "cli" }, { fullAuto: true })).not.toContain("--dangerously-skip-permissions");
+    await expect(verifyAntigravityCli(verified, { PATH: pathWithNode })).resolves.toMatchObject({ kind: "cli", version: "1.5.14" });
+    await expect(prepareAntigravitySpawn(verified, { PATH: pathWithNode }, { fullAuto: true })).resolves.toMatchObject({
+      args: ["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"],
+    });
+    expect(antigravitySpawnArgs(verified)).toEqual(["acp", "--stdio", "--disable-telemetry"]);
+    await expect(prepareAntigravitySpawn(
+      { executablePath: join(dir, "forged"), harnessPath: "", kind: "cli", source: "override", version: "1.5.14" },
+      { PATH: pathWithNode },
+      { fullAuto: true },
+    )).rejects.toMatchObject({ status: 409 });
 
     const before = statSync(scriptPath, { bigint: true });
     const replacement = `#!/usr/bin/env node\nconsole.log("not agy");\nprocess.exit(0);\n`;
@@ -1558,6 +1583,8 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
     expect(after.size).toBe(before.size);
     if (process.platform !== "win32") expect(after.ino).toBe(before.ino);
 
+    await expect(verifyAntigravityCli(verified, { PATH: pathWithNode })).resolves.toBeNull();
+    await expect(prepareAntigravitySpawn(verified, { PATH: pathWithNode }, { fullAuto: true })).rejects.toMatchObject({ status: 409 });
     await expect(resolveAntigravityRuntime(binPath, { PATH: pathWithNode }, dir)).rejects.toThrow(/official/u);
 
     if (process.platform !== "win32") {
@@ -1569,7 +1596,350 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
       expect(linked).toMatchObject({ kind: "cli", version: "1.5.14" });
       unlinkSync(link);
       symlinkSync(bad.binPath, link);
+      await expect(verifyAntigravityCli(linked, { PATH: pathWithNode })).resolves.toBeNull();
+      await expect(prepareAntigravitySpawn(linked, { PATH: pathWithNode }, { fullAuto: true })).rejects.toMatchObject({ status: 409 });
       await expect(resolveAntigravityRuntime(link, { PATH: pathWithNode }, dir)).rejects.toThrow();
+
+      // Stable wrapper exec payload swap: wrapper bytes stay identical while its target payload changes.
+      const wrapDir = mkdtempSync(join(tmpdir(), "omb-agy-wrapper-"));
+      scratch.push(wrapDir);
+      const payloadPath = join(wrapDir, "payload");
+      const wrapperPath = join(wrapDir, "agy");
+      const logPath = join(wrapDir, "payload.log");
+      writeFileSync(payloadPath, `#!/usr/bin/env node
+const args = process.argv.slice(2);
+if (args[0] === "acp" && args.includes("--help")) { console.log("Usage: agy acp [flags]"); process.exit(0); }
+if (args.includes("--version")) { console.log("1.5.14"); process.exit(0); }
+`, { mode: 0o755 });
+      writeFileSync(wrapperPath, `#!/bin/sh\nexec "${payloadPath}" "$@"\n`, { mode: 0o755 });
+      const wrapEnv = { PATH: `${wrapDir}${delimiter}${dirname(process.execPath)}` };
+      const wrapped = await resolveAntigravityRuntime(wrapperPath, wrapEnv, wrapDir);
+      expect(wrapped).toMatchObject({ kind: "cli", source: "override", version: "1.5.14" });
+      const wrapStatBefore = statSync(wrapperPath, { bigint: true });
+
+      writeFileSync(payloadPath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+appendFileSync(${JSON.stringify(logPath)}, "NEW " + process.argv.slice(2).join(" ") + "\\n");
+console.log("not a probed cli");
+process.exit(0);
+`, { mode: 0o755 });
+      const wrapStatAfter = statSync(wrapperPath, { bigint: true });
+      expect(wrapStatAfter.ino).toBe(wrapStatBefore.ino);
+      expect(wrapStatAfter.size).toBe(wrapStatBefore.size);
+      await expect(resolveAntigravityRuntime(wrapperPath, wrapEnv, wrapDir)).rejects.toThrow(/official/u);
+      await expect(prepareAntigravitySpawn(wrapped, wrapEnv, { fullAuto: true })).rejects.toMatchObject({ status: 409 });
+      const logged = existsSync(logPath) ? readFileSync(logPath, "utf8") : "";
+      expect(logged).toContain("NEW acp --help");
+      expect(logged).not.toContain("--dangerously-skip-permissions");
+    }
+  });
+
+  it("refuses a Full turn without skip-permissions when the CLI file is swapped between mode probe and spawn", async () => {
+    if (process.platform === "win32") return;
+    ensureDirs();
+    const dir = mkdtempSync(join(tmpdir(), "omb-agy-swap-race-"));
+    scratch.push(dir);
+    const binPath = join(dir, "agy");
+    const logPath = join(dir, "exec.log");
+    const probeStarted = join(dir, "probe-started");
+    const releaseProbe = join(dir, "release-probe");
+    const dump = join(dir, "dump.json");
+
+    writeFileSync(binPath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logPath)}, "GOOD " + JSON.stringify(args) + "\\n");
+if (args[0] === "acp" && args.includes("--help")) { console.log("Usage: agy acp [flags]"); process.exit(0); }
+if (args.includes("--version")) { console.log("1.5.14"); process.exit(0); }
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`, { mode: 0o755 });
+
+    instance = await AntigravityDriver.create({
+      instanceId: "antigravity-swap-race",
+      displayName: "Google Gemini (Antigravity)",
+      enabled: true,
+      config: { cli: binPath, fullAuto: false },
+      environment: {
+        FAKE_ACP_AUTH_METHOD: "oauth-personal",
+        FAKE_ACP_AGENT_NAME: "Antigravity ACP Server",
+        FAKE_ACP_AGENT_VERSION: "1.5.14",
+        FAKE_ACP_MODELS: "gemini-3.8-flash",
+        FAKE_ACP_MODES: "default,accept-edits,auto,plan",
+        FAKE_ACP_DUMP: dump,
+        FAKE_ACP_DUMP_PROMPT: "1",
+      },
+    });
+    await instance.startupModelRefresh;
+
+    // Replace GOOD with SLEEPY so the Full mode probe misses cache and waits until we swap in EVIL.
+    writeFileSync(binPath, `#!/usr/bin/env node
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logPath)}, "SLEEPY " + JSON.stringify(args) + "\\n");
+if (args[0] === "acp" && args.includes("--help")) { console.log("Usage: agy acp [flags]"); process.exit(0); }
+if (args.includes("--version")) { console.log("1.5.14"); process.exit(0); }
+if (!existsSync(${JSON.stringify(probeStarted)})) {
+  writeFileSync(${JSON.stringify(probeStarted)}, "1");
+  while (!existsSync(${JSON.stringify(releaseProbe)})) {
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`, { mode: 0o755 });
+
+    recorder = recordEvents(instance.adapter);
+    const turnPromise = instance.adapter.sendTurn({
+      threadId: "thread-swap-race",
+      text: "hello",
+      approvalMode: "full",
+      model: "gemini-3.8-flash",
+      cwd: dir,
+    });
+
+    const deadline = Date.now() + 10_000;
+    while (!existsSync(probeStarted)) {
+      if (Date.now() > deadline) throw new Error("timed out waiting for SLEEPY mode probe");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+
+    writeFileSync(binPath, `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logPath)}, "EVIL " + JSON.stringify(args) + "\\n");
+if (args[0] === "acp" && args.includes("--help")) { console.log("not a probed cli"); process.exit(0); }
+if (args.includes("--version")) { console.log("1.5.14"); process.exit(0); }
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`, { mode: 0o755 });
+    writeFileSync(releaseProbe, "1");
+
+    const { turnId } = await turnPromise;
+    const completed = await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(completed).toMatchObject({ ok: false, stopReason: "setup_required" });
+    const lines = readFileSync(logPath, "utf8").trim().split("\n");
+    expect(lines.some((line) => line.startsWith("EVIL ") && line.includes("--help"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("EVIL ") && line.includes("--dangerously-skip-permissions"))).toBe(false);
+    expect(lines.some((line) => line.startsWith("EVIL ") && line.includes("--stdio"))).toBe(false);
+    expect(existsSync(`${dump}.prompt.json`)).toBe(false);
+  }, 30_000);
+
+  it("probes and spawns mise-style argv0 shims via the PATH entry without caching under the shim target hash", async () => {
+    if (process.platform === "win32") return;
+    ensureDirs();
+    const baseDir = mkdtempSync(join(tmpdir(), "omb-agy-mise-shim-"));
+    scratch.push(baseDir);
+    const miseDir = join(baseDir, "usr-bin");
+    const shimsDir = join(baseDir, "mise-shims");
+    const shimsAltDir = join(baseDir, "mise-shims-alt");
+    mkdirSync(miseDir, { recursive: true });
+    mkdirSync(shimsDir, { recursive: true });
+    mkdirSync(shimsAltDir, { recursive: true });
+
+    const asset = resolveAntigravityReleaseAsset();
+    if (asset) {
+      const versionDir = join(baseDir, "tools", "antigravity-acp", `${process.platform}-${process.arch}`, "versions", asset.sha256);
+      mkdirSync(versionDir, { recursive: true });
+      for (const file of [asset.executable, asset.harness]) {
+        const target = join(versionDir, file.name);
+        writeFileSync(target, "");
+        truncateSync(target, file.bytes);
+        chmodSync(target, 0o755);
+      }
+      writeFileSync(join(versionDir, ".install-complete.json"), JSON.stringify({
+        sha256: asset.sha256,
+        version: asset.version,
+        executable: asset.executable,
+        harness: asset.harness,
+      }));
+    }
+
+    const misePath = join(miseDir, "mise");
+    const stateFile = join(baseDir, "mise-state");
+    const dump = join(baseDir, "dump.json");
+    writeFileSync(stateFile, "1.5.14");
+    writeFileSync(misePath, `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+import { basename } from "node:path";
+const invokedAs = basename(process.argv[1] ?? "");
+const args = process.argv.slice(2);
+if (invokedAs !== "agy") {
+  if (args.includes("--version")) { console.log("2026.11.10 linux-x64"); process.exit(0); }
+  console.error("unknown command: " + (args[0] ?? ""));
+  process.exit(1);
+}
+const mode = readFileSync(${JSON.stringify(stateFile)}, "utf8").trim();
+if (mode === "broken") {
+  console.error("agy uninstalled");
+  process.exit(1);
+}
+if (args[0] === "acp" && args.includes("--help")) {
+  console.log("Usage: agy acp [flags]");
+  process.exit(0);
+}
+if (args.includes("--version")) {
+  console.log(mode);
+  process.exit(0);
+}
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`, { mode: 0o755 });
+
+    const shimPath = join(shimsDir, "agy");
+    const altShimPath = join(shimsAltDir, "agy");
+    symlinkSync(misePath, shimPath);
+    symlinkSync(misePath, altShimPath);
+
+    const shimEnv = { PATH: `${shimsDir}${delimiter}${dirname(process.execPath)}` };
+    const resolved = await resolveAntigravityRuntime("agy", shimEnv, baseDir);
+    expect(resolved).toMatchObject({
+      executablePath: shimPath,
+      kind: "cli",
+      source: "path",
+      version: "1.5.14",
+      cliVerification: {
+        launchPath: shimPath,
+        realpath: realpathSync(misePath),
+        isShim: true,
+        sha256: "",
+      },
+    });
+    expect(antigravityExecutablePath(resolved)).toBe(shimPath);
+    expect(cliProbeKey(resolved.cliVerification!)).toBe(`shim\0${shimPath}`);
+
+    const prepared = await prepareAntigravitySpawn(resolved, shimEnv, { fullAuto: true });
+    expect(prepared).toMatchObject({
+      command: shimPath,
+      args: ["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"],
+    });
+
+    const explicitShim = await resolveAntigravityRuntime(shimPath, { PATH: dirname(process.execPath) }, baseDir);
+    expect(explicitShim).toMatchObject({
+      executablePath: shimPath,
+      kind: "cli",
+      source: "override",
+      version: "1.5.14",
+    });
+
+    // When mise stops resolving agy, neither the original shim nor another symlink to mise succeeds from cache.
+    writeFileSync(stateFile, "broken");
+    await expect(verifyAntigravityCli(resolved, shimEnv)).resolves.toBeNull();
+    await expect(prepareAntigravitySpawn(resolved, shimEnv, { fullAuto: true })).rejects.toMatchObject({ status: 409 });
+    await expect(resolveAntigravityRuntime(altShimPath, { PATH: dirname(process.execPath) }, baseDir)).rejects.toMatchObject({ status: 409 });
+
+    // Restore shim and run a full driver turn through the shim path.
+    writeFileSync(stateFile, "1.5.14");
+    instance = await AntigravityDriver.create({
+      instanceId: "antigravity-mise-shim",
+      displayName: "Google Gemini (Antigravity)",
+      enabled: true,
+      config: { cli: shimPath, fullAuto: false },
+      environment: {
+        FAKE_ACP_AUTH_METHOD: "oauth-personal",
+        FAKE_ACP_AGENT_NAME: "Antigravity ACP Server",
+        FAKE_ACP_AGENT_VERSION: "1.5.14",
+        FAKE_ACP_MODELS: "gemini-3.8-flash",
+        FAKE_ACP_MODES: "default,accept-edits,auto,plan",
+        FAKE_ACP_DUMP: dump,
+      },
+    });
+    await instance.startupModelRefresh;
+    expect(await instance.snapshot()).toMatchObject({ state: "available", authenticated: true, version: "1.5.14" });
+    recorder = recordEvents(instance.adapter);
+    const { turnId } = await instance.adapter.sendTurn({
+      threadId: "thread-mise-shim",
+      text: "hello shim",
+      approvalMode: "full",
+      model: "gemini-3.8-flash",
+      cwd: baseDir,
+    });
+    expect(await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId)).toMatchObject({ ok: true });
+    expect(JSON.parse(readFileSync(dump, "utf8")).argv).toEqual([
+      "acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions",
+    ]);
+  }, 30_000);
+
+  it("keeps explicit agy paths strictly scoped to that path and only searches PATH for the default command", async () => {
+    const baseDir = mkdtempSync(join(tmpdir(), "omb-agy-explicit-"));
+    scratch.push(baseDir);
+    const asset = resolveAntigravityReleaseAsset();
+    if (asset) {
+      const versionDir = join(baseDir, "tools", "antigravity-acp", `${process.platform}-${process.arch}`, "versions", asset.sha256);
+      mkdirSync(versionDir, { recursive: true });
+      for (const file of [asset.executable, asset.harness]) {
+        const target = join(versionDir, file.name);
+        writeFileSync(target, "");
+        truncateSync(target, file.bytes);
+        if (process.platform !== "win32") chmodSync(target, 0o755);
+      }
+      writeFileSync(join(versionDir, ".install-complete.json"), JSON.stringify({
+        sha256: asset.sha256,
+        version: asset.version,
+        executable: asset.executable,
+        harness: asset.harness,
+      }));
+    }
+
+    const pathDir = join(baseDir, "path-v15");
+    const oldDir = join(baseDir, "old-v149");
+    const overrideDir = join(baseDir, "override-v159");
+    const managedOverrideDir = join(baseDir, "override-managed");
+    mkdirSync(pathDir, { recursive: true });
+    mkdirSync(oldDir, { recursive: true });
+    mkdirSync(overrideDir, { recursive: true });
+    mkdirSync(managedOverrideDir, { recursive: true });
+
+    const pathAgy = writeFakeAgyCli(pathDir, { versionText: "1.5.14" });
+    const oldAgy = writeFakeAgyCli(oldDir, { versionText: "1.4.9" });
+    const overrideAgy = writeFakeAgyCli(overrideDir, { versionText: "1.5.9" });
+    const fakeManaged = fakeRuntime();
+    const customManagedAgy = join(managedOverrideDir, process.platform === "win32" ? "agy.exe" : "agy");
+    const customManagedHarness = join(managedOverrideDir, process.platform === "win32" ? "localharness_external.exe" : "localharness_external");
+    copyFileSync(fakeManaged.executable, customManagedAgy);
+    copyFileSync(fakeManaged.harness, customManagedHarness);
+    if (process.platform !== "win32") {
+      chmodSync(customManagedAgy, 0o755);
+      chmodSync(customManagedHarness, 0o755);
+    }
+
+    const pathWithV15 = `${pathDir}${delimiter}${dirname(process.execPath)}`;
+    const pathNodeOnly = dirname(process.execPath);
+
+    // Explicit v1.4.9 agy or missing .../agy never falls through to PATH v1.5.14 or managed 1.4.3.
+    await expect(resolveAntigravityRuntime(oldAgy.binPath, { PATH: pathWithV15 }, baseDir)).rejects.toMatchObject({ status: 409 });
+    await expect(resolveAntigravityRuntime(oldAgy.binPath, { PATH: "" }, baseDir)).rejects.toMatchObject({ status: 409 });
+    await expect(resolveAntigravityRuntime(join(baseDir, "missing", "agy"), { PATH: pathWithV15 }, baseDir)).rejects.toMatchObject({ status: 409 });
+
+    // Explicit verified v1.5.9 CLI beats PATH v1.5.14.
+    await expect(resolveAntigravityRuntime(overrideAgy.binPath, { PATH: pathWithV15 }, baseDir)).resolves.toMatchObject({
+      executablePath: overrideAgy.binPath,
+      kind: "cli",
+      source: "override",
+      version: "1.5.9",
+    });
+
+    // Explicit path with sibling localharness_external returns that path's ACP server.
+    await expect(resolveAntigravityRuntime(customManagedAgy, { PATH: pathWithV15 }, baseDir)).resolves.toMatchObject({
+      executablePath: customManagedAgy,
+      harnessPath: customManagedHarness,
+      source: "override",
+    });
+
+    // Default command ("agy") or unset searches PATH.
+    await expect(resolveAntigravityRuntime("agy", { PATH: pathWithV15 }, baseDir)).resolves.toMatchObject({
+      executablePath: pathAgy.binPath,
+      kind: "cli",
+      source: "path",
+      version: "1.5.14",
+    });
+    await expect(resolveAntigravityRuntime(undefined, { PATH: pathWithV15 }, baseDir)).resolves.toMatchObject({
+      executablePath: pathAgy.binPath,
+      kind: "cli",
+      source: "path",
+      version: "1.5.14",
+    });
+    if (asset) {
+      await expect(resolveAntigravityRuntime("agy", { PATH: pathNodeOnly }, baseDir)).resolves.toMatchObject({
+        source: "managed",
+        version: asset.version,
+      });
     }
   });
 

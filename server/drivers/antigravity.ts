@@ -37,9 +37,9 @@ import { antigravityLimitFacts, watchAntigravityPromptOutcome } from "./antigrav
 import { AntigravityAuthController } from "./antigravity-auth.ts";
 import {
   antigravityManagedInstallAvailable,
-  antigravitySpawnArgs,
   installAntigravityRuntime,
   isAntigravityCli,
+  prepareAntigravitySpawn,
   resolveAntigravityRuntime,
 } from "./antigravity-runtime.ts";
 import { resolveAntigravityReleaseAsset } from "./antigravity-release.ts";
@@ -180,9 +180,13 @@ const support: AcpSupport = {
       if (advertisedModes === null) throw new Error(MISSING_MODE_ERROR);
       if (!antigravityPermissionMode(true, "full", advertisedModes)) throw new Error(UNADVERTISED_MODE_ERROR);
     }
+    const prepared = await prepareAntigravitySpawn(runtime, profile.environment, {
+      fullAuto: config.fullAuto === true,
+    });
+    launchedVersions.set(instanceId, prepared.runtime.version);
     return {
-      command: runtime.cliVerification?.realpath ?? runtime.executablePath,
-      args: antigravitySpawnArgs(runtime, { fullAuto: config.fullAuto === true }),
+      command: prepared.command,
+      args: prepared.args,
       env: profile.environment,
       ro: [join(profile.directory, "omb-skills")],
     };
