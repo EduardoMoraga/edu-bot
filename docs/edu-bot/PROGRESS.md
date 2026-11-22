@@ -142,12 +142,16 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 - [x] M4-1 (#19, fusionado): "Apps" sin servicio de MausBot. Sin llave explica en 3 pasos qué hacer, con botón
   "Pegar llave" que abre el campo correcto. Tus servidores MCP aparecen primero. Los bots ya no dicen "reinicia".
   Agy auditó 2 rondas: 7 hallazgos (ruta de menú inexacta, la llave de prueba podía ir a Composio real), luego PASS.
-- [ ] M4-2: servidores MCP propios desde los archivos de perfiles y por área (Notion, Gmail, Cheil, etc.).
-  Un comando que corre en tu computador siempre pide tu confirmación. En curso (Claude).
-- [ ] M4-3: pruebas reales de punta a punta: un conector MCP y uno por Composio (con un Composio de prueba local;
+- [x] M4-2 (#20, fusionado): servidores MCP propios desde los archivos de perfiles y por área.
+  Un servidor que necesita una llave que no guardaste queda apagado ("Falta tu llave"). Un comando que corre en tu
+  computador siempre pide tu confirmación. Menú del área: "Servidores MCP de esta área".
+  Grok auditó (2 hallazgos) y los arregló; Agy verificó: PASS. CI verde.
+- [x] M4-3 (#22, fusionado; lo hizo Grok, Agy auditó 2 rondas y dio PASS): pruebas reales de punta a punta: un conector MCP y uno por Composio (con un Composio de prueba local;
   la prueba con Composio real solo corre si das una llave de prueba).
-- [ ] M4-4: conector SQL (SQLite, DuckDB, Postgres), solo lectura por defecto, con conexiones guardadas en el Vault
-  y una lista de tablas por bot. Los números salen de las consultas, nunca del modelo. Escribir siempre pide aprobación.
+- [x] M4-4 (#23, fusionado; lo hizo Grok, Agy auditó 5 rondas hasta PASS): conector SQL (SQLite, DuckDB, Postgres), solo lectura por defecto, con conexiones guardadas en el Vault
+  y una lista de tablas por bot. Los números salen de las consultas, nunca del modelo.
+  Decisión (22-11): tras 2 auditorías de Agy con fallas graves (saltar la lista de tablas, leer archivos del computador),
+  el conector sale SOLO DE LECTURA. Escribir en la base queda para después. La clave de la base nunca llega a un bot.
 - [ ] M4-5: el tope de aprobación por área se cumple siempre, y un visor de auditoría por bot y por área.
 - [ ] M4-6 (pedido 22-11): Antigravity como proveedor, para usar los modelos de Google (Gemini) desde la app.
   Ya existe como motor heredado; hay que probarlo de punta a punta con tu `agy` real y arreglar lo que falle.
@@ -217,12 +221,21 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 - El servicio de relay se llama "Edu Bot Relay" en un diagnóstico, pero es el de upstream y está apagado.
 - El teléfono usa la app publicada "MausBot". Edu Bot no tiene app de teléfono propia.
 
+## Para la auditoría final (M6)
+
+- Herramientas de datos locales (heredadas de upstream): un bot puede leer archivos de tu computador con ellas, igual
+  que con su terminal. Se intentó encerrarlas en M4 y rompía cosas; se revisará en M6 con calma.
+
 ## Para el lanzamiento (M5)
 
 - No incluir en los instaladores binarios con licencia que prohíbe redistribuir:
   herramientas Android de Google y Chrome for Testing. Revisarlo en M5.
 
 ## Avisos
+
+- Incidente (22-11): el comando `gh` de Grok usó el repo de upstream por defecto y abrió por error un PR en
+  milind-soni/OpenMausBot (#7038). No se subió código allá; el PR quedó cerrado de inmediato, pero es visible.
+  Arreglo: todas las copias fijan EduardoMoraga/edu-bot como repo por defecto y las reglas exigen `-R` en cada `gh`.
 
 - A Codex le queda poco cupo semanal (23 % el 21-11). Por eso Claude hizo los arreglos del PR #4.
 
