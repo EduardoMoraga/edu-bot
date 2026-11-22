@@ -390,6 +390,24 @@ name: Helper
       ]);
     });
 
+    const utf16le = (text: string) => Buffer.from(text, "utf16le").toString("base64");
+    const utf16be = (text: string) => Buffer.from(text, "utf16le").swap16().toString("base64");
+    it.each([
+      ["a space inside", "c2stYW50LUFVRElUS0 VZMDEyMzQ1Njc4OQ=="],
+      ["a tab inside", "c2stYW50LUFVRElUS0\tVZMDEyMzQ1Njc4OQ=="],
+      ["spaces between short groups, after a word", "hi c2st YW50 LUFV RElU S0VZ MDEy MzQ1 Njc4 OQ=="],
+      ["U+200B in UTF-16LE", utf16le("sk-ant-AUDIT\u200bKEY0123456789")],
+      ["U+200B in UTF-16BE", utf16be("sk-ant-AUDIT\u200bKEY0123456789")],
+      ["UTF-16LE", utf16le(KEY)],
+    ])("finds a key in base64 with %s", (_name, token) => {
+      const folder = check(withBot("title: Analyst", `blob ${token}\n`));
+      expect(folder.problems.map(problemSentence)).toEqual([
+        "areas/bi/bots/analyst.md, line 8: has a key or password in the bot's instructions; take it out and put it in a secret slot instead: { secret: NAME }",
+      ]);
+      expect(folder.bots).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("AUDIT");
+    });
+
     it("finds a key wrapped twice in base64", () => {
       const twice = btoa(btoa(KEY));
       expect(twice).toBe("YzJzdFlXNTBMVUZWUkVsVVMwVlpNREV5TXpRMU5qYzRPUT09");
@@ -447,6 +465,39 @@ name: Helper
       expect(folder.bots.map((bot) => bot.key)).toEqual(["analyst"]);
     });
 
+    it.each([
+      ["--config=$HOME\\u200B/.ssh/id_rsa", "U+200B"],
+      ["--config=$HOME\\u2066/.ssh/id_rsa", "U+2066"],
+      ["--config=$HOME\\u00AD/.ssh/id_rsa", "U+00AD"],
+      ["--config=$HOME\\xAD/.ssh/id_rsa", "U+00AD"],
+      ["--config=$HOME\\U0000200B/.ssh/id_rsa", "U+200B"],
+      ["--config=$HOME\\N/.ssh/id_rsa", "U+0085"],
+      ["--config=$HOME\\_/.ssh/id_rsa", "U+00A0"],
+      ["--config=fi\\u200Ble:///home/ana/.ssh/id_rsa", "U+200B"],
+      ["--dir=~\\u200B/.ssh/id_rsa", "U+200B"],
+      [".\\u200B./.ssh/id_rsa", "U+200B"],
+      ["--config=%USERPROFILE%\\u200B\\\\.ssh\\\\id_rsa", "U+200B"],
+      ["--config=$env:USERPROFILE\\u200B\\\\.ssh\\\\id_rsa", "U+200B"],
+      ["--config=$\\u200BHOME/.ssh/id_rsa", "U+200B"],
+    ])("written as a YAML escape in a server argument: %s", (arg, codePoint) => {
+      const folder = check(withMcp(`transport: stdio\ncommand: npx\nargs: ["${arg}"]`));
+      expect(folder.problems.map(problemSentence)).toEqual([invisible(7, codePoint, "mcp/notion.md")]);
+      expect(folder.mcpServers).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("id_rsa");
+    });
+
+    it("written as a YAML escape in a title, a name, a description and a field name", () => {
+      const folder = check({ ...withBot("title: \"Ana\\u200Dlyst\""), "mcp/notion.md": mcp("transport: stdio\ncommand: npx\nargs: [\"--config=$HOME\\u200B/.ssh/id_rsa\"]") });
+      expect(folder.problems.map(problemSentence)).toEqual([invisible(6, "U+200D"), invisible(7, "U+200B", "mcp/notion.md")]);
+      expect(folder.bots).toEqual([]);
+      expect(folder.mcpServers).toEqual([]);
+      expect(sentences({ ...base(), "org.md": ORG.replace("name: Acme", "name: \"Ac\\u200Bme\"") })).toEqual([invisible(4, "U+200B", "org.md")]);
+      expect(sentences({ ...base(), "areas/bi/area.md": AREA.replace("name: BI", "name: \"B\\u200BI\"") })).toEqual([invisible(5, "U+200B", "areas/bi/area.md")]);
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/mcp\ndescription: \"hello\\u200B\""))).toEqual([invisible(7, "U+200B", "mcp/notion.md")]);
+      expect(sentences(withBot("\"ti\\u200Btle\": Analyst"))).toEqual([invisible(6, "U+200B")]);
+      expect(sentences(withBot("description: \"Line one\\nLine\\ttwo\""))).toEqual([]);
+    });
+
     it("allows a tab in a value", () => {
       expect(sentences(withBot("description: \"Ana\tlyst\""))).toEqual([]);
     });
@@ -455,18 +506,11 @@ name: Helper
   describe("refuses a path anywhere in a server's command, arguments and variables", () => {
     const pathCases: Array<[string, string, string]> = [
       ["an absolute path after =", "args: [\"--config=/home/ana/.edubot-secrets/notion\"]", "args[0] holds an absolute or home path"],
-      ["a home path after =", "args: [\"--dir=~/keys/notion\"]", "args[0] holds an absolute or home path"],
       ["a path that climbs out", "args: [\"--dir\", \"../../keys\"]", "args[1] holds a path that climbs with .."],
       ["a command that climbs out", "env: { HOME_DIR: \"a:../b\" }", "env.HOME_DIR holds a path that climbs with .."],
       ["a file: address after =", "args: [\"--config=file:///home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
       ["a file: address with a host", "args: [\"file://localhost/home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
       ["a file: address in capitals", "args: [\"FILE:///home/ana/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
-      ["a $HOME path", "args: [\"--config=$HOME/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
-      ["a ${HOME} path", "args: [\"--config=${HOME}/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
-      ["a %USERPROFILE% path", "args: ['--config=%USERPROFILE%\\.ssh\\id_rsa']", "args[0] holds an absolute or home path"],
-      ["a variable path in env", "env: { CONFIG: \"$XDG_CONFIG_HOME/notion\" }", "env.CONFIG holds an absolute or home path"],
-      ["a PowerShell $env: path", "args: ['--config=$env:USERPROFILE\\.ssh\\id_rsa']", "args[0] holds an absolute or home path"],
-      ["a ${NAME:-default} path", "args: [\"--config=${HOME:-/home/ana}/.ssh/id_rsa\"]", "args[0] holds an absolute or home path"],
       ["a file: address as the url", "url: file:///home/ana/mcp.sock", "url must be an https:// address"],
     ];
     it.each(pathCases)("%s", (_name, lines, expected) => {
@@ -474,11 +518,54 @@ name: Helper
       expect(sentence).toContain(expected);
     });
 
+    it("refuses a server that holds a path, and keeps it out of the result", () => {
+      const folder = check(withMcp("transport: stdio\ncommand: npx\nargs: [\"--config=/home/ana/.ssh/id_rsa\"]"));
+      expect(folder.mcpServers).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("id_rsa");
+    });
+
     it("refuses a command that climbs out, and keeps addresses and relative names", () => {
       expect(sentences(withMcp("transport: stdio\ncommand: ../../.edubot-secrets/notion-mcp"))).toEqual([
         "mcp/notion.md, line 6: command holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one",
       ]);
       expect(sentences(withMcp("transport: stdio\ncommand: npx\nargs: [\"-y\", \"@notionhq/notion-mcp-server\", \"--url=https://api.notion.com/v1\", \"dist/server.js\"]"))).toEqual([]);
+    });
+  });
+
+  describe("refuses $, % and ~ in a server's command, arguments, variables and headers", () => {
+    const unexpanded = (field: string) =>
+      `mcp/notion.md, line 7: ${field} holds a $, % or ~; Edu Bot passes a server's command, arguments, variables and headers as written and never runs a shell, so nothing would expand them`;
+
+    it.each([
+      "--dir=~/keys/notion",
+      "--config=$HOME/.ssh/id_rsa",
+      "--config=${HOME}/.ssh/id_rsa",
+      "--config=%USERPROFILE%\\.ssh\\id_rsa",
+      "--config=$env:USERPROFILE\\.ssh\\id_rsa",
+      "--config=${HOME:-/home/ana}/.ssh/id_rsa",
+      "--config=${HOME:-${X:-/home/ana}}/.ssh/id_rsa",
+      "--config=%HOMEDRIVE%%HOMEPATH%\\.ssh\\id_rsa",
+      "--config=%USERPROFILE:~0%\\.ssh\\id_rsa",
+      "--config=$(echo $HOME)/.ssh/id_rsa",
+    ])("in an argument: %s", (arg) => {
+      const folder = check(withMcp(`transport: stdio\ncommand: npx\nargs: ['${arg}']`));
+      expect(folder.problems.map(problemSentence)).toEqual([unexpanded("args[0]")]);
+      expect(folder.mcpServers).toEqual([]);
+      expect(JSON.stringify(folder)).not.toContain("id_rsa");
+    });
+
+    it("in the command, a variable and a header", () => {
+      expect(sentences(withMcp("transport: stdio\ncommand: ~/bin/notion-mcp"))).toEqual([unexpanded("command").replace("line 7", "line 6")]);
+      expect(sentences(withMcp("transport: stdio\ncommand: npx\nenv: { CONFIG: \"$XDG_CONFIG_HOME/notion\" }"))).toEqual([unexpanded("env.CONFIG")]);
+      expect(sentences(withMcp("transport: stdio\ncommand: npx\nenv: { LEVEL: \"100%\" }"))).toEqual([unexpanded("env.LEVEL")]);
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/mcp\nheaders: { X-Workspace: \"$WORKSPACE\" }"))).toEqual([unexpanded("headers.X-Workspace")]);
+    });
+
+    it("allows % in an address only as a %XX escape", () => {
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/a%20b/mcp"))).toEqual([]);
+      expect(sentences(withMcp("transport: http\nurl: https://mcp.example/%USERPROFILE%/mcp"))).toEqual([
+        "mcp/notion.md, line 6: url holds a % that does not start a %XX escape such as %20; an address uses % only for those",
+      ]);
     });
   });
 

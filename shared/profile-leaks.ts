@@ -9,7 +9,11 @@ export interface Leak {
 const INVISIBLE = /(?![\t ])[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Zs}\p{Default_Ignorable_Code_Point}]/u;
 const INVISIBLES = new RegExp(INVISIBLE.source, "gu");
 const URL_TOKEN = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]+/gi;
-const BASE64_TOKEN = /(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-]{16,4096}={0,2}(?![A-Za-z0-9+/=_-])/g;
+const BASE64_TOKEN = /(?<![A-Za-z0-9+/_-])[A-Za-z0-9+/_-](?:[\t ]*[A-Za-z0-9+/_-]){15,4095}={0,2}(?![A-Za-z0-9+/=_-])/g;
+const BASE64_WORD = /[^\t ]+/g;
+const MIN_BASE64_LENGTH = 16;
+const BASE64_WINDOW = 256;
+const SHORTEST_LEAK = /[\x21-\x7e]{7}/;
 const PRIVATE_KEY_HEADER = /-----BEGIN [A-Z ]*PRIVATE KEY-----/;
 const SLOT_NAME = String.raw`\s*:\s*["']?[A-Za-z][A-Za-z0-9_-]{0,63}["']?\s*`;
 const SECRET_SLOT_KEY = new RegExp(String.raw`(?<=\{\s*)secret(?=${SLOT_NAME}\})|(?<=^\s*)secret(?=${SLOT_NAME}$)`, "g");
@@ -26,17 +30,41 @@ function hasUserInfo(address: string): boolean {
   }
 }
 
+function swapBytePairs(bytes: Uint8Array): Uint8Array {
+  const swapped = new Uint8Array(bytes.length - (bytes.length % 2));
+  for (let index = 0; index < swapped.length; index += 2) {
+    swapped[index] = bytes[index + 1]!;
+    swapped[index + 1] = bytes[index]!;
+  }
+  return swapped;
+}
+
 function decodeBase64(token: string): string[] {
-  const plain = token.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
-  if (plain.length % 4 === 1) return [];
+  let plain = token.replace(/[\t ]/g, "").replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
+  if (plain.length % 4 === 1) plain = plain.slice(0, -1);
   let binary: string;
   try {
     binary = atob(plain + "=".repeat((4 - (plain.length % 4)) % 4));
   } catch {
     return [];
   }
-  const utf8 = new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
-  return utf8 === binary ? [binary] : [binary, utf8];
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  const utf16 = new TextDecoder("utf-16le");
+  return [...new Set([binary, new TextDecoder().decode(bytes), utf16.decode(bytes), utf16.decode(swapBytePairs(bytes))])];
+}
+
+/** The base64 run, then a short window from each later word in it: `atob` skips spaces and tabs, so an encoded key
+ * may start at any word. */
+function base64Starts(run: string, depth: number): Array<{ offset: number; token: string }> {
+  const starts = [{ offset: 0, token: run }];
+  if (depth > 0) return starts;
+  for (const word of run.matchAll(BASE64_WORD)) {
+    if (word.index === 0) continue;
+    const token = run.slice(word.index).replace(/[\t ]/g, "");
+    if (token.replace(/=+$/, "").length < MIN_BASE64_LENGTH) break;
+    starts.push({ offset: word.index, token: token.slice(0, BASE64_WINDOW) });
+  }
+  return starts;
 }
 
 function withoutBreaksOrInvisibles(text: string): string {
@@ -57,18 +85,22 @@ function firstLeak(text: string, depth = 0): { index: number; kind: Leak["kind"]
   for (const match of text.matchAll(URL_TOKEN)) if (hasUserInfo(match[0])) return { index: match.index, kind: "address" };
   if (depth >= MAX_BASE64_DEPTH) return null;
   for (const match of text.matchAll(BASE64_TOKEN)) {
-    if (decodeBase64(match[0]).some((decoded) => leakAt(decoded, depth + 1))) return { index: match.index, kind: "key" };
+    for (const { offset, token } of base64Starts(match[0], depth)) {
+      if (decodeBase64(token).some((decoded) => leakAt(decoded, depth + 1))) return { index: match.index + offset, kind: "key" };
+    }
   }
   return null;
 }
 
 function leakAt(text: string, depth: number): Leak["kind"] | null {
-  return firstLeak(text, depth)?.kind ?? firstLeak(withoutBreaksOrInvisibles(text), depth)?.kind ?? null;
+  const joined = withoutBreaksOrInvisibles(text);
+  if (depth > 0 && !SHORTEST_LEAK.test(joined)) return null;
+  return firstLeak(text, depth)?.kind ?? (joined === text ? null : firstLeak(joined, depth)?.kind) ?? null;
 }
 
 /** Whether one value holds a key or an address with a user name or password, as written or with its line breaks,
  * indentation, control and format characters and spaces other than U+0020 taken out. Each base64 decoding, as bytes
- * and as UTF-8, is checked the same way. */
+ * and as UTF-8, UTF-16LE and UTF-16BE text, is checked the same way. */
 export function leakIn(value: string): Leak["kind"] | null {
   return leakAt(value, 0);
 }
@@ -92,10 +124,10 @@ function blankSlotKeys(line: string): string {
 
 /** Every line of `source` that holds a key or an address with a user name or password. Each line is checked as written,
  * then the whole file again with line breaks, indentation, control and format characters and spaces other than U+0020
- * taken out, so a key split across lines or by an invisible character is still found. A short base64 token is decoded
- * and checked too, up to two wraps deep. In the first `frontMatterLines` lines, the field name of a secret slot
- * (`{ secret: NAME }`, or `secret: NAME` alone on a line) is not read as a written secret; everything from a `#` that
- * follows a space or starts the line is read as written. */
+ * taken out, so a key split across lines or by an invisible character is still found. A short base64 token, spaces and
+ * tabs allowed inside, is decoded and checked too, up to two wraps deep. In the first `frontMatterLines` lines, the
+ * field name of a secret slot (`{ secret: NAME }`, or `secret: NAME` alone on a line) is not read as a written secret;
+ * everything from a `#` that follows a space or starts the line is read as written. */
 export function findLeaks(source: string, frontMatterLines = 0): Leak[] {
   const lines = source.split("\n").map((line, index) => index < frontMatterLines ? blankSlotKeys(line) : line);
   const leaks = new Map<number, Leak>();

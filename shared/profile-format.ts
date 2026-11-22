@@ -178,7 +178,9 @@ const CREDENTIAL_NAME = /authorization|cookie|token|secret|passw|api[-_]?key|acc
 const PATH_START = String.raw`(?:^|[\s=,;:"'(\[{])`;
 const ABSOLUTE_PATH = new RegExp(String.raw`${PATH_START}(?:\/|~[\w.-]*(?:[/\\]|$|(?=[\s,;:"')\]}]))|[A-Za-z]:[\\/]|\\\\)`);
 const CLIMBING_PATH = new RegExp(String.raw`(?:^|[\s=,;:"'(\[{/\\])\.\.(?:[/\\]|$|(?=[\s,;:"')\]}]))`);
-const VARIABLE_PATH = new RegExp(String.raw`${PATH_START}(?:\$(?:env:)?[A-Za-z_][A-Za-z0-9_]*|\$\{[^}]*\}|%[A-Za-z_][A-Za-z0-9_]*%)[/\\]`, "i");
+const UNEXPANDED = /[$%~]/;
+const BARE_PERCENT = /%(?![0-9A-Fa-f]{2})/;
+const SERVER_RUN_FIELDS = new Set(["command", "args", "env", "headers"]);
 const FILE_ADDRESS = /(?<![a-z0-9+.-])file:/i;
 const ADDRESS = /\b[a-z][a-z0-9+.-]*:\/\/[^\s<>"'`]*/gi;
 const SECRET_ARG_FLAG = /^--?[A-Za-z0-9_-]*?(?:token|passw(?:or)?d|secret|api[-_]?key|access[-_]?key|private[-_]?key|credentials?)s?(?:=(.*))?$/is;
@@ -471,6 +473,35 @@ function splitFrontMatter(file: string, source: string, problems: Problems): { y
   return { yaml: source.slice(4, end + 1), body: source.slice(Math.min(end + 5, source.length)), bodyLine: bodyLineOf(source) };
 }
 
+function invisibleProblem(file: string, line: number | undefined, codePoint: number): ProfileProblem {
+  const name = `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
+  return { file, ...(line ? { line } : {}), message: `has an invisible or control character (${name}) on this line; delete it, since profile settings never need one` };
+}
+
+/** YAML escapes such as `"\u200B"` are plain ASCII in the file, so each decoded field name and text value is checked
+ * again. */
+function refuseDecodedInvisibles(file: string, data: unknown, lineOf: ParsedDoc["lineOf"], problems: Problems): boolean {
+  let found = false;
+  const check = (text: string, path: (string | number)[], key: boolean) => {
+    const invisible = findInvisibles(text, Number.MAX_SAFE_INTEGER)[0];
+    if (!invisible) return;
+    found = true;
+    const line = lineOf(path, key) ?? 2;
+    if (!problems.hasLine(file, line)) problems.add(invisibleProblem(file, line, invisible.codePoint));
+  };
+  const walk = (value: unknown, path: (string | number)[]) => {
+    if (typeof value === "string") return check(value, path, false);
+    if (Array.isArray(value)) return value.forEach((entry, index) => walk(entry, [...path, index]));
+    if (!value || typeof value !== "object") return;
+    for (const [key, entry] of Object.entries(value)) {
+      check(key, [...path, key], true);
+      walk(entry, [...path, key]);
+    }
+  };
+  walk(data, []);
+  return found;
+}
+
 function parseFrontMatter(file: string, source: string, problems: Problems): (ParsedDoc & { bodyLine: number }) | null {
   const split = splitFrontMatter(file, source, problems);
   if (!split) return null;
@@ -494,6 +525,11 @@ function parseFrontMatter(file: string, source: string, problems: Problems): (Pa
     return null;
   }
   const data = doc.toJS({ maxAliasCount: 0 }) as unknown;
+  const lineOf: ParsedDoc["lineOf"] = (path, key = false) => {
+    const node = nodeAt(doc, path, key);
+    return node?.range ? lineOfOffset(node.range[0]) : undefined;
+  };
+  if (refuseDecodedInvisibles(file, data, lineOf, problems)) return null;
   if (data === null || data === undefined) {
     problems.add({ file, line: 2, message: "has an empty front matter: it needs at least edubot: 1 and kind:" });
     return null;
@@ -507,10 +543,7 @@ function parseFrontMatter(file: string, source: string, problems: Problems): (Pa
     data: data as Record<string, unknown>,
     body: split.body,
     bodyLine: split.bodyLine,
-    lineOf: (path, key = false) => {
-      const node = nodeAt(doc, path, key);
-      return node?.range ? lineOfOffset(node.range[0]) : undefined;
-    },
+    lineOf,
   };
 }
 
@@ -571,25 +604,38 @@ function schemaProblems(doc: ParsedDoc, error: z.ZodError, what: string, problem
 const isKeyFileSlot = (value: unknown): value is { file: string } =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value) && Object.keys(value as object).length === 1 && typeof (value as { file?: unknown }).file === "string";
 
+function pathProblem(value: string, path: (string | number)[], role: ProfileFileRole["role"]): string | null {
+  const runs = role === "mcp-server" && SERVER_RUN_FIELDS.has(String(path[0]));
+  if (runs && UNEXPANDED.test(value)) {
+    return "holds a $, % or ~; Edu Bot passes a server's command, arguments, variables and headers as written and never runs a shell, so nothing would expand them";
+  }
+  if (path.at(-1) === "url" && BARE_PERCENT.test(value)) return "holds a % that does not start a %XX escape such as %20; an address uses % only for those";
+  const plain = value.replace(ADDRESS, (address) => /^file:/i.test(address) ? address : " ");
+  if (ABSOLUTE_PATH.test(plain) || FILE_ADDRESS.test(plain)) return "holds an absolute or home path; paths differ on each computer, so profiles never hold one";
+  if (runs && path[0] !== "headers" && CLIMBING_PATH.test(plain)) {
+    return "holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one";
+  }
+  return null;
+}
+
+/** Whether a value holds a key, a path, or a character the server would get unexpanded; the file is then not kept. */
 function refusePathsAndKeys(doc: ParsedDoc, role: ProfileFileRole["role"], problems: Problems): boolean {
-  let leaked = refuseSecretArguments(doc, role, problems);
+  let refused = refuseSecretArguments(doc, role, problems);
   const walk = (value: unknown, path: (string | number)[]) => {
     if (typeof value === "string") {
       const field = fieldName(path);
       const leak = leakIn(value);
       if (leak) {
-        leaked = true;
+        refused = true;
         const message = leak === "address" ? `holds an address with a user name or password; take them out of the address and ${SECRET_HINT}` : `holds a key or password; ${SECRET_HINT}`;
         if (!problems.has(doc.file, field)) problems.add({ file: doc.file, line: doc.lineOf(path), field, message });
         return;
       }
       if (problems.has(doc.file, field) || PROSE_FIELDS.has(String(path[0]))) return;
-      const plain = value.replace(ADDRESS, (address) => /^file:/i.test(address) ? address : " ");
-      const runs = role === "mcp-server" && ["command", "args", "env"].includes(String(path[0]));
-      if (ABSOLUTE_PATH.test(plain) || VARIABLE_PATH.test(plain) || FILE_ADDRESS.test(plain)) {
-        problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds an absolute or home path; paths differ on each computer, so profiles never hold one" });
-      } else if (runs && CLIMBING_PATH.test(plain)) {
-        problems.add({ file: doc.file, line: doc.lineOf(path), field, message: "holds a path that climbs with ..; paths differ on each computer, so a server's command, arguments and variables never use one" });
+      const message = pathProblem(value, path, role);
+      if (message) {
+        refused = true;
+        problems.add({ file: doc.file, line: doc.lineOf(path), field, message });
       }
       return;
     }
@@ -598,7 +644,7 @@ function refusePathsAndKeys(doc: ParsedDoc, role: ProfileFileRole["role"], probl
     else if (value && typeof value === "object") for (const key of Object.keys(value)) walk((value as Record<string, unknown>)[key], [...path, key]);
   };
   walk(doc.data, []);
-  return leaked;
+  return refused;
 }
 
 function refuseSecretArguments(doc: ParsedDoc, role: ProfileFileRole["role"], problems: Problems): boolean {
@@ -697,10 +743,7 @@ function parseOne(file: string, source: string, role: ProfileFileRole, parsed: P
   if (role.role === "skill") return parseSkill(file, source, role, parsed, problems);
   const bodyLine = bodyLineOf(source);
   const invisibles = findInvisibles(source, role.role === "mcp-server" ? Number.MAX_SAFE_INTEGER : bodyLine - 1);
-  for (const { line, codePoint } of invisibles) {
-    const name = `U+${codePoint.toString(16).toUpperCase().padStart(4, "0")}`;
-    problems.add({ file, line, message: `has an invisible or control character (${name}) on this line; delete it, since profile settings never need one` });
-  }
+  for (const { line, codePoint } of invisibles) problems.add(invisibleProblem(file, line, codePoint));
   const leaks = findLeaks(source, bodyLine - 1);
   if (!invisibles.length) parseProfile(file, source, role, leaks.length > 0, parsed, problems);
   reportLeaks(file, leaks, { line: bodyLine, name: BODY_NAME[role.role] }, problems);
@@ -714,7 +757,7 @@ function parseProfile(file: string, source: string, role: Exclude<ProfileFileRol
   const schema = { org: orgSchema, area: areaSchema, bot: botSchema, "mcp-server": mcpServerSchema }[role.role];
   const result = schema.safeParse(doc.data);
   if (!result.success) schemaProblems(doc, result.error, what, problems);
-  const keyInValues = refusePathsAndKeys(doc, role.role, problems);
+  const refusedValue = refusePathsAndKeys(doc, role.role, problems);
   checkKeyFiles(doc, problems);
   const keyMatches = (key: unknown, expected: string, where: string) => {
     if (typeof key !== "string" || problems.has(file, "key") || key === expected) return;
@@ -727,7 +770,7 @@ function parseProfile(file: string, source: string, role: Exclude<ProfileFileRol
     problems.add({ file, line: doc.lineOf(["defaults", "eduBrain"], true), field: "defaults.eduBrain", message: "repeats eduBrain; set it once, either at the top or under defaults" });
   }
   const body = bodyText(doc, BODY_NAME[role.role], role.role === "bot" ? BOT_PROFILE_LIMITS.soul : TEAM_BRIEF_MAX_BYTES, problems);
-  if (!result.success || leaked || keyInValues) return;
+  if (!result.success || leaked || refusedValue) return;
   const data = result.data as Record<string, unknown>;
   if (role.role === "org") {
     const org = data as z.output<typeof orgSchema>;
