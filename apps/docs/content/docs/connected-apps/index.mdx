@@ -13,7 +13,7 @@ Open **Connected apps** from the sidebar, choose a service, and complete its aut
 Edu Bot connects apps through your own Composio project. There is no hosted service to sign up for.
 
 1. Create a free project at [Composio](https://dashboard.composio.dev) and copy its project key. It starts with `ak_`.
-2. Open **Apps** and press **Paste key**, or go to **Settings → AI → Apps and tools → Composio project key**, and paste it.
+2. Open **Apps** and press **Paste key**, or go to **Settings → AI → Other services → Apps and tools → Composio project key**, and paste it.
 3. Come back to **Apps**, search for Gmail, GitHub, Slack, Notion or another app, and press **Connect**.
 4. Finish the sign-in in the browser window that opens.
 5. Return to the app and ask a bot to use the service.
@@ -38,7 +38,7 @@ The steps below are only needed to **post** to X through Composio. Composio does
 
 1. Create an app in the X Developer Portal.
 2. Create a `twitter` auth config in your Composio project using that app's credentials.
-3. Save the project's key under **Settings → AI → Apps and tools → Composio project key**.
+3. Save the project's key under **Settings → AI → Other services → Apps and tools → Composio project key**.
 4. Return to **Connected apps** and connect **X (Twitter)**.
 
 Older Edu Bot tasks that refer to the connector as `x` continue to work; Edu Bot translates that alias to Composio's `twitter` toolkit automatically.
@@ -48,7 +48,7 @@ Older Edu Bot tasks that refer to the connector as `x` continue to work; Edu Bot
 Some apps, such as Xero and Buffer, have no sign-in that Composio provides, so they connect only with your own OAuth app:
 
 1. In your Composio project, create an auth config for the app (**Auth Configs → Create**) with your OAuth app's client ID and secret, and keep it enabled.
-2. Save the project's key under **Settings → AI → Apps and tools → Composio project key**.
+2. Save the project's key under **Settings → AI → Other services → Apps and tools → Composio project key**.
 3. Connect the app from **Connected apps**, or let a bot ask for it in chat.
 
 Edu Bot finds the auth config by itself, switches on what Composio needs before it uses it ("enabled for Tool Router", which a config you made yourself can have off), and tells the bot which config it used. If you have several for one app, it uses the most recently created. A connection you made in the Composio dashboard itself is not visible to Edu Bot, so connect the app once from Edu Bot.

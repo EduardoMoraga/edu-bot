@@ -446,7 +446,7 @@ export function PluginsPanel() {
   const allShown = allCapped ? allCards.slice(0, APPS_PREVIEW_COUNT) : allCards;
   const listEmpty = cards !== null && allShown.length === 0 && !nativeCardsShown && sections.length <= 1;
   const connectedEmptyWithoutKey = needsKey && !remoteClient && listEmpty && listing === "connected";
-  const mcpFirst = needsKey && filter === "all" && category === null;
+  const mcpFirst = needsKey && filter === "all" && category === null && !searching;
   const connectedCards = useMemo(() => (cards ?? []).filter((card) => hasActiveConnection(status[card.slug])), [cards, status]);
   const botLists = useMemo(() => {
     const cached = (find: (slug: string) => Bot[]) => {
@@ -648,10 +648,7 @@ export function PluginsPanel() {
               {t("connectors.featuredBefore")}{" "}
               <button
                 className="underline underline-offset-2 hover:text-ink"
-                onClick={() => {
-                  close();
-                  dispatch({ type: "toggleAppSettings", open: true });
-                }}
+                onClick={pasteKey}
               >
                 {t("connectors.updateKey")}
               </button>{" "}

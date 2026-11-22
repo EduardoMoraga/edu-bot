@@ -55,10 +55,15 @@ vi.mock("./XCard", () => ({ X_CARD_SEARCH: "x", XCard: ({ onConnection }: { onCo
 vi.mock("./PostizCard", () => ({ PostizCard: ({ onConnection }: { onConnection: (value: boolean) => void }) => { queueMicrotask(() => onConnection(false)); return null; } }));
 vi.mock("./EmailCard", () => ({ EmailCard: ({ onConnection }: { onConnection: (value: boolean) => void }) => { queueMicrotask(() => onConnection(false)); return null; } }));
 vi.mock("./Avatar", () => ({ BotAvatar: () => null }));
+vi.mock("./keys/key-focus", async (load) => {
+  const actual = await load<typeof import("./keys/key-focus")>();
+  return { ...actual, openKeySettings: vi.fn(actual.openKeySettings) };
+});
 
 const { PluginsPanel } = await import("./PluginsPanel");
 const { StoreSourceContext } = await import("@/state/store-context");
 const { t } = await import("@/lib/i18n");
+const { openKeySettings } = await import("./keys/key-focus");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -85,6 +90,14 @@ const click = async (element: Element | undefined) => {
   await act(async () => (element as HTMLElement).click());
   await flush();
 };
+const type = async (text: string) => {
+  const input = host.querySelector<HTMLInputElement>(`input[aria-label="${t("connectors.searchPlaceholder")}"]`)!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await flush();
+};
 const before = (first: Element, second: Element) => Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
 
 const NO_KEY: Catalog = { configured: false, mode: "unavailable", setup: "needs-setup" };
@@ -95,6 +108,7 @@ beforeEach(() => {
   host = document.createElement("div");
   document.body.append(host);
   fixture.dispatched = [];
+  vi.mocked(openKeySettings).mockClear();
 });
 afterEach(async () => {
   await act(async () => root?.unmount());
@@ -115,6 +129,7 @@ describe("Apps with no Composio key", () => {
     await click(steps.querySelector("[data-apps-paste-key]")!);
     expect(fixture.dispatched).toContainEqual({ type: "togglePlugins", open: false });
     expect(fixture.dispatched).toContainEqual({ type: "toggleAppSettings", open: true, section: "connections" });
+    expect(openKeySettings).toHaveBeenCalledWith("composio");
   });
 
   it("says on each app why it can't connect yet, instead of a greyed-out button", async () => {
@@ -131,6 +146,15 @@ describe("Apps with no Composio key", () => {
     expect(mcp.querySelector("[data-mcp-list]")).not.toBeNull();
     expect(before(mcp, host.querySelector("[data-apps-grid]")!)).toBe(true);
     expect(before(host.querySelector("[data-apps-key-steps]")!, mcp)).toBe(true);
+  });
+
+  it("puts the matching apps above MCP servers while the person searches", async () => {
+    await open(NO_KEY);
+    await type("Gmail");
+    expect(host.querySelector('[data-apps-mcp-section="first"]')).toBeNull();
+    expect(host.querySelector('[data-app-tile="gmail"]')).not.toBeNull();
+    const mcp = host.querySelector("[data-apps-mcp-section]");
+    if (mcp) expect(before(host.querySelector("[data-apps-grid]")!, mcp)).toBe(true);
   });
 
   it("offers both ways in on an empty Connected tab", async () => {
@@ -159,6 +183,14 @@ describe("Apps with the person's own Composio key", () => {
       expect(tileAction(slug).querySelector("[data-app-needs-key]")).toBeNull();
     }
     expect(host.querySelector('[data-apps-mcp-section="last"]')).not.toBeNull();
+  });
+
+  it("takes Update your connected apps key straight to the Composio key's field", async () => {
+    await open(OWN_KEY);
+    await click(button(t("connectors.updateKey")));
+    expect(fixture.dispatched).toContainEqual({ type: "togglePlugins", open: false });
+    expect(fixture.dispatched).toContainEqual({ type: "toggleAppSettings", open: true, section: "connections" });
+    expect(openKeySettings).toHaveBeenCalledWith("composio");
   });
 });
 

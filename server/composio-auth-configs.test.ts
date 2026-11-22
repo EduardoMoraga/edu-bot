@@ -422,7 +422,7 @@ describe("custom auth configs made in the Composio dashboard", () => {
 
 describe("a connection service named by OMB_COMPOSIO_BROKER_URL", () => {
   const managed = {} as AppConfig;
-  const plainLine = "xero needs your own OAuth app. Add your Composio project key in Settings → AI → Apps and tools; Edu Bot then "
+  const plainLine = "xero needs your own OAuth app. Add your Composio project key in Settings → AI → Other services → Apps and tools; Edu Bot then "
     + "uses your xero auth config from that project. Connect again.";
 
   it("answers a toolkit that needs the person's own OAuth app with one plain line instead of Composio's error", async () => {
@@ -436,7 +436,7 @@ describe("a connection service named by OMB_COMPOSIO_BROKER_URL", () => {
     expect(calls.slice(before)).toEqual([]);
 
     const reply = await callTool(managed, "XERO_LIST_INVOICES");
-    expect(reply.result.content[1]!.text).toContain("the connection service cannot use. Tell the person: add their own Composio project key in Settings → AI → Apps and tools");
+    expect(reply.result.content[1]!.text).toContain("the connection service cannot use. Tell the person: add their own Composio project key in Settings → AI → Other services → Apps and tools");
     expect(reply.result.content[1]!.text).toContain("Edu Bot then picks that auth config up on its own");
     expect(calls.slice(before).some((call) => call.path.startsWith("/api/"))).toBe(false);
   });

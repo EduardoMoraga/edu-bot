@@ -8,7 +8,7 @@ Without a key, **Apps** shows these steps, each app says **Needs a Composio key*
 
 1. Create a free project at [Composio](https://dashboard.composio.dev) (sign in or sign up first if asked).
 2. Open the project's [API Keys page](https://dashboard.composio.dev/~/project/settings/api-keys), create a project key if it has none, and copy it. It starts with `ak_`. The `ck_` key on the personal **Sessions & API Key** page is a different key and won't work.
-3. In Edu Bot, open **Apps** and press **Paste key**, or go to **Settings → AI → Apps and tools → Composio project key**. Paste the key there.
+3. In Edu Bot, open **Apps** and press **Paste key**, or go to **Settings → AI → Other services → Apps and tools → Composio project key**. Paste the key there.
 4. Come back to **Apps** and press **Connect** on Gmail, GitHub, Slack or another app. Enter a unique label such as `work` or `personal`, then finish the sign-in in your normal browser.
 5. To connect another account for the same app, choose **Add account**, give it a unique label, and finish the second sign-in in your browser.
 
@@ -132,7 +132,7 @@ An account you connected in the Composio dashboard belongs to a different Compos
 
 A bot can also name one auth config for an app: `COMPOSIO_MANAGE_CONNECTIONS` with `"auth_config_id": "ac_…"` next to a single toolkit, or `toolkits: [{ "name": "xero", "action": "add", "auth_config_id": "ac_…" }]` (`auth_config_override` is read as well). Edu Bot adds `auth_config_id` to the tool's description so bots can see it. It checks the id in your project before it shows the Connect card (it must exist, belong to that app and be enabled) and keeps the choice in `composio-auth-configs.json` in the data folder, so later Sessions use it while it stays usable.
 
-A connection service named by `OMB_COMPOSIO_BROKER_URL` runs on its own Composio project, which cannot use an auth config in yours. For such an app Edu Bot says so in one line: add your own Composio project key in **Settings → AI → Apps and tools**; Edu Bot then uses your auth config for that app from that project.
+A connection service named by `OMB_COMPOSIO_BROKER_URL` runs on its own Composio project, which cannot use an auth config in yours. For such an app Edu Bot says so in one line: add your own Composio project key in **Settings → AI → Other services → Apps and tools**; Edu Bot then uses your auth config for that app from that project.
 
 ## Browser authorization recovery
 
