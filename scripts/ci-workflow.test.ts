@@ -86,9 +86,9 @@ describe("CI concurrency", () => {
     expect(workflow.jobs.gate.strategy).toBeUndefined();
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(workflow.jobs.vitest.strategy.matrix).toBe("${{ fromJSON(needs.static.outputs.vitest_matrix) }}");
-    expect(workflow.jobs.vitest["timeout-minutes"]).toBe("${{ matrix.os == 'ubuntu-latest' && 25 || 30 }}");
+    expect(workflow.jobs.vitest["timeout-minutes"]).toBe("${{ matrix.os == 'ubuntu-latest' && 25 || matrix.os == 'macos-latest' && 50 || 30 }}");
     // Ubuntu 26.04 (today's ubuntu-latest) lets bubblewrap box the Cloud e2e fixtures; the Linux shards keep 24.04.
-    expect(workflow.jobs.vitest["runs-on"]).toBe("${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}");
+    expect(workflow.jobs.vitest["runs-on"]).toBe("${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}");
   });
 
   it("runs each selected platform's own shards, and its e2e files, from ci-scope's matrix", () => {
@@ -118,7 +118,7 @@ describe("CI concurrency", () => {
 
   it("keeps the static macOS smoke as its own job; macOS vitest comes from the scope matrix", () => {
     const macosJobs = Object.entries(workflow.jobs as Record<string, { "runs-on": string; strategy?: { matrix?: { os?: unknown } } }>)
-      .filter(([, job]) => job["runs-on"] === "macos-latest" || JSON.stringify(job.strategy?.matrix?.os ?? "").includes("macos"))
+      .filter(([, job]) => job["runs-on"].startsWith("macos") || JSON.stringify(job.strategy?.matrix?.os ?? "").includes("macos"))
       .map(([name]) => name);
     expect(macosJobs.sort()).toEqual(["electron-smokes"]);
     const smokes = workflow.jobs["electron-smokes"].steps.map((step: { run?: string }) => step.run);

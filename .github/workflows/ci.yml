@@ -208,13 +208,15 @@ jobs:
     # boxed and the real-box *.linux tests run for the first time; on 24.04
     # the box does not start, so they run unboxed or skip, as they always
     # have here. Move to 26.04 once those suites pass with a real box.
-    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
+    # GitHub's free macOS arm64 pool often cannot take a job ("not acquired by
+    # Runner of type hosted", Nov 2026); the macOS shards run on Intel runners.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     # scripts/testing/duration-sequencer.ts splits each platform's files by
     # their recorded seconds on that platform, about 6 minutes a Linux shard
     # (four files at once); a Windows shard runs two files at once. The cap
     # catches a hang, not normal suite growth; Windows runners are about 1.45x
     # slower and vary more.
-    timeout-minutes: ${{ matrix.os == 'ubuntu-latest' && 25 || 30 }}
+    timeout-minutes: ${{ matrix.os == 'ubuntu-latest' && 25 || matrix.os == 'macos-latest' && 50 || 30 }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
@@ -358,7 +360,7 @@ jobs:
     # main, a merge group and the full lane (release-ci/* among them) run this
     # job. A pull request does not: macOS runners are the scarce ones.
     name: macOS smokes (packaged server + Electron)
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -634,7 +636,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.static.outputs.vitest_os) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -740,7 +742,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(needs.static.outputs.vitest_os) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
