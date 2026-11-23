@@ -41,7 +41,7 @@ const MAX_GROUP_BYTES = 8 * 1024 * 1024;
 const MAX_BUFFERED_BYTES = 1024 * 1024;
 const MAX_CATCH_UP_BYTES = MAX_GROUP_BYTES + MAX_BUFFERED_BYTES;
 const STOPPING = "The server is stopping.";
-export const ADB_MISSING = "adb was not found on the server.";
+export const ADB_MISSING = "Android platform-tools (adb) are not installed. Install them from Google and try again.";
 
 const SESSION_END: Record<PhoneSessionEnd, readonly [code: number, reason: string]> = {
   "device-gone": [STREAM_CLOSE.reconnect, "The phone was unplugged."],

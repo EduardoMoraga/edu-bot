@@ -336,7 +336,7 @@ export class ChromeLauncher implements BrowserLaunch {
   private engineBrowser(): string {
     const named = this.options.env.AGENT_BROWSER_EXECUTABLE_PATH?.trim();
     if (named) return named;
-    return this.options.env.OMB_RESOURCES_PATH ? "the bundled Chromium headless shell" : "agent-browser's own browser";
+    return "agent-browser's own browser";
   }
 
   private log(line: string): void {

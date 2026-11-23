@@ -1,4 +1,4 @@
-// The checks and the record behind .github/workflows/promote-stable.yml: which released version the `stable` channel
+// The checks and the record for the stable channel: which released version the `stable` channel
 // names. The record is stable.json on the `channels` branch, which a self-hosted server reads over plain HTTPS
 // (server/update-check.ts, deploy/update.sh): no registry API, no token.
 import { readFileSync } from "node:fs";

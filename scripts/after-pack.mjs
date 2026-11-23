@@ -119,12 +119,25 @@ async function thinMacPlatformTools(resources, arch) {
 // unsafe for a root-owned executable path after DEB/AppImage installation, so
 // repair and revalidate the exact tree after resources are copied and before
 // either artifact target is assembled.
+async function rejectUnpackagedVendors(resources, packaging) {
+  if (!packaging) return;
+  for (const name of ["browser-engine", "android-platform-tools"]) {
+    const directory = path.join(resources, name);
+    const present = await lstat(directory).then(() => true, (error) => {
+      if (error?.code === "ENOENT") return false;
+      throw error;
+    });
+    if (present) throw new Error(`Edu Bot packages must not include ${name}`);
+  }
+}
+
 export default async function afterPack(context) {
   const resources = context.packager?.getResourcesDir?.(context.appOutDir) ?? (
     context.electronPlatformName === "darwin"
       ? path.join(context.appOutDir, `${PRODUCT_NAME}.app`, "Contents", "Resources")
       : path.join(context.appOutDir, "resources")
   );
+  await rejectUnpackagedVendors(resources, Boolean(context.packager));
   await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));
   const browserRoot = path.join(resources, "browser-engine");
   const hasBrowser = await lstat(browserRoot).then(() => true, (error) => {
@@ -132,9 +145,7 @@ export default async function afterPack(context) {
     throw error;
   });
   const arch = { 1: "x64", 3: "arm64" }[context.arch];
-  // electron-builder warns and skips missing extraResources. A real package
-  // must fail here, before signing, rather than silently ship without Chrome.
-  if (hasBrowser || context.packager) {
+  if (!context.packager && hasBrowser) {
     if (!arch) throw new Error(`Unsupported desktop browser package architecture: ${context.arch}`);
     await verifyBrowserBundle(browserRoot, `${context.electronPlatformName}-${arch}`);
   }

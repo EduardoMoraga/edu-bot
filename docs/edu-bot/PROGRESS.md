@@ -185,9 +185,9 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 
 - Eduardo activó Actions en el fork (21-11).
 - Solo quedan activos 2 workflows: "CI" y "Stop CI for closed PRs".
-- Desactivé 18 workflows de upstream (Release, Docker, Promote to stable, npm, etc.).
-  No aplican aún o fallarían por secretos que no tenemos. Se reactivan en M5 con
-  `gh workflow enable <nombre>` cuando estén adaptados a Edu Bot.
+- La rama `m5/release` borra los workflows de upstream (Docker, npm, promote-stable, Defender, etc.).
+  Queda un solo Release: tag `v*`, borrador en este repo, sin firmar si no hay secretos.
+  M5 sigue pendiente: el README en inglés y español es otra parte.
 
 ## Tests inestables vistos en CI (upstream)
 
@@ -228,8 +228,8 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 
 ## Para el lanzamiento (M5)
 
-- No incluir en los instaladores binarios con licencia que prohíbe redistribuir:
-  herramientas Android de Google y Chrome for Testing. Revisarlo en M5.
+- Los instaladores de `m5/release` no incluyen Android platform-tools ni Chrome for Testing.
+  La lista de lo que sí viaja está en `docs/edu-bot/third-party-binaries.md`.
 
 ## Avisos
 

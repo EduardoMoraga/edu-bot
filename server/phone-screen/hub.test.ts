@@ -533,7 +533,7 @@ describe("createPhoneScreenHub", () => {
 
   it.each([
     ["the scrcpy server file is not there", { serverFile: () => Promise.reject(new Error("Could not download scrcpy-server 5.0.1.")) }, "Could not download scrcpy-server 5.0.1."],
-    ["adb is not installed", { adbPath: () => null }, "adb was not found on the server."],
+    ["adb is not installed", { adbPath: () => null }, "Android platform-tools (adb) are not installed. Install them from Google and try again."],
   ])("closes the viewer with 1011 and runs no adb when %s", async (_what, deps, reason) => {
     start({}, deps);
     const first = viewer();

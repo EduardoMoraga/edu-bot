@@ -6,7 +6,7 @@ import { PROJECT_REPOSITORY } from "../shared/project-repository.ts";
 import { CLI_NAME } from "../electron/app-identity.mjs";
 
 export const LATEST_RELEASE_URL = `https://api.github.com/repos/${PROJECT_REPOSITORY}/releases/latest`;
-/** Written by .github/workflows/promote-stable.yml: the released version our own Clouds have run for 48 hours. */
+/** The stable-channel record on this repository, when one has been published. */
 export const STABLE_CHANNEL_URL = `https://raw.githubusercontent.com/${PROJECT_REPOSITORY}/channels/stable.json`;
 const CACHE_MS = 60 * 60_000;
 /** How long the last answer stands in when the channel cannot be read: an outage of GitHub is no reason to say nothing. */

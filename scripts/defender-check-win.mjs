@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// How Windows Security treats the real installer on a fresh GitHub Windows runner, after `pnpm package:win`
-// (.github/workflows/windows-defender-check.yml). GitHub's image turns most of Defender off and excludes every drive, so
+// How Windows Security treats the real installer on a fresh GitHub Windows runner, after `pnpm package:win`.
+// GitHub's image turns most of Defender off and excludes every drive, so
 // its protection is first set to a home PC's defaults. The installer is saved with a browser download's Zone.Identifier
 // (ZoneId=3), started the way a double-click starts it, and the app opened for two minutes; Start screen control is
 // then pressed through the app's DevTools port. report.md says what Defender found, whether cua-driver-background.exe

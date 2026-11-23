@@ -77,6 +77,17 @@ describe.skipIf(process.platform === "win32")("Linux afterPack permissions", () 
 });
 
 describe("desktop browser package gate", () => {
+  it("rejects a real package that still contains Chrome or Android platform-tools", async () => {
+    const { appOutDir, resources } = fixture();
+    fs.mkdirSync(path.join(resources, "browser-engine"));
+    await expect(afterPack({ electronPlatformName: "linux", arch: 1, appOutDir, packager: {} }))
+      .rejects.toThrow("Edu Bot packages must not include browser-engine");
+    fs.rmSync(path.join(resources, "browser-engine"), { recursive: true });
+    fs.mkdirSync(path.join(resources, "android-platform-tools"));
+    await expect(afterPack({ electronPlatformName: "linux", arch: 1, appOutDir, packager: {} }))
+      .rejects.toThrow("Edu Bot packages must not include android-platform-tools");
+  });
+
   it("rejects a missing browser manifest instead of accepting partial resources", async () => {
     const { appOutDir, resources } = fixture();
     fs.mkdirSync(path.join(resources, "browser-engine"));

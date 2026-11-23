@@ -716,7 +716,7 @@ describe("the USB phone routes", () => {
 
   it("say so in the list, and close a stream with 1011, when the server has no adb", async () => {
     const served = await serve({ adbPath: () => null });
-    const missing = "adb was not found on the server.";
+    const missing = "Android platform-tools (adb) are not installed. Install them from Google and try again.";
 
     expect(await get(served, "/api/usb-phones")).toEqual({
       status: 200,
