@@ -60,16 +60,18 @@ sets (`laneOf` in `scripts/ci-scope.mjs`):
 
 | Event | Lane | What runs |
 | --- | --- | --- |
-| `pull_request` | its areas | the table above, with Linux shards, and Windows jobs only for a change that can break Windows (Windows below) |
-| `push` to main, `merge_group` | main | static (lint and the CI checks), the build, the eight Linux and eight Windows shards with the Electron node tests, the macOS smokes job, behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the control plane, the renderer smoke and Linux and Windows browser identity |
-| `schedule` (nightly, 21:17 UTC), `workflow_dispatch` (manual runs, the release branch's CI that `prepare-release.yml` starts, and the release lane) | full | every job on every platform: also the Windows and macOS shards, the Windows packaged server and Windows CUA smokes, Windows and macOS browser identity, the browser driver on all three, the Linux package and the Linux ARM64 installer |
+| `pull_request` | its areas | the table above, with Linux shards, and Windows jobs only for a change that can break Windows (Windows below). No macOS runner |
+| `push` to main | main | static (lint and the CI checks), the build, the eight Linux, eight Windows and five macOS shards with the Electron node tests, the macOS smokes job, behavior evals, the Linux and Windows packaged server smokes, the open-source edition, the control plane, the renderer smoke and browser identity on those three platforms |
+| `merge_group` | main | the same checks as a push to main, without the macOS shards |
+| `schedule` (nightly, 21:17 UTC), `workflow_dispatch` (manual runs, the release branch's CI that `prepare-release.yml` starts, and the release lane `release-ci/*`) | full | every job on every platform: the Windows and macOS shards, the Windows packaged server and Windows CUA smokes, Windows and macOS browser identity, the browser driver on all three, the Linux package and the Linux ARM64 installer |
 
-The main lane runs Linux, Windows and one macOS job. The macOS shards, the
-Windows CUA smoke and every smoke that needs a second macOS runner wait for
-the night or a release. A change that breaks only Windows shows up in its own
-PR when it can (Windows below), and otherwise in main's run after it merges; a
-change that breaks only macOS shows up in the nightly run or in the release
-lane, which only an emergency `ship_without_ci` release skips.
+A pull request takes no macOS runner. A push to main runs the macOS shards and
+the macOS smokes job. A merge group runs the macOS smokes job and leaves the
+macOS shards to that push and to the full lane. A change that breaks only
+Windows shows up in its own PR when it can (Windows below), and otherwise in
+main's run after it merges. A change that breaks only macOS shows up on the
+push to main and in the release lane, which only an emergency
+`ship_without_ci` release skips.
 
 - A push to main is scoped by its own commits (`before..after`): docs only
   (root Markdown, Markdown under `docs/`, `.github/FUNDING.yml`), or a
@@ -86,7 +88,7 @@ lane, which only an emergency `ship_without_ci` release skips.
 - Merge groups always run the main lane, whatever they change. Empty or
   unreadable push diffs, and a commit whose CI cannot be read, fall back to the
   main lane; a pull request whose diff cannot be read falls back to every job
-  on every platform.
+  on Linux and Windows, and still takes no macOS runner.
 
 The single `CI` gate keeps the existing required dependencies, and adds
 `build`. `static` outputs the selected job ids; the gate wants each required job to have passed
@@ -101,7 +103,7 @@ run in the Windows Vitest/Electron jobs.
 ## Vitest shards
 
 The slowest shard sets how long a PR and a release wait. Linux and Windows run
-eight shards each, macOS five (the full lane only); `scripts/ci-scope.mjs`
+eight shards each, macOS five (a push to main and the full lane, including `release-ci/*`); `scripts/ci-scope.mjs`
 builds the matrix.
 
 **Files at once.** A Linux shard runs four files at a time (`VITEST_WORKERS`,
@@ -197,12 +199,12 @@ seven (four Vitest shards, two smokes, the iOS job with its hour-long
 simulator suite). With 25 open PRs the macOS jobs waited a median of six and a
 half hours. Now:
 
-- A PR runs the Vitest shards on Ubuntu (and Windows where its change can
-  break Windows), a push to main or a merge group on Ubuntu and Windows; the
-  full lane adds five macOS shards, which run the host e2e files only. Only a
-  couple of test blocks are macOS-only.
-- Every PR's, push's and merge group's macOS checks are one job: the
-  packaged-server smoke and the Electron smokes.
+- A pull request runs the Vitest shards on Ubuntu (and Windows where its change
+  can break Windows). It does not run macOS vitest or the macOS smokes job.
+- A push to main runs the Ubuntu, Windows and macOS shards (five, host e2e
+  only) and the macOS smokes job. A merge group runs the Ubuntu and Windows
+  shards and the macOS smokes job, not the macOS shards.
+- The full lane, including a manual run on `release-ci/*`, runs every platform.
 - `ci-stop-closed.yml` cancels a PR's CI run when the PR is merged or closed. PR runs share a group named by the PR number (`ci-pr-<n>`), never by `github.ref`: a merged PR's closed event reports the base branch as `github.ref`, which made every merge cancel main's CI (fixed Oct 3 2026).
 
 ## Windows

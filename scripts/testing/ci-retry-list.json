@@ -119,6 +119,13 @@
       "owner": "EduardoMoraga",
       "reason": "browser driver S4 (windows-latest) on PR #16; failed beside the tab test above; green on re-run.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/saved-steps/store.test.ts",
+      "test": "RecipeStore > keeps the 200 most recently used",
+      "owner": "EduardoMoraga",
+      "reason": "Windows shard 8/8 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45174928250 timed out at 40s (job 137694463574); the same shard passed on re-run.",
+      "since": "2026-11-23"
     }
   ]
 }

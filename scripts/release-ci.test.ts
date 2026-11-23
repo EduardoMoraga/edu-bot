@@ -25,7 +25,7 @@ const shards = (os: string): Job[] =>
 const gate = (conclusion: string | null): Job => ({ name: "CI", conclusion, steps: started });
 /** Every platform's every vitest shard ran and passed, and so did the gate: the full lane. */
 const green = (): Job[] => [gate("success"), ...Object.keys(VITEST_SHARDS).flatMap(shards)];
-/** A push to main or a merge group: the gate and every Linux shard passed, nothing else ran. */
+/** A run that finished the Linux shards only, as a merge group does. */
 const mainLane = (): Job[] => [gate("success"), ...shards("ubuntu-latest")];
 /** A docs- or version-only run: the gate passes with vitest skipped. */
 const scoped = (): Job[] => [gate("success"), { name: "vitest (${{ matrix.os }}, shard ${{ matrix.shard }}/4)", conclusion: "skipped", steps: [] }];
@@ -93,7 +93,7 @@ describe("what a CI run proves", () => {
     expect(judgeRun([gate("success"), vitest("ubuntu-latest", "success"), vitest("windows-latest", "skipped")])).toBe("scoped");
   });
 
-  it("is partial when only some platforms' shards ran, as on a push to main or in a merge group", () => {
+  it("is partial when only some platforms' shards ran, as in a merge group", () => {
     expect(judgeRun(mainLane())).toBe("partial");
     expect(judgeRun(green().filter((job) => job.name !== "vitest (macos-latest, shard 5/5)"))).toBe("partial");
     expect(judgeRun([...mainLane(), ...shards("windows-latest")])).toBe("partial");
