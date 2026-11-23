@@ -379,10 +379,11 @@ export interface WireBot extends DefaultBotFields, BotAccessFields, EduBrainFiel
   reportsTo?: string;
   /** Whether this bot may use the workspace's connected apps. */
   composio?: boolean;
+  /** The strictest approval level limit from the bot’s profile area and current department. */
+  approvalCeiling?: Exclude<ApprovalMode, "custom">;
   /** Which connected-app tools this bot may call, by service slug. Absent
    * defers to `composio` (unset/true = every tool, false = none); `{}` grants
    * none. Grants never travel in shareable exports. */
-  approvalCeiling?: Exclude<ApprovalMode, "custom">;
   connectorTools?: Record<string, ConnectorToolGrant>;
   /** Per-connection read grants. Absent: this bot may use no named database. */
   dataConnections?: import("./data-connections.ts").DataGrantMap;

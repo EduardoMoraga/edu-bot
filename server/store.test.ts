@@ -25,6 +25,7 @@ import type { TeamSetupRequest } from "../shared/team-setup.ts";
 import { SECTION_CONTEXTS_FILE, readSectionContext, writeSectionContext } from "./section-context.ts";
 import { TeamComputers } from "./team-computers.ts";
 import { allowsTool } from "../shared/tool-scope.ts";
+import { writeProfilesState } from "./profiles/state.ts";
 import { approvalModeFor } from "../shared/approval-mode.ts";
 import { readRegistry, writeRegistry } from "./testing/registry.ts";
 
@@ -1361,6 +1362,29 @@ describe("Store", () => {
     expect(approvalModeFor(reloaded.projectBotForTask("templated", "templated-thread")!)).toBe("auto");
     expect(reloaded.bot("plain")?.approvalMode).toBeUndefined();
     expect(reloaded.bot("plain")?.autoApprove).toBe(false);
+  });
+
+  it("clamps all Store writes into a capped department and refuses a team setup that would lift its ceiling", () => {
+    const store = new Store(selection);
+    const chief = store.createBot({ name: "Chief" });
+    const imported = store.createBot({ name: "Imported" });
+    writeProfilesState(DATA_DIR, { version: 1, mcpServers: {}, areas: { ops: { section: "Ops", hashes: {}, maxApproval: "ask" } } });
+    const setup = (requestId: string, operations: TeamSetupRequest["operations"]) => store.applyTeamSetup({
+      version: 1, requestId, botId: chief.id, threadId: chief.threadId, reason: "Requested", createdAt: 1,
+      requesterRevision: "fixture", newTeams: [], operations,
+    }, "full");
+
+    setup("create", [{ action: "create", botId: "specialist", threadId: "specialist-thread",
+      fields: { name: "Specialist", section: "Ops", modelSelection: selection() } }]);
+    expect(store.bot("specialist")).toMatchObject({ approvalMode: "ask" });
+    store.patchBot(imported.id, { section: "Ops", approvalMode: "full" });
+    store.patchTask(imported.id, imported.threadId, { approvalMode: "full" });
+    expect(imported).toMatchObject({ approvalMode: "ask", tasks: [{ approvalMode: "ask" }] });
+    expect(() => setup("move", [{ action: "update", botId: "specialist", fields: { section: "General" } }]))
+      .toThrow("This area allows at most Ask for approval");
+    const reloaded = new Store(selection);
+    expect(reloaded.bot("specialist")).toMatchObject({ section: "Ops", approvalMode: "ask" });
+    expect(reloaded.bot(imported.id)).toMatchObject({ approvalMode: "ask", tasks: [{ approvalMode: "ask" }] });
   });
 
   it("gives a new department to a Chief in charge of every department once the write that made it is saved", async () => {

@@ -1,3 +1,4 @@
+import { changeProfileSection, checkBotApprovalPatch, checkSectionCeiling, enforceBotWriteCeilings, type BotWriteOptions } from "./profiles/bot-write.ts";
 import { existsSync, mkdirSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path"; import { isDeepStrictEqual } from "node:util";
 
@@ -647,7 +648,8 @@ export class Store {
   }
 
   private saveBotThread(botId: string, threadId: string | undefined, durability: RegistryDurability) { this.registry.upsertThread({ kind: "bot", id: botId }, threadId, durability, () => this.saveBots()); }
-  private saveBots(bots: BotRecord[] = this.bots, registerSections = true) {
+  private saveBots(bots: BotRecord[] = this.bots, registerSections = true, options: BotWriteOptions = {}, renamed?: { from: string; to: string }) {
+    enforceBotWriteCeilings(this.bots, bots, options, renamed, this.driverKindOf, (id) => this.registry.changedInPlace({ kind: "bot", id }));
     if (registerSections) this.rememberSections([...this.bots, ...bots].map((bot) => bot.section));
     this.registry.writeBots(bots, bots === this.bots);
   }
@@ -669,12 +671,13 @@ export class Store {
     }
   }
 
-  renameSection(name: string, nextName: string, computers?: TeamComputers): string | undefined {
+  renameSection(name: string, nextName: string, computers?: TeamComputers, options: BotWriteOptions = {}): string | undefined {
     if (!name || !this.sections.includes(name)) return "No such department";
     nextName = nextName.trim();
     if (!nextName || nextName.length > 60 || [...nextName].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) return "Department name must be 1 to 60 characters without control characters";
     if (name === nextName) return undefined;
     if (this.sections.includes(nextName) || computers?.forSection(nextName)) return "A department with that name already exists";
+    checkSectionCeiling(name, nextName, options);
     const members = this.bots.filter(bot => sectionKey(bot.section) === name);
     const rooms = this.groups.filter(group => sectionKey(group.section) === name);
     const affected = this.bots.filter(bot => members.includes(bot) || bot.managedSections?.some(section => sectionKey(section) === name));
@@ -682,7 +685,7 @@ export class Store {
       return "Stop this department's active work before renaming it";
     }
     // Removing an empty identity revokes its old grants, so recreating it cannot restore access.
-    if (!members.length && !rooms.length && !computers?.forSection(name)) return this.changeEmptySection(name, nextName);
+    if (!members.length && !rooms.length && !computers?.forSection(name)) return this.changeEmptySection(name, nextName, options);
     const nextBots = this.bots.map(bot => ({ ...bot,
       ...(members.includes(bot) ? { section: nextName } : {}),
       ...(bot.managedSections ? { managedSections: [...new Set(bot.managedSections.map(section => sectionKey(section) === name ? nextName : section))] } : {}),
@@ -691,10 +694,10 @@ export class Store {
     let computerChanged = false;
     try {
       // Register the new name only after saving, or the registry's duplicate-name check rejects this rename.
-      this.saveBots(nextBots, false);
+      this.saveBots(nextBots, false, options, { from: name, to: nextName });
       this.saveGroups(nextGroups, false);
       computerChanged = computers?.renameSection(name, nextName) ?? false;
-      changeEmptySection(name, nextName);
+      changeProfileSection(name, nextName);
     } catch (error) {
       this.saveBots(this.bots, false);
       this.saveGroups(this.groups, false);
@@ -710,8 +713,9 @@ export class Store {
     return undefined;
   }
 
-  changeEmptySection(name: string, nextName: string | null): string | undefined {
+  changeEmptySection(name: string, nextName: string | null, options: BotWriteOptions = {}): string | undefined {
     if (!this.sections.includes(name)) return "No such department";
+    if (nextName !== null) checkSectionCeiling(name, nextName, options);
     if ([...this.bots, ...this.groups].some((record) => sectionKey(record.section) === name)) {
       return "Move all bots (including archived bots) and group chats out of this department first";
     }
@@ -727,13 +731,14 @@ export class Store {
       for (const bot of revoked) bot.managedSections = grants.get(bot.id)!;
       for (const bot of revoked) this.emit({ type: "bot", botId: bot.id });
     }
-    changeEmptySection(name, nextName);
+    changeProfileSection(name, nextName);
     this.emit({ type: "sections" });
     return undefined;
   }
 
-  deleteSection(name: string): string | undefined {
+  deleteSection(name: string, options: BotWriteOptions = {}): string | undefined {
     if (!name || !this.sections.includes(name)) return "No such department";
+    checkSectionCeiling(name, null, options);
     const members = this.bots.filter(bot => sectionKey(bot.section) === name);
     const rooms = this.groups.filter(group => sectionKey(group.section) === name);
     if (members.some(bot => bot.busy || bot.tasks?.some(task => task.busy)) || rooms.some(group => group.busyBotId)) {
@@ -748,7 +753,7 @@ export class Store {
     }
     const nextGroups = this.groups.map(group => sectionKey(group.section) === name ? { ...group, section: undefined } : group);
     try {
-      this.saveBots(nextBots);
+      this.saveBots(nextBots, true, options);
       this.saveGroups(nextGroups);
       changeEmptySection(name, null);
     } catch (error) {
@@ -1469,9 +1474,11 @@ export class Store {
     return true;
   }
 
-  patchBot(id: string, patch: Partial<BotRecord>): BotRecord | null {
+  patchBot(id: string, patch: Partial<BotRecord>, options: BotWriteOptions = {}): BotRecord | null {
     const bot = this.own(id);
-    if (!bot) return null; patch = reshowWhenMoved(bot, patch);
+    if (!bot) return null;
+    patch = reshowWhenMoved(bot, patch);
+    checkBotApprovalPatch(bot, patch, options);
     if (patch.connectorTools !== undefined) {
       const parsed = parseConnectorTools(patch.connectorTools);
       if (!parsed.ok) throw new Error(parsed.error);
@@ -1550,6 +1557,7 @@ export class Store {
   setBotsSection(
     botIds: string[],
     section: string,
+    options: BotWriteOptions = {},
   ): { ok: true; bots: BotRecord[] } | { ok: false; reason: "unavailable" | "chief-conflict" } {
     const ids = [...new Set(botIds)];
     const targets = ids.map((id) => this.own(id));
@@ -1572,18 +1580,17 @@ export class Store {
       return next;
     });
     if (changedIds.size) {
-      this.saveBots(nextBots);
-      for (const bot of this.bots) {
-        const patch = patches.get(bot.id);
-        if (patch) Object.assign(bot, patch);
-      }
+      this.saveBots(nextBots, true, options);
+      nextBots.forEach((next, index) => {
+        if (changedIds.has(next.id)) Object.assign(this.bots[index], next);
+      });
       for (const botId of changedIds) this.emit({ type: "bot", botId });
     }
     this.rememberSections([targetSection]);
     return { ok: true, bots: ids.map((id) => this.own(id)!) };
   }
 
-  updateTeamMembers(section: string, addIds: string[], removeIds: string[]):
+  updateTeamMembers(section: string, addIds: string[], removeIds: string[], options: BotWriteOptions = {}):
     { ok: true; bots: BotRecord[] } | { ok: false; reason: "unavailable" | "chief-conflict" | "membership-changed" } {
     const key = sectionKey(section);
     if (!key || !this.sections.includes(key)) return { ok: false, reason: "unavailable" };
@@ -1599,7 +1606,7 @@ export class Store {
       ? { ...bot, ...reshowWhenMoved(bot, { section: adds.has(bot.id) ? key : undefined }) } : bot);
     if (chiefConflict(next)) return { ok: false, reason: "chief-conflict" };
     if (ids.size) {
-      this.saveBots(next);
+      this.saveBots(next, true, options);
       for (let i = 0; i < next.length; i++) if (ids.has(next[i].id)) Object.assign(this.bots[i], next[i]);
       for (const botId of ids) this.emit({ type: "bot", botId });
     }
@@ -1776,9 +1783,10 @@ export class Store {
       ...bot, ...patch, tasks: bot.tasks?.map((task, index) => ({ ...task, ...tasks[index] })),
     }]));
     this.saveBots(this.bots.map(bot => next.get(bot) ?? bot));
-    for (const { bot, patch, tasks } of changes) {
-      bot.tasks?.forEach((task, index) => Object.assign(task, tasks[index]));
-      Object.assign(bot, patch);
+    for (const { bot } of changes) {
+      const saved = next.get(bot)!;
+      bot.tasks?.forEach((task, index) => Object.assign(task, saved.tasks?.[index]));
+      Object.assign(bot, saved, { tasks: bot.tasks });
       this.emit({ type: "bot", botId: bot.id });
     }
     return moves;
@@ -2058,9 +2066,10 @@ export class Store {
     const others = updateBotDefault ? this.withDefaultModel(bot, selection)! : bot.tasks!;
     const nextTasks = bot.tasks!.map((candidate, index) => candidate === task ? nextTask : others[index]!);
     const botPatch = updateBotDefault ? { modelSelection: structuredClone(selection), ...approval } : {};
-    this.saveBots(this.bots.map((candidate) => candidate === bot ? { ...bot, ...botPatch, tasks: nextTasks } : candidate));
+    const next = { ...bot, ...botPatch, tasks: nextTasks };
+    this.saveBots(this.bots.map((candidate) => candidate === bot ? next : candidate));
     bot.tasks!.forEach((candidate, index) => Object.assign(candidate, nextTasks[index]));
-    Object.assign(bot, botPatch);
+    Object.assign(bot, next, { tasks: bot.tasks });
     this.emit({ type: "bot", botId });
     return task;
   }
@@ -2078,8 +2087,10 @@ export class Store {
     const moved = bot.tasks.filter((_, index) => patches[index]).map((task) => task.threadId);
     if (!moved.length) return [];
     const nextTasks = bot.tasks.map((task, index) => patches[index] ? { ...task, ...patches[index] } : task);
-    this.saveBots(this.bots.map((candidate) => candidate === bot ? { ...bot, tasks: nextTasks } : candidate));
-    bot.tasks.forEach((task, index) => { if (patches[index]) Object.assign(task, patches[index]); });
+    const next = { ...bot, tasks: nextTasks };
+    this.saveBots(this.bots.map((candidate) => candidate === bot ? next : candidate));
+    bot.tasks.forEach((task, index) => { if (patches[index]) Object.assign(task, nextTasks[index]); });
+    Object.assign(bot, next, { tasks: bot.tasks });
     const active = bot.tasks.find((task) => task.threadId === bot.threadId);
     if (active) this.mirrorActiveTask(bot, active);
     this.emit({ type: "bot", botId });
@@ -2094,7 +2105,7 @@ export class Store {
     const next = { ...bot, ...patch, approvalGrant: undefined, tasks };
     this.saveBots(this.bots.map(candidate => candidate === bot ? next : candidate));
     bot.tasks?.forEach((task, index) => Object.assign(task, tasks[index]));
-    Object.assign(bot, patch, { approvalGrant: undefined });
+    Object.assign(bot, next, { tasks: bot.tasks });
     this.emit({ type: "bot", botId });
     return bot;
   }

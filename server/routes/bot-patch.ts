@@ -1,7 +1,8 @@
+import { botApprovalRefusal } from "../profiles/bot-write.ts";
 import { z } from "zod";
 
-import { approvalCeiling } from "../profiles/state.ts";
-import { approvalModeFor, isApprovalMode, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { mayGiveProfileAccess } from "./profiles.ts";
+import { approvalModeFor, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { normalizeConnectorScopes, widensConnectorScopes } from "../../shared/connector-scopes.ts";
 import { isBotLiveVoice } from "../../shared/live-call.ts";
 import { normalizeOutboundPolicy } from "../../shared/outbound.ts";
@@ -20,7 +21,7 @@ import type { BrowserRuntime } from "../browser-runtime.ts";
 import type { CacheKeepWarm } from "../cache-keepwarm.ts";
 import { cloudBackendChangeError, vpsBotAliasChangeError, vpsLeftBehindNotice, VPS_BOT_ALIAS_CHANGE_ERROR, VPS_BOT_ALIAS_LIFECYCLE_ERROR, VPS_BOT_ALIAS_RESOURCES_ERROR } from "../cloud-backend.ts";
 import * as composio from "../composio.ts";
-import { DATA_DIR, isValidSshAlias, type AppConfig } from "../config.ts";
+import { isValidSshAlias, type AppConfig } from "../config.ts";
 import type { ModelSelection } from "../contracts.ts";
 import type { createApprovalModeSupport } from "../harness-capabilities.ts";
 import type { ProviderRegistry } from "../harness/registry.ts";
@@ -523,11 +524,14 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       } else {
         requestedApprovalMode = approvalModeFor(existingBot ?? {});
       }
+      const ceilingWrite = {
+        mayLiftCeiling: mayGiveProfileAccess(auth, req, deps.desktopManaged),
+        ...(body.approvalMode !== undefined || body.autoApprove !== undefined || body.applyToAllThreads === true
+          ? { requestedApproval: requestedApprovalMode } : {}),
+      };
       const ceilingRefusal = (bot?: BotRecord) => {
-        if (patch.approvalMode === undefined && (bot?.profileSource || !Object.hasOwn(patch, "section"))) return undefined;
-        const ceiling = approvalCeiling(deps.dataDir ?? DATA_DIR, { ...bot, ...patch });
-        const mode = patch.approvalMode === undefined ? approvalModeFor({ ...bot, approvalGrant: undefined }) : requestedApprovalMode;
-        return ceiling && !levelWithin(mode, ceiling) ? approvalCeilingError(ceiling) : undefined;
+        const ceiling = botApprovalRefusal({ ...bot, ...patch }, bot, ceilingWrite);
+        return ceiling ? approvalCeilingError(ceiling) : undefined;
       };
       const currentApprovalMode = approvalModeFor(existingBot ?? {});
       if (body.approvalMode !== undefined || body.autoApprove !== undefined) {
@@ -750,11 +754,11 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       // Runtime fields keep their fail-closed order; only the profile fields commit atomically.
         const runtimePatch = { ...patch };
         for (const field of Object.keys(profile.patch)) delete runtimePatch[field];
-        if (Object.keys(runtimePatch).length) store.patchBot(m[1], runtimePatch);
+        if (Object.keys(runtimePatch).length) store.patchBot(m[1], runtimePatch, ceilingWrite);
         bot = store.patchBotProfile(m[1], profile.patch);
       } else {
         if (freshBrowserBot) assertTeamComputerChangeIdle(freshBrowserBot, { ...freshBrowserBot, ...patch } as BotRecord);
-        bot = store.patchBot(m[1], patch);
+        bot = store.patchBot(m[1], patch, ceilingWrite);
       }
       if (!bot) return json(res, 404, { error: "no such bot" });
       if (body.dataConnections !== undefined && deps.dataDir && deps.connectionVault) syncConnectionGrants(deps.connectionVault, deps.dataDir, deps.store.bots);

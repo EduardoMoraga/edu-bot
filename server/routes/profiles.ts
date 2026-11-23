@@ -35,6 +35,11 @@ export interface ProfilesRouteDeps {
 
 /** Security: a profile folder is someone else's commit, so more access needs a person at the desktop app or an admin
  * session of a paired device; a loopback caller may be a bot's own shell. */
+export function mayGiveProfileAccess(auth: RequestAuth, req: IncomingMessage, desktopManaged: boolean): boolean {
+  return req.headers["x-openmausbot-companion"] !== "1" &&
+    (auth.kind === "session" ? auth.scopes.includes("admin") : !auth.companionDevice && auth.trust !== "service" && desktopManaged);
+}
+
 export const PROFILE_ACCESS_REFUSAL = "These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.";
 
 const folderField = z.string().trim().min(1).max(4096).refine((path) => isAbsolute(path) && !path.includes("\0"), "must be an absolute folder path");
@@ -134,9 +139,6 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     return { planned, folder, state };
   };
 
-  const mayGiveAccess = (auth: RequestAuth, req: IncomingMessage) =>
-    req.headers["x-openmausbot-companion"] !== "1" && (auth.kind === "session" ? auth.scopes.includes("admin") : auth.trust !== "service" && deps.desktopManaged);
-
   let applying = false;
 
   return async ({ req, res, path, method, auth, json, readBody }) => {
@@ -169,7 +171,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
           const ceiling = folder.problems.find((problem) => problem.approvalCeiling)?.approvalCeiling;
           if (ceiling) return json(res, 403, { ...approvalCeilingError(ceiling), plan: planned.plan });
           const accessLines = planned.plan.lines.filter((line) => line.kind === "access");
-          if (body.giveAccess === true && accessLines.length && !mayGiveAccess(auth, req)) {
+          if (body.giveAccess === true && accessLines.length && !mayGiveProfileAccess(auth, req, deps.desktopManaged)) {
             return json(res, 403, { error: PROFILE_ACCESS_REFUSAL, lines: accessLines });
           }
           return json(res, 200, await applyNow(req, auth, body, planned, folder, state));

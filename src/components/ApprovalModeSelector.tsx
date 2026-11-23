@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, ListChecks } from "lucide-react";
 
-import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
+import { approvalModeFor, levelWithin, withinApprovalCeiling, type ApprovalCeiling, type ApprovalMode } from "../../shared/approval-mode";
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { MENU_ITEM_SEPARATOR, MENU_SHEET } from "./menu-recipe";
@@ -24,6 +24,7 @@ export {
 export function ApprovalModeSelector({
   approvalMode,
   autoApprove,
+  approvalCeiling,
   providerName,
   driverKind,
   onSelect,
@@ -37,6 +38,7 @@ export function ApprovalModeSelector({
 }: {
   approvalMode?: ApprovalMode;
   autoApprove?: boolean;
+  approvalCeiling?: ApprovalCeiling;
   providerName: string;
   driverKind: string;
   onSelect: (mode: ApprovalMode) => void;
@@ -52,7 +54,7 @@ export function ApprovalModeSelector({
   const motion = useMenuMotion(open);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const mode = shownApprovalMode(driverKind, approvalModeFor({ approvalMode, autoApprove }));
+  const mode = shownApprovalMode(driverKind, withinApprovalCeiling(approvalModeFor({ approvalMode, autoApprove }), approvalCeiling));
   const allOptions = approvalModeOptions();
   const current = approvalModeOptionsFor(driverKind).find((option) => option.mode === mode)
     ?? allOptions.find((option) => option.mode === mode)
@@ -154,6 +156,10 @@ export function ApprovalModeSelector({
           <div className="flex flex-col gap-1">
             {visibleOptions.map((option) => {
               const selected = option.mode === mode;
+              const capped = approvalCeiling && !levelWithin(option.mode, approvalCeiling);
+              const disabled = modesDisabled || Boolean(capped);
+              const reason = capped ? t("botAccess.summary.ceiling", { mode: t(`approvalMode.${approvalCeiling}.label`) })
+                : requiresLocalDesktop ? t("approvalMode.customLocalOnly") : undefined;
               const Icon = option.Icon;
               return (
                 <Fragment key={option.mode}>
@@ -161,16 +167,16 @@ export function ApprovalModeSelector({
                     type="button"
                     role="menuitemradio"
                     aria-checked={selected}
-                    disabled={modesDisabled}
-                    title={requiresLocalDesktop ? t("approvalMode.customLocalOnly") : undefined}
+                    disabled={disabled}
+                    title={reason}
                     onClick={() => {
-                      if (modesDisabled) return;
+                      if (disabled) return;
                       onSelect(option.mode);
                       setOpen(false);
                     }}
                     className={cn(
                       "flex items-start gap-2 rounded-md px-2 py-1.5 text-left hover:bg-menu-hover",
-                      modesDisabled && "cursor-not-allowed opacity-45 hover:bg-transparent",
+                      disabled && "cursor-not-allowed opacity-45 hover:bg-transparent",
                     )}
                   >
                     <Icon size={16} className="mt-px shrink-0 text-ink-secondary" />
@@ -180,7 +186,7 @@ export function ApprovalModeSelector({
                         {selected && <Check size={14} className="shrink-0" />}
                       </span>
                       <span className="text-[13px] leading-snug text-ink-secondary">
-                        {option.description}
+                        {capped ? reason : option.description}
                       </span>
                     </span>
                   </button>

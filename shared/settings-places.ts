@@ -73,7 +73,7 @@ export const SETTINGS_PLACES = [
   {"id":"take-out","path":"Settings → Import & export → Take things out","words":["export","backup"]},
   {"id":"move","path":"Settings → Import & export → Move to My Cloud","words":["keep here","move back","bring back","move to cloud"],"only":"the desktop app, on this computer's own page"},
   {"id":"storage","path":"Settings → Data → Storage","words":["attachments","clear attachments","event log","cleanup","retention"],"advanced":true},
-  {"id":"activity","path":"Settings → Data → Activity","words":["activity","audit","audit log","history","who did what"],"advanced":true,"only":"Edu Bot in a browser"},
+  {"id":"activity","path":"Settings → Data → Activity","words":["activity","audit","audit log","history","who did what"],"advanced":true},
   {"id":"members","path":"Settings → People → Members","words":["invite","roles","admins"],"only":"a team's or a self-hosted server's Settings, for admins"},
   {"id":"bot-access","path":"Settings → People → Bot access","words":["who can","share","permissions"],"only":"a team's or a self-hosted server's Settings, for admins"},
   {"id":"account","path":"Settings → Your account","words":["sign in","log in","log out","sign out","email","account","mausbot cloud"]},

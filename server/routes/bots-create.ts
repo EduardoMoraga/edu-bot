@@ -1,6 +1,5 @@
-import { approvalModeFor, levelWithin } from "../../shared/approval-mode.ts";
-import { DATA_DIR } from "../config.ts";
-import { approvalCeiling } from "../profiles/state.ts";
+import { botApprovalRefusal } from "../profiles/bot-write.ts";
+import { approvalModeFor } from "../../shared/approval-mode.ts";
 import type { BotCreateResponse, WireBot } from "../../shared/wire.ts";
 import { freshLook } from "../bot-look.ts";
 import { LINK_PREFIX } from "../bot-link/protocol.ts";
@@ -49,6 +48,7 @@ export interface BotCreateRouteDeps {
   routines(): RoutineManager | null;
   storedAvatarExists(avatarUrl: string): boolean;
   defaultSelection(): Promise<ModelSelection>;
+  supportsApprovalMode(selection: ModelSelection, mode: "edits"): boolean;
   checkedModelSelection(raw: unknown, current?: { selection: ModelSelection; busy: boolean }, requireAvailableModel?: boolean): ModelSelectionCheck;
   cloudOwnerSession(auth: RequestAuth): boolean;
   wireBot(bot: BotRecord): WireBot;
@@ -125,6 +125,7 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       if ("error" in kept) return json(res, kept.error.includes("already") ? 409 : 400, { error: kept.error });
       const { id: _id, threadId: _threadId, ...rest } = body;
       body = rest;
+      const originalBody = body;
       const template = resolveBotCreationDefaults(cfg.newBotDefaults, body);
       const settings = template.profile;
       if (body.preset !== undefined && (typeof body.preset !== "string" || !/^[\w-]{1,64}$/.test(body.preset))) {
@@ -184,8 +185,9 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
         }
       }
       const ceilingRefusal = () => {
-        const ceiling = approvalCeiling(DATA_DIR, { section });
-        return ceiling && !levelWithin(approvalModeFor(settings), ceiling) ? approvalCeilingError(ceiling) : undefined;
+        const requestedApproval = askedSettings(originalBody).approvalMode === undefined ? undefined : approvalModeFor(settings);
+        const ceiling = botApprovalRefusal({ section }, null, { requestedApproval });
+        return ceiling ? approvalCeilingError(ceiling) : undefined;
       };
       const initialCeilingRefusal = ceilingRefusal();
       if (initialCeilingRefusal) return json(res, 403, initialCeilingRefusal);
@@ -205,6 +207,9 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
         const checked = checkedModelSelection(body.modelSelection, undefined, body.requireAvailableModel === true);
         if (!checked.ok) return json(res, checked.status, refusalBody(checked));
         selection = checked.selection;
+      }
+      if (settings.approvalMode === "edits" && !deps.supportsApprovalMode(selection, "edits")) {
+        return json(res, 400, { error: "This engine does not support Auto-accept edits" });
       }
       if (hostedModels && !hostedModels.allows(selection)) return json(res, 400, { error: hostedModels.error() });
       // The capacity check sits beside the synchronous write, after every await.

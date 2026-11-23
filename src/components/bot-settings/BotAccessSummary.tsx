@@ -23,7 +23,7 @@ export function BotAccessSummary({ bot, loadedApps }: { bot: Bot; loadedApps?: B
 
   return (
     <section className="space-y-2 rounded-xl bg-card p-4" aria-label={t("botAccess.summary.title")} data-bot-access-summary>
-      <h3 className="text-[15px] font-medium text-ink">{t("botAccess.summary.title")}</h3>
+      <h3 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{t("botAccess.summary.title")}</h3>
       <ul className="space-y-1 break-words text-[13px] text-ink-secondary">
         <li>{t("botAccess.summary.approval", { mode: t(`approvalMode.${mode}.label`) })}{" "}
           {bot.approvalCeiling ? t("botAccess.summary.ceiling", { mode: t(`approvalMode.${bot.approvalCeiling}.label`) }) : t("botAccess.summary.noCeiling")}</li>
@@ -41,7 +41,7 @@ export function BotAccessSummary({ bot, loadedApps }: { bot: Bot; loadedApps?: B
           {grant.schemas?.length ? t("botAccess.summary.schemas", { schemas: list(grant.schemas) }) : null}
         </li>)}
       </ul>
-      {admin && !window.ogb?.remoteClient?.active && <button type="button" className="text-left text-[13px] text-accent-text underline"
+      {admin && !window.ogb?.remoteClient?.active && <button type="button" className="text-start text-[13px] text-accent-text underline"
         onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "activity", activityBot: bot.id })}>
         {t("botAccess.summary.activity")}
       </button>}

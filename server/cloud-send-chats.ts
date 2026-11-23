@@ -1,3 +1,5 @@
+import { approvalCeiling } from "./profiles/state.ts";
+import { levelWithin } from "../shared/approval-mode.ts";
 // Send to My Cloud's chats, by row, never as a copy. This computer lists each bot conversation's newest stored
 // row (GET /api/cloud-send/chats) and hands main the rows stored after the last one My Cloud took (GET
 // /api/cloud-send/chats/rows); My Cloud adds them as Bring newer chats adds a copy's (cloud-chat-merge.ts): only what it
@@ -177,7 +179,7 @@ const settingsSchema = z.object({
 /** A setting My Cloud's copy of a conversation lacks takes this computer's; one it has stays its own. The audience floor
  * only ever narrows. How many conversations changed. */
 export function adoptConversationSettings(store: CloudSendChatsDeps["store"], conversations: z.infer<typeof settingsSchema>["conversations"],
-  allowed: { instance(id: string): boolean; approval(selection: ModelSelection, mode: ApprovalMode): boolean }): number {
+  allowed: { instance(id: string): boolean; approval(selection: ModelSelection, mode: ApprovalMode): boolean }, dataDir: string): number {
   let changed = 0;
   for (const { threadId, settings } of conversations) {
     const { bot, room } = ownerOf(store, threadId);
@@ -187,7 +189,9 @@ export function adoptConversationSettings(store: CloudSendChatsDeps["store"], co
       const patch: TaskPatch = {};
       if (task.modelSelection === undefined && settings.modelSelection && allowed.instance(settings.modelSelection.instanceId)) patch.modelSelection = settings.modelSelection as ModelSelection;
       const selection = patch.modelSelection ?? task.modelSelection ?? bot.modelSelection;
-      if (task.approvalMode === undefined && settings.approvalMode && allowed.approval(selection, settings.approvalMode)) {
+      const ceiling = approvalCeiling(dataDir, bot);
+      if (task.approvalMode === undefined && settings.approvalMode &&
+          (!ceiling || levelWithin(settings.approvalMode, ceiling)) && allowed.approval(selection, settings.approvalMode)) {
         patch.approvalMode = settings.approvalMode;
         patch.autoApprove = settings.approvalMode === "auto";
       }
@@ -372,7 +376,7 @@ export async function cloudSendChatsRoute(deps: CloudSendChatsDeps, { req, res, 
     const parsed = settingsSchema.safeParse(await readBody(req, 1024 * 1024));
     if (!parsed.success) { json(res, 400, { error: "send { v: 1, conversations: [{ threadId, settings }] }" }); return true; }
     json(res, 200, { v: 1, changed: adoptConversationSettings(store, parsed.data.conversations,
-      { instance: (id) => deps.instanceExists?.(id) ?? false, approval: (selection, mode) => deps.approvalSupported?.(selection, mode) ?? false }) });
+      { instance: (id) => deps.instanceExists?.(id) ?? false, approval: (selection, mode) => deps.approvalSupported?.(selection, mode) ?? false }, deps.dataDir) });
     return true;
   }
   if (path === `${PREFIX}/ids` && method === "GET") {

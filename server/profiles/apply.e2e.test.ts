@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { readProfilesState, writeProfilesState } from "./state.ts";
 import { appendDecision, flushDecisionLog } from "../decision-log.ts";
 import { SessionRegistry } from "../sessions.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
@@ -212,8 +213,8 @@ posixOnly("profile apply routes", () => {
     expect(await csv.text()).toContain(bot.name);
   });
 
-  it("follows a department renamed in the app, so the next plan keeps it instead of making another", async () => {
-    expect((await api("PATCH", "/api/sidebar-sections?section=BI", { name: "Analytics" })).status).toBe(200);
+  it("follows a department renamed by an admin, so the next plan keeps it instead of making another", async () => {
+    expect((await api("PATCH", "/api/sidebar-sections?section=BI", { name: "Analytics" }, "admin")).status).toBe(200);
     expect((await api("GET", "/api/profiles")).body.areas.bi).toEqual({ section: "Analytics" });
     const plan = (await api("POST", "/api/profiles/plan", {})).body;
     expect(plan.lines.filter((line: Rec) => line.kind === "add")).toEqual([]);
@@ -237,4 +238,50 @@ posixOnly("profile apply routes", () => {
     expect((await api("GET", `/api/profiles/bots/${reporter.id}`, undefined, "member")).status).toBe(403);
     expect((await api("GET", "/api/profiles/bots/no-such-bot")).status).toBe(404);
   });
+  it("combines a stamped bot's source ceiling with its stricter destination and persists the downgrade", async () => {
+    const before = readProfilesState(server.dataDir);
+    const closer = (await profileBots()).find((bot) => bot.profileSource.key === "closer")!;
+    const path = `/api/bots/${closer.id}`;
+    const section = before.areas.bi!.section;
+    writeProfilesState(server.dataDir, { ...before, areas: { ...before.areas,
+      bi: { ...before.areas.bi!, maxApproval: "ask" }, sales: { ...before.areas.sales!, maxApproval: undefined } } });
+    try {
+      expect((await api("PATCH", path, { approvalMode: "full" })).status).toBe(200);
+      expect(await api("PATCH", path, { section })).toMatchObject({
+        status: 200, body: { bot: { section, approvalMode: "ask", approvalCeiling: "ask", profileSource: { area: "sales" } } },
+      });
+      const saved = JSON.parse(readFileSync(join(server.dataDir, "bots.json"), "utf8")) as Rec[];
+      expect(saved.find((bot) => bot.id === closer.id)).toMatchObject({ section, approvalMode: "ask" });
+      expect((await api("PATCH", path, { section: null })).status).toBe(403);
+    } finally {
+      await api("PATCH", path, { section: closer.section, approvalMode: "ask" }, "admin");
+      writeProfilesState(server.dataDir, before);
+    }
+  });
+
+  it("requires a paired admin to leave or remove a capped department through any membership route", async () => {
+    const bot = (await api("POST", "/api/bots", { name: "Capped member", section: "Analytics", settings: { approvalMode: "ask" } })).body.bot;
+    const path = `/api/bots/${bot.id}`;
+    const areas = "/api/sidebar-sections";
+    const section = `${areas}?section=Analytics`;
+    try {
+      expect((await api("PATCH", path, { section: null })).status).toBe(403);
+      expect((await api("PUT", section, { addBotIds: [], removeBotIds: [bot.id] })).status).toBe(403);
+      expect((await api("POST", areas, { name: "", botIds: [bot.id] })).status).toBe(403);
+      expect((await api("DELETE", section)).status).toBe(403);
+      expect((await api("PATCH", section, { name: "Elsewhere" })).status).toBe(403);
+      expect((await api("PATCH", path, { approvalMode: "full" })).status).toBe(403);
+      expect(await api("PATCH", path, { section: null }, "admin")).toMatchObject({ status: 200, body: { bot: { approvalMode: "ask" } } });
+    } finally {
+      await api("DELETE", path, undefined, "admin");
+    }
+  });
+
+  it("lists profile and bot-api among accepted activity categories", async () => {
+    const result = await api("GET", "/api/admin-activity?what=unknown", undefined, "admin");
+    expect(result.status).toBe(400);
+    expect(result.body.error).toContain("bot-api");
+    expect(result.body.error).toContain("profile");
+  });
+
 });

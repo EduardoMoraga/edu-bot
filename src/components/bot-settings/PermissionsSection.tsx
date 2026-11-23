@@ -118,8 +118,8 @@ export function PermissionsSection({
         <ProposalStatus bot={bot} kind="owner" />
         <div className="mt-3">
           <ApprovalModeSelector
-            approvalMode={bot.approvalMode}
-            autoApprove={bot.autoApprove}
+            approvalMode={approvalMode}
+            approvalCeiling={bot.approvalCeiling}
             providerName={engine?.displayName ?? bot.name}
             driverKind={engine?.driverKind ?? ""}
             onSelect={setApprovalMode}
