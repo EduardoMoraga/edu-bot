@@ -126,6 +126,13 @@
       "owner": "EduardoMoraga",
       "reason": "Ubuntu shard 4/8 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45119405095 (release dry-run 45119351004): the replaced session log was read as the same file under load. Passes 3/3 locally; the release diff does not touch this test.",
       "since": "2026-11-23"
+    },
+    {
+      "file": "server/routes/phone-screen.test.ts",
+      "test": "the USB phone routes > send the phone nothing for a move with no finger down, though a person holds it",
+      "owner": "EduardoMoraga",
+      "reason": "Timed out at 20 s on macOS shard 1/5 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45124202017 (first PR run with macOS vitest); 8719 other tests in that shard passed.",
+      "since": "2026-11-23"
     }
   ]
 }
