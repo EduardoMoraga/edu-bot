@@ -30,9 +30,9 @@ interface AllowPermissionResult {
 /** What the bot is told when the person cannot be asked at all: what to do instead, so it never just skips. */
 const UNREACHABLE_NOTE: Record<AskKind, string> = {
   question:
-    "OpenMausBot could not show this question to the person: its question service did not answer. Do not retry this tool. Ask in your reply instead: end it with the exact question and stop there until they answer.",
+    "Edu Bot could not show this question to the person: its question service did not answer. Do not retry this tool. Ask in your reply instead: end it with the exact question and stop there until they answer.",
   permission:
-    "OpenMausBot could not ask the person to approve this step: its approval service did not answer. Skip this step, and say in your reply what you wanted to do and why, so the person can decide.",
+    "Edu Bot could not ask the person to approve this step: its approval service did not answer. Skip this step, and say in your reply what you wanted to do and why, so the person can decide.",
 };
 const unreachable = (kind: AskKind): BrokerAnswer => ({ behavior: "deny", message: UNREACHABLE_NOTE[kind], source: "system" });
 

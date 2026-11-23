@@ -36,7 +36,7 @@ edubot doctor --data [--fix] [--data-dir DIR]
   copied to DIR/doctor-backups/<time>/ first. Anything else is reported with what to do.
   Exit 0 fine (after --fix: fine now), 8 a problem is left.`,
   login: `edubot login [SERVER] [--scope chat] [--name NAME]
-  Sign this terminal in, once. On this computer MausBot shows a card with a short code: check it matches the one printed
+  Sign this terminal in, once. On this computer Edu Bot shows a card with a short code: check it matches the one printed
   here and press Allow. For a Cloud or a server elsewhere (edubot login https://maus.example.com) your browser opens
   the same card. The sign-in lasts 30 days and renews while you use it; it is kept in the macOS Keychain (elsewhere in a
   file only you can read) and never printed. --scope chat signs in for chat only. Every command then uses this server.
@@ -57,7 +57,7 @@ edubot bots stop (BOT… | --team NAME | --all) [--dry-run] [--yes]
   the team itself, so bots added to it later are paused too. stop stops their work now and pauses nothing.`,
   "bots list": "edubot bots list\n  Your bots and what each is doing (the same as edubot bots).",
   "bots get": "edubot bots get BOT\n  One bot: its team, state, computer, model, approvals and conversations.",
-  "bots delete": "edubot bots delete (BOT… | --team NAME | --all) [--dry-run] [--yes]\n  Delete bots with their conversations. It prints the list and asks first; MausBot itself and a busy bot are refused.",
+  "bots delete": "edubot bots delete (BOT… | --team NAME | --all) [--dry-run] [--yes]\n  Delete bots with their conversations. It prints the list and asks first; Edu itself and a busy bot are refused.",
   "bots pause": "edubot bots pause (BOT… | --team NAME | --all) [--dry-run]\n  Pause bots: their work stops and nothing new starts, across restarts, until bots resume.",
   "bots resume": "edubot bots resume (BOT… | --team NAME | --all) [--dry-run]\n  Resume paused bots.",
   "bots stop": "edubot bots stop (BOT… | --team NAME | --all) [--dry-run] [--yes]\n  The same as edubot stop.",
