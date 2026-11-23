@@ -10,7 +10,7 @@ Hecho = verificado. Cada línea dice cómo se probó.
 | M1 | Nombre Edu Bot, licencias, sin telemetría, sin `enterprise/` | Hecho (PR #3, #4, #5, 21-11) |
 | M2 | Memoria Edu en cada bot, con aprobaciones | Hecho (PR #7, #8, #9, #10, 22-11) |
 | M3 | Organización, áreas y bots en archivos | Hecho (PR #13 a #17, 22-11) |
-| M4 | Conector SQL, permisos por bot, registro de auditoría | Pendiente |
+| M4 | Conector SQL, permisos por bot, registro de auditoría, conectores, Antigravity | Hecho (PR #19 a #26, 22-11) |
 | M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | Pendiente |
 | M6 | Auditoría final con dos proveedores, inglés y español completos | Pendiente |
 
@@ -152,7 +152,11 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   y una lista de tablas por bot. Los números salen de las consultas, nunca del modelo.
   Decisión (22-11): tras 2 auditorías de Agy con fallas graves (saltar la lista de tablas, leer archivos del computador),
   el conector sale SOLO DE LECTURA. Escribir en la base queda para después. La clave de la base nunca llega a un bot.
-- [ ] M4-5 (en curso, Codex): el tope de aprobación por área se cumple siempre, y un visor de auditoría por bot y por área.
+- [x] M4-5 (#26, fusionado; lo hizo Codex, Agy auditó 3 rondas hasta PASS): el tope de aprobación de un área se
+  cumple siempre: al crear, editar, duplicar, importar o mover un bot, y al correr cada turno. Sacar un bot del área o
+  borrar el área no sube su permiso sin una persona en la app. Nuevo visor de actividad, filtrado por bot y por área.
+- Prueba final de M4 (22-11, app aislada en Linux): la app abre, Edu respondió con Gemini por Antigravity, la
+  pantalla de conectores sin llave explica qué hacer, y no se tocaron tus datos reales.
 - [x] M4-6 (#25, fusionado; lo hizo Agy, Grok auditó 5 rondas hasta PASS): Antigravity como proveedor, para usar
   Gemini desde la app. La app rechazaba tu `agy` 1.5 instalado; ahora lo usa. Prueba real con tu `agy`: respondió,
   usó una herramienta de Edu Bot y se canceló bien (3 turnos cortos). El permiso "acceso total" solo se da a un
@@ -226,6 +230,7 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 ## Para la auditoría final (M6)
 
 - Test "browser driver S4" en Windows: falla seguido incluso con reintentos (pestañas de Chrome). Revisar en M6.
+- Mensajes de motores no instalados dicen "for the user running OpenMausBot". Cambiar a Edu Bot (inglés y español).
 - Herramientas de datos locales (heredadas de upstream): un bot puede leer archivos de tu computador con ellas, igual
   que con su terminal. Se intentó encerrarlas en M4 y rompía cosas; se revisará en M6 con calma.
 
@@ -239,6 +244,10 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 - Incidente (22-11): el comando `gh` de Grok usó el repo de upstream por defecto y abrió por error un PR en
   milind-soni/OpenMausBot (#7038). No se subió código allá; el PR quedó cerrado de inmediato, pero es visible.
   Arreglo: todas las copias fijan EduardoMoraga/edu-bot como repo por defecto y las reglas exigen `-R` en cada `gh`.
+
+- Incidente (22-11): una prueba de la auditoría de Agy arrancó un servidor sin carpeta temporal y creó `~/.edubot`
+  (solo 2 bots de prueba; la carpeta no existía antes, no se perdió nada). La moví a
+  `/var/tmp/edubot-quarantine/`. Ahora la regla obliga a usar carpetas temporales y a revisar `~/.edubot` al terminar.
 
 - A Codex le queda poco cupo semanal (23 % el 21-11). Por eso Claude hizo los arreglos del PR #4.
 
