@@ -368,9 +368,8 @@ export const VITEST_SHARDS = { "macos-latest": 5, "ubuntu-latest": 8, "windows-l
 // Test files at once on each platform's runner (OMB_VITEST_WORKERS, vite.config.ts). A Linux shard mostly waits on real
 // servers and fake engines: its 4 vCPU sat 70% idle one file at a time, and four files take a third of the time. A
 // Windows shard one file at a time took 9 to 14 minutes (Nov 10 2026) and set the length of every run that has one;
-// its runner has 4 vCPU too, so it runs two files at once. The macOS shards run on 4-vCPU Intel runners (ci.yml)
-// and run two files at once as well.
-export const VITEST_WORKERS = { "macos-latest": 2, "ubuntu-latest": 4, "windows-latest": 2 };
+// its runner has 4 vCPU too, so it runs two files at once.
+export const VITEST_WORKERS = { "macos-latest": 1, "ubuntu-latest": 4, "windows-latest": 2 };
 
 /** ci.yml's vitest matrix: every shard of every selected platform, and which e2e files that platform runs. */
 export function vitestMatrix(oses) {
