@@ -176,7 +176,9 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
     GitHub da pocas máquinas Mac gratis y los PR esperaban casi una hora).
   - Pendiente: una pieza de Windows (`agent-browser`) se baja al usarla desde un release de upstream.
     Está fijada por tamaño y SHA256, así que no se puede cambiar; conviene copiarla a nuestro repo.
-- [ ] M5-2 (en curso, Grok; Codex sin cupo hasta 16:46): README en inglés y español.
+- [x] M5-2 (#29, fusionado; lo hizo Grok porque Codex no tenía cupo, Agy auditó 2 rondas hasta PASS): README en
+  inglés y español, escritos desde el código. Se sacó todo lo de upstream que no es cierto en Edu Bot (MausBot
+  Cloud, el servicio de Composio de MausBot, links de descarga de upstream). Explica cómo abrir la app sin firma.
 - [ ] M5-3: publicar la versión v0.1.0.
 
 ## Cómo trabajamos
