@@ -11,6 +11,7 @@ import { VaultStore } from "../../server/vault-store.ts";
 import "../../server/server-line-packs.ts";
 import { SecretRequestCard } from "../../src/components/SecretRequestCard";
 import { setLocale } from "../../src/lib/i18n";
+import ptBr from "../../src/locales/pt-br.json";
 import type { Message } from "../../src/state/store";
 
 vi.mock("@/state/store", () => ({ api: vi.fn(), useStore: () => ({ dispatch: vi.fn() }) }));
@@ -46,6 +47,11 @@ async function producedCard(target: CredentialTargetId, reason: string, language
 
 const render = (message: Message) => renderToStaticMarkup(createElement(SecretRequestCard, { botId: "bot-1", threadId: "thread-1", message }));
 const escapedText = (text: string) => renderToStaticMarkup(createElement("span", null, text)).slice(6, -7);
+const inPtBr = (target: CredentialTargetId, description: string) => {
+  const english = CREDENTIAL_TARGETS[target].description;
+  expect(description.startsWith(english)).toBe(true);
+  return `${ptBr[`secretCard.target.${target}.description` as keyof typeof ptBr]}${description.slice(english.length)}`;
+};
 
 const localizedTargets = [
   ["greenferenceApiKey", "Roda modelos do Greenference com sua própria chave."],
@@ -65,7 +71,7 @@ describe("credential descriptions from the real producer to the renderer", () =>
     expect(english).toBe(render(legacy));
     if (!message.secret!.descriptionParts) {
       setLocale("pt-br");
-      expect(render(message)).toContain(escapedText(description));
+      expect(render(message)).toContain(escapedText(inPtBr(target, description)));
     }
   });
 
@@ -99,11 +105,12 @@ describe("credential descriptions from the real producer to the renderer", () =>
     ["modelgoApiKey", "pt-br"],
     ["geminiTtsKey", "en"],
     ["geminiTtsKey", "pt-br"],
-  ] as const)("keeps the raw description of an older %s card in %s", async (target, locale) => {
+  ] as const)("keeps the received reason of an older %s card in %s", async (target, locale) => {
     const message = await producedCard(target, "For the requested report.");
     delete message.secret!.descriptionParts;
     setLocale(locale);
-    expect(render(message)).toContain(escapedText(message.secret!.description));
+    const raw = message.secret!.description;
+    expect(render(message)).toContain(escapedText(locale === "en" ? raw : inPtBr(target, raw)));
   });
 
   it.each(localizedTargets)("keeps the guarantee without an optional reason for %s", async (target, base) => {
