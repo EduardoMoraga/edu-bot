@@ -40,7 +40,7 @@ import {
   modelSwitchNeedsAsk,
   isEmergencyApprovalDowngrade,
   isApprovalMode, setDefaultApprovalMode, levelWithin, withinApprovalCeiling,
-  type ApprovalMode,
+  type ApprovalCeiling, type ApprovalMode,
 } from "../shared/approval-mode.ts";
 import { createApprovalModeSupport } from "./harness-capabilities.ts";
 import { escapeAttribute } from "../src/lib/composer-attachments.ts";
@@ -2835,9 +2835,14 @@ if (browserCleanupReferencesReconciled) browserCleanup.startPending();
 
 let threadsAwaitingTeammates = (): ReadonlySet<string> => new Set<string>(); const handoffStatus = createHandoffStatus({ dataDir: DATA_DIR, store, node: (id) => coordinator.node(id), children: (node) => coordinator.outstandingFor(node.threadId).filter((child) => child.parentId === node.id), botName: (botId) => store.bot(botId)?.name, ...(CLOUD_TEAM ? { team: { personName: (person) => teamHost.personName(person), privateTo: (threadId) => teamHost.privateTo(threadId) } } : {}), republish: (botId) => { const bot = store.bot(botId); if (bot) broadcast({ kind: "bot", bot: wireBot(bot) }); } });
 let cacheKeepWarmStatus = (_threadId: string): KeepWarmStatus | undefined => undefined;
-const wireTask = (task: TaskRecord, botModel: ModelSelection, awaiting = threadsAwaitingTeammates()): WireTask => {
+const wireTask = (task: TaskRecord, botModel: ModelSelection, ceiling: ApprovalCeiling | undefined, awaiting = threadsAwaitingTeammates()): WireTask => {
   // Snoozes heal on read against the server clock; the 0 sentinel ("until new activity") survives reads.
   const { snoozedUntil, ...base } = toWireTask(task, botModel);
+  if (ceiling && (base.approvalMode !== undefined || base.autoApprove !== undefined)) {
+    const current = approvalModeFor(base);
+    const mode = withinApprovalCeiling(current, ceiling);
+    if (mode !== current) Object.assign(base, { approvalMode: mode, autoApprove: mode === "auto" });
+  }
   const keepWarm = cacheKeepWarmStatus(task.threadId);
   const coordinated = { ...base, waitingForTeammates: awaiting.has(task.threadId) && !task.busy, ...(keepWarm ? { cacheKeepWarm: keepWarm } : {}), ...(teamHost.ownTurn(task.threadId) ? { private: true as const } : {}), ...teamMessages.inbox.wire(task.threadId), ...runOwners.askedBy(task), ...handoffStatus.forWork(task.threadId) };
   const asleep = snoozedUntil === 0 || (snoozedUntil !== undefined && snoozedUntil > Date.now());
@@ -2856,7 +2861,7 @@ const wireBot = (bot: BotRecord, onlyThreadId?: string): WireBot => {
   const awaiting = threadsAwaitingTeammates();
   return { ...visible, approvalMode: mode, ...(mode !== visible.approvalMode ? { autoApprove: mode === "auto" } : {}), ...(ceiling ? { approvalCeiling: ceiling } : {}), waitingForTeammates: awaiting.has(bot.threadId) && !threadBusy(bot.id, bot.threadId),
     mainThreadId: botMainThread(bot.id),
-    avatarUrl: visible.avatarUrl ?? null, ...(tasks ? { tasks: (onlyThreadId === undefined ? tasks : tasks.filter((task) => task.threadId === onlyThreadId)).map((task) => wireTask(task, bot.modelSelection, awaiting)) } : {}) };
+    avatarUrl: visible.avatarUrl ?? null, ...(tasks ? { tasks: (onlyThreadId === undefined ? tasks : tasks.filter((task) => task.threadId === onlyThreadId)).map((task) => wireTask(task, bot.modelSelection, ceiling, awaiting)) } : {}) };
 };
 
 function toolScopeForTurn(botId: string) {
@@ -2871,7 +2876,7 @@ const wireTrustedApprovalBot = (bot: NonNullable<ReturnType<typeof store.bot>>) 
   const { resumeCursors: _resumeCursors, tasks, approvalGrant: _approvalGrant, lastProfileRequestId: _lastProfileRequestId, lastTeamSetupReceipt: _lastTeamSetupReceipt, packageBase: _packageBase, assignedSkills: _assignedSkills, mainThreadChoice: _mainThreadChoice, home: _home, ...rest } = bot;
   const awaiting = threadsAwaitingTeammates();
   const ceiling = approvalCeiling(DATA_DIR, bot);
-  return { ...rest, approvalMode: approvalModeFor(rest), ...(ceiling ? { approvalCeiling: ceiling } : {}), mainThreadId: botMainThread(bot.id), avatarUrl: rest.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection, awaiting)) } : {}) };
+  return { ...rest, approvalMode: approvalModeFor(rest), ...(ceiling ? { approvalCeiling: ceiling } : {}), mainThreadId: botMainThread(bot.id), avatarUrl: rest.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection, ceiling, awaiting)) } : {}) };
 };
 
 async function previewSystemPrompt(bot: BotRecord) {
@@ -3452,7 +3457,7 @@ const storedAvatarExists = (avatarUrl: string): boolean =>
 
 const publicBot = (bot: NonNullable<ReturnType<typeof store.bot>>) => {
   const wired = wireBot(bot), tasks = store.tasks(bot.id);
-  return { ...wired, ...messagePage(bot.threadId, DEFAULT_PAGE), tasks: tasks === bot.tasks && wired.tasks ? wired.tasks : tasks.map((task) => wireTask(task, bot.modelSelection)) };
+  return { ...wired, ...messagePage(bot.threadId, DEFAULT_PAGE), tasks: tasks === bot.tasks && wired.tasks ? wired.tasks : tasks.map((task) => wireTask(task, bot.modelSelection, wired.approvalCeiling)) };
 };
 const publicBotQueuedMessages = () => queuedSteerSnapshot((botId, threadId) => Boolean(store.taskByThread(botId, threadId)), waitWords.queued, runOwners.shownSender);
 
@@ -12181,7 +12186,7 @@ const taskRoutes = createTaskRoutes({
   threadBusy, broadcast, notificationListed,
   publicBot,
   wireBot,
-  wireTask,
+  wireTask: (task, bot) => wireTask(task, bot.modelSelection, approvalCeiling(DATA_DIR, bot)),
   pageSize,
   messagePage,
   checkedModelSelection,

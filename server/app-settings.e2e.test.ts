@@ -392,7 +392,9 @@ it("clamps a saved Full thread and refuses an app-settings request above the are
   writeProfilesState(dataDir, { ...previous, areas: { reviews: { section: "Reviews", hashes: {}, maxApproval: "ask" } } });
   try {
     const onLoad = (await api("GET", "/api/bots?messages=0")).bots.find((one: any) => one.id === bot.id);
-    expect(onLoad).toMatchObject({ approvalMode: "ask", approvalCeiling: "ask" });
+    expect(onLoad).toMatchObject({ approvalMode: "ask", approvalCeiling: "ask",
+      tasks: expect.arrayContaining([expect.objectContaining({ threadId: bot.threadId, approvalMode: "ask", autoApprove: false })]),
+    });
     expect(readRegistry(dataDir).bots.find((one) => one.id === bot.id)?.approvalMode).toBe("full");
     await start("AREA_CEILING", [step({ action: "set", id: "bots.approvalModes", value: JSON.stringify({ botId: bot.id, mode: "full" }) }, true)]);
     const turn = await finished("AREA_CEILING");

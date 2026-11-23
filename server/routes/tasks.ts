@@ -58,7 +58,7 @@ export interface TaskRouteDeps {
   notificationListed: NotificationListed;
   publicBot(bot: BotRecord): WireBot;
   wireBot(bot: BotRecord): WireBot;
-  wireTask(task: TaskRecord, botModel: ModelSelection): WireTask;
+  wireTask(task: TaskRecord, bot: BotRecord): WireTask;
   pageSize(raw: string | null): number | null | undefined;
   messagePage(threadId: string, limit: number | undefined): MessagePage;
   checkedModelSelection(raw: unknown, current?: { selection: ModelSelection; busy: boolean }, requireAvailableModel?: boolean):
@@ -178,7 +178,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
       const task = store.forkTask(bot.id, m[2], messageId);
       if (!task) return json(res, 404, { error: "no such completed message in this conversation" });
       if (auth.kind === "session") threadStarters.set(task.threadId, actorKey(auth));
-      return json(res, 201, { bot: publicBot(store.bot(bot.id)!), task: wireTask(task, store.bot(bot.id)!.modelSelection) } satisfies TaskResponse);
+      const updated = store.bot(bot.id)!;
+      return json(res, 201, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
 
     m = path.match(/^\/api\/bots\/([\w-]+)\/tasks$/);
@@ -221,7 +222,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         auth.kind === "session" ? (created) => threadStarters.set(created.threadId, actorKey(auth)) : undefined);
       if (!task) return json(res, 500, { error: "couldn't create that task" });
       madeThread(bot.id, task.threadId);
-      return json(res, 201, { bot: publicBot(store.bot(bot.id)!), task: wireTask(task, store.bot(bot.id)!.modelSelection) } satisfies TaskResponse);
+      const updated = store.bot(bot.id)!;
+      return json(res, 201, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/tasks\/delete$/);
     if (m && method === "POST") {
@@ -328,7 +330,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         }
         const task = store.refreshTaskPermissions(profile.id, m[2]);
         if (!task) return json(res, 404, { error: "no such task" });
-        return json(res, 200, { task: wireTask(task, store.bot(profile.id)!.modelSelection), bot: publicBot(store.bot(profile.id)!) } satisfies TaskResponse);
+        const updated = store.bot(profile.id)!;
+        return json(res, 200, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
       }
       const patch: Parameters<typeof store.patchTask>[2] = {};
       if (body.projectId !== undefined) {
@@ -415,7 +418,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         ? store.switchTaskModel(m[1], m[2], patch.modelSelection, body.updateBotDefault === true, body.resetApprovalToAsk === true,
           { ...patch, ...hostedModels?.resetTask(current.modelSelection, patch.modelSelection) })!
         : store.patchTask(m[1], m[2], patch)!;
-      return json(res, 200, { task: wireTask(task, store.bot(m[1])!.modelSelection), bot: publicBot(store.bot(m[1])!) } satisfies TaskResponse);
+      const updated = store.bot(m[1])!;
+      return json(res, 200, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
     if (m && method === "DELETE") {
       const bot = store.bot(m[1]);
@@ -445,7 +449,7 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (!title) return json(res, 502, { error: "couldn't generate a title — try again, or rename the thread" });
         const task = store.retitleTask(m[1], m[2], startedFrom, title) ?? store.taskByThread(m[1], m[2]);
         if (!task) return json(res, 404, { error: "no such task" });
-        return json(res, 200, { task: wireTask(task, store.bot(m[1])!.modelSelection) });
+        return json(res, 200, { task: wireTask(task, store.bot(m[1])!) });
       } finally {
         titleRegenerations.delete(m[2]);
       }

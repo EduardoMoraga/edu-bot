@@ -1511,8 +1511,9 @@ export class Store {
     }
     if (wideningToolScope) {
       // New authority goes live only after its durable save succeeds.
-      this.saveBots(this.bots.map((candidate) => candidate === bot ? { ...bot, toolScope: nextToolScope } : candidate));
-      bot.toolScope = nextToolScope;
+      const next = { ...bot, toolScope: nextToolScope };
+      this.saveBots(this.bots.map((candidate) => candidate === bot ? next : candidate));
+      Object.assign(bot, next, { tasks: bot.tasks });
     } else this.saveBotThread(id, undefined, "now");
     this.emit({ type: "bot", botId: id });
     return bot;

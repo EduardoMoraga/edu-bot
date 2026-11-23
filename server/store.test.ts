@@ -1387,6 +1387,21 @@ describe("Store", () => {
     expect(reloaded.bot(imported.id)).toMatchObject({ approvalMode: "ask", tasks: [{ approvalMode: "ask" }] });
   });
 
+  it("updates the live approval mode when a move into a capped department also widens tool scope", () => {
+    const store = new Store(selection);
+    writeProfilesState(DATA_DIR, { version: 1, mcpServers: {}, areas: { bi: { section: "BI", hashes: {}, maxApproval: "ask" } } });
+    const bot = store.createBot({ name: "Scoped", section: "Sales", toolScope: { allow: ["native:read"] } });
+    store.patchBot(bot.id, { approvalMode: "full" });
+    expect(bot.approvalMode).toBe("full");
+
+    store.patchBot(bot.id, { section: "BI", toolScope: undefined });
+
+    const expected = { section: "BI", approvalMode: "ask", autoApprove: false, toolScope: undefined };
+    expect(store.bot(bot.id)).toBe(bot);
+    expect(bot).toMatchObject(expected);
+    expect(new Store(selection).bot(bot.id)).toMatchObject({ section: "BI", approvalMode: "ask", autoApprove: false });
+  });
+
   it("gives a new department to a Chief in charge of every department once the write that made it is saved", async () => {
     const store = new Store(selection);
     const lead = store.createBot({ name: "Lead", section: "Ops" });
