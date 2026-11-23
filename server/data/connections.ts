@@ -1,7 +1,7 @@
 // Named connections live in data-connections.json, mode 0600. A postgres password is only a Vault id on that file.
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { writeFileAtomic } from "../atomic.ts";
@@ -262,12 +262,21 @@ function windowsTooBroad(real: string): boolean {
   });
 }
 
-/** macOS `realpath("/tmp")` is `/private/tmp`, and `os.tmpdir()` is `/var/folders/...`, which realpaths under `/private/var`. */
-function underTemp(real: string): boolean {
-  for (const root of [realOr("/tmp"), realOr("/var/tmp"), realOr(tmpdir())]) {
-    if (isInside(root, real)) return true;
+/** A temp directory that is a system root, or that contains one, must not open that root. macOS `realpath("/tmp")` is `/private/tmp`, and `os.tmpdir()` is `/var/folders/.../T` under `/private/var`. */
+function tempRootTrusted(root: string): boolean {
+  if (EXACT_ROOTS.has(root)) return false;
+  for (const child of CHILD_ROOTS) {
+    const canonical = realOr(child);
+    if (root === child || root === canonical || isInside(root, child) || isInside(root, canonical)) return false;
   }
-  return false;
+  return true;
+}
+
+function underTemp(real: string): boolean {
+  const roots = [realOr("/tmp"), realOr("/var/tmp")];
+  const own = realOr(tmpdir());
+  if (tempRootTrusted(own)) roots.push(own);
+  return roots.some((root) => isInside(root, real));
 }
 
 function folderRejected(real: string, dataDir: string): string | null {
@@ -276,6 +285,8 @@ function folderRejected(real: string, dataDir: string): string | null {
   const home = realOr(homedir());
   if (real === home || isInside(real, home)) return "That folder is too broad.";
   if (EXACT_ROOTS.has(real) || windowsTooBroad(real)) return "That folder is too broad.";
+  const own = realOr(tmpdir());
+  if (real === own || real === dirname(own)) return "That folder is too broad.";
   if (underTemp(real)) return null;
   for (const root of CHILD_ROOTS) {
     const canonical = realOr(root);

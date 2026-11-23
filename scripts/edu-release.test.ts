@@ -22,13 +22,14 @@ const release = parse(releaseText) as {
   jobs: Record<string, { needs?: string | string[] }>;
 };
 
-function resourceFroms(value: unknown, found: string[] = []): string[] {
+function resourcePaths(value: unknown, found: string[] = []): string[] {
   if (Array.isArray(value)) {
-    for (const item of value) resourceFroms(item, found);
+    for (const item of value) resourcePaths(item, found);
   } else if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
     if (typeof record.from === "string") found.push(record.from);
-    for (const child of Object.values(record)) resourceFroms(child, found);
+    if (typeof record.to === "string") found.push(record.to);
+    for (const child of Object.values(record)) resourcePaths(child, found);
   }
   return found;
 }
@@ -43,9 +44,46 @@ describe("Edu Bot 0.1.0 release metadata", () => {
     const prepare = JSON.parse(read("package.json")).scripts["package:prepare"] as string;
     expect(prepare).not.toContain("build:browser");
     expect(prepare).not.toContain("build:android-tools");
-    const froms = resourceFroms(builder);
-    expect(froms.join("\n")).not.toContain("android-platform-tools");
-    expect(froms.join("\n")).not.toContain("browser-engine");
+    const paths = resourcePaths(builder);
+    const joined = paths.join("\n");
+    expect(joined).not.toContain("android-platform-tools");
+    expect(joined).not.toContain("browser-engine");
+    expect(joined).not.toContain("dist-native/browser");
+  });
+
+  it("ships the 0.45.4 CUA license set on macOS and Windows", () => {
+    const text = read("electron-builder.yml");
+    const mac = text.slice(text.indexOf("\nmac:"), text.indexOf("\ndmg:"));
+    const win = text.slice(text.indexOf("\nwin:"), text.indexOf("\nnsis:"));
+    const notices = [
+      "third_party/cua-driver-0.45.4/LICENSE.md",
+      "third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt",
+      "third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md",
+    ];
+    const packaged = [
+      "licenses/cua-driver-LICENSE.md",
+      "licenses/cua-driver-Inter-OFL-1.1.txt",
+      "licenses/cua-driver-THIRD_PARTY_NOTICES.md",
+    ];
+    for (const name of [...notices, ...packaged]) {
+      expect(mac).toContain(name);
+      expect(win).toContain(name);
+    }
+    const notice = read("third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md");
+    expect(notice).toContain("0.45.4");
+    expect(notice).toContain("MPL-2.0");
+    expect(notice).toContain("SIL OFL 1.1");
+    expect(read("third_party/cua-driver-0.45.4/LICENSE.md")).toContain("MIT License");
+    expect(read("third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt")).toContain("SIL OPEN FONT LICENSE");
+    const doc = read("docs/edu-bot/third-party-binaries.md");
+    expect(doc).toContain("resources/cua-linux-x64/cua-driver");
+    expect(doc).toContain("resources/cua-linux-x64/cua-cursor-theme");
+    expect(doc).toContain("0.41.3");
+    expect(doc).toContain("libcua_driver_sdk.dylib");
+    expect(doc).toContain("cua_driver_sdk.dll");
+    expect(doc).toContain("resources/elevate.exe");
+    expect(doc).toContain("0.45.4");
+    expect(doc).toContain("Mirroring that exact binary onto this repository is deferred.");
   });
 
   it("names the installers Edu Bot and publishes to this repository", () => {
@@ -103,8 +141,15 @@ describe("Edu Bot 0.1.0 release metadata", () => {
     expect(releaseText).not.toContain("ghcr.io");
     expect(releaseText).not.toMatch(/npm publish/);
     expect(releaseText).toContain("rpm must not be uploaded");
+    expect(releaseText).toContain("latest-linux.yml must not list an rpm");
+    expect(releaseText).toContain("node scripts/strip-linux-rpm-feed.mjs release/latest-linux.yml");
     const linuxUpload = releaseText.slice(releaseText.indexOf("name: linux-release"), releaseText.indexOf("assemble:"));
     expect(linuxUpload).not.toContain("rpm");
+    expect(releaseText).toContain('[ "$GITHUB_REPOSITORY" = "EduardoMoraga/edu-bot" ]');
+    expect(releaseText).toContain(`trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT`);
+    expect(releaseText).toContain('if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then');
+    const unsigned = releaseText.slice(releaseText.indexOf('if [ -z "${WIN_CSC_LINK:-}" ]'));
+    expect(unsigned.startsWith('if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then\n            if grep -q "publisherName"')).toBe(true);
     expect(releaseText.toLowerCase()).not.toContain("s3://");
   });
 });

@@ -1,6 +1,6 @@
 import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -169,5 +169,39 @@ describe("grants", () => {
     rmSync(allowed, { recursive: true });
     store.removeFolder(allowed);
     expect(store.list().folders).toEqual([]);
+  });
+
+  it("rejects /tmp, the temp directory, its parent, and a temp path that covers a system root", () => {
+    if (process.platform === "win32") {
+      const store = new ConnectionStore(freshDir(), vault());
+      expect(() => store.addFolder(tmpdir())).toThrow(/too broad|data folder/);
+      expect(() => store.addFolder(dirname(tmpdir()))).toThrow(/too broad|data folder/);
+      return;
+    }
+    const outside = mkdtempSync("/var/tmp/omb-conn-outside-");
+    dirs.push(outside);
+    const data = join(outside, "data");
+    mkdirSync(data);
+    const store = new ConnectionStore(data, vault());
+    const previous = process.env.TMPDIR;
+    try {
+      expect(() => store.addFolder("/tmp")).toThrow(/too broad|data folder/);
+      const temp = mkdtempSync("/var/tmp/omb-conn-temp-");
+      dirs.push(temp);
+      const child = join(temp, "kept");
+      mkdirSync(child);
+      process.env.TMPDIR = temp;
+      expect(realpathSync(tmpdir())).toBe(realpathSync(temp));
+      expect(() => store.addFolder(temp)).toThrow(/too broad/);
+      expect(() => store.addFolder(dirname(temp))).toThrow(/too broad|data folder/);
+      expect(() => store.addFolder(child)).not.toThrow();
+      for (const [env, folder] of [["/", "/var/log"], ["/var", "/var/log"], ["/etc", "/etc/ssl"]] as const) {
+        process.env.TMPDIR = env;
+        expect(() => store.addFolder(folder), env).toThrow(/too broad/);
+      }
+    } finally {
+      if (previous === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = previous;
+    }
   });
 });

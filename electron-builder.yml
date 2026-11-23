@@ -126,6 +126,13 @@ mac:
       to: cua-driver
     - from: dist-native/${arch}/cua-sdk
       to: cua-sdk
+    # Cua Driver 0.45.4: MIT, the Inter OFL, and the MPL source notice. Linux packages 0.41.3 with its own copies.
+    - from: third_party/cua-driver-0.45.4/LICENSE.md
+      to: licenses/cua-driver-LICENSE.md
+    - from: third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt
+      to: licenses/cua-driver-Inter-OFL-1.1.txt
+    - from: third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md
+      to: licenses/cua-driver-THIRD_PARTY_NOTICES.md
     - from: dist-native/cloudflared/darwin-${arch}/cloudflared
       to: cloudflared/cloudflared
     # The Data engine's native modules (DuckDB, resvg; server/data/engine.ts)
@@ -192,6 +199,13 @@ win:
       to: cua-driver-background.exe
     - from: dist-native/cua-win32-x64/cua-sdk
       to: cua-sdk
+    # Cua Driver 0.45.4: MIT, the Inter OFL, and the MPL source notice. Linux packages 0.41.3 with its own copies.
+    - from: third_party/cua-driver-0.45.4/LICENSE.md
+      to: licenses/cua-driver-LICENSE.md
+    - from: third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt
+      to: licenses/cua-driver-Inter-OFL-1.1.txt
+    - from: third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md
+      to: licenses/cua-driver-THIRD_PARTY_NOTICES.md
   # No signing config yet (would go under win.signtoolOptions or
   # win.azureSignOptions — eb 26 nests it, there is no top-level
   # win.certificateFile). The installer is unsigned, so SmartScreen shows

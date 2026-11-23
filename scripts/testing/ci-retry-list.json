@@ -119,13 +119,6 @@
       "owner": "EduardoMoraga",
       "reason": "browser driver S4 (windows-latest) on PR #16; failed beside the tab test above; green on re-run.",
       "since": "2026-11-22"
-    },
-    {
-      "file": "server/drivers/antigravity-turn-outcome.test.ts",
-      "test": "watchAntigravityPromptOutcome > gives no failure for a session id that is no file name, a missing profile, or a log replaced during the prompt",
-      "owner": "EduardoMoraga",
-      "reason": "Ubuntu shard 4/8 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45119405095 (release dry-run 45119351004): the replaced session log was read as the same file under load. Passes 3/3 locally; the release diff does not touch this test.",
-      "since": "2026-11-23"
     }
   ]
 }

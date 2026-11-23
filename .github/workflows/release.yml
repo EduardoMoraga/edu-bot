@@ -144,6 +144,7 @@ jobs:
           MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
         run: |
           set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT
           KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
           KEYCHAIN_PASSWORD="$(uuidgen)"
           echo "$MAC_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
@@ -374,6 +375,9 @@ jobs:
           pnpm package:win
           cp "$RUNNER_TEMP/SIGNING-windows.txt" release/SIGNING-windows.txt
       - name: Check the package, start the server, and launch the app once
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
         run: |
           set -euo pipefail
           res=release/win-unpacked/resources
@@ -397,9 +401,11 @@ jobs:
           test -f "$res/app-update.yml"
           grep -Eq '^owner: EduardoMoraga$' "$res/app-update.yml"
           grep -Eq '^repo: edu-bot$' "$res/app-update.yml"
-          if grep -q "publisherName" "$res/app-update.yml"; then
-            echo "::error::publisherName on an unsigned build breaks every update"
-            exit 1
+          if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then
+            if grep -q "publisherName" "$res/app-update.yml"; then
+              echo "::error::publisherName on an unsigned build breaks every update"
+              exit 1
+            fi
           fi
           home="$RUNNER_TEMP/edu-bot-server"
           mkdir -p "$home"
@@ -550,6 +556,7 @@ jobs:
           test -f "release/EduBot-$v-amd64.deb"
           test -f release/latest-linux.yml
           test -f release/SIGNING-linux.txt
+          node scripts/strip-linux-rpm-feed.mjs release/latest-linux.yml
           chmod 0755 "release/EduBot-$v-x86_64.AppImage"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -608,6 +615,10 @@ jobs:
             echo "::error::rpm must not be uploaded"
             exit 1
           fi
+          if grep -q '\.rpm' latest-linux.yml; then
+            echo "::error::latest-linux.yml must not list an rpm"
+            exit 1
+          fi
           sha256sum \
             "EduBot-$VERSION-arm64.dmg" \
             "EduBot-$VERSION-arm64.zip" \
@@ -656,6 +667,10 @@ jobs:
             echo "::error::refusing to create v$VERSION because that tag does not exist"
             exit 1
           fi
+          [ "$GITHUB_REPOSITORY" = "EduardoMoraga/edu-bot" ] || {
+            echo "::error::refusing to publish a release from $GITHUB_REPOSITORY"
+            exit 1
+          }
           gh release create "v$VERSION" \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
