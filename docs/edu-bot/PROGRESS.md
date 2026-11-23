@@ -11,7 +11,7 @@ Hecho = verificado. Cada línea dice cómo se probó.
 | M2 | Memoria Edu en cada bot, con aprobaciones | Hecho (PR #7, #8, #9, #10, 22-11) |
 | M3 | Organización, áreas y bots en archivos | Hecho (PR #13 a #17, 22-11) |
 | M4 | Conector SQL, permisos por bot, registro de auditoría, conectores, Antigravity | Hecho (PR #19 a #26, 22-11) |
-| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | Pendiente |
+| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | En curso (PR #28 fusionado) |
 | M6 | Auditoría final con dos proveedores, inglés y español completos | Pendiente |
 
 ## M0: salud del repo
@@ -162,6 +162,25 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   usó una herramienta de Edu Bot y se canceló bien (3 turnos cortos). El permiso "acceso total" solo se da a un
   `agy` verificado justo antes de arrancar.
 
+## M5: instaladores, README y versión 0.1.0
+
+- [x] M5-1 (#28, fusionado; lo hizo Grok, Agy auditó 3 rondas hasta PASS): lanzamiento desde una etiqueta `v*`.
+  Arma instaladores para Mac (dmg y zip, Apple y chip Intel), Windows (setup.exe) y Linux (AppImage y deb),
+  los prueba en cada sistema y los deja en un borrador de release en GitHub, con sus sumas SHA256.
+  Prueba en seco verde en los 3 sistemas, sin publicar nada. Versión 0.1.0.
+  - Sin firma por ahora (no hay certificados de Apple ni de Windows). Se firma solo si agregas los secretos.
+  - Se borraron 14 flujos de upstream que no aplican (Docker, npm, promote-stable, etc.).
+  - Los instaladores no traen Chrome for Testing ni herramientas Android de Google (su licencia no lo permite).
+  - Las pruebas en Mac encontraron 3 errores reales de rutas (`/private/var`) en código nuestro de M2 y M4.
+    Arreglados. Mac corre sus pruebas al fusionar en main y antes de cada lanzamiento (no en cada PR:
+    GitHub da pocas máquinas Mac gratis y los PR esperaban casi una hora).
+  - Pendiente: una pieza de Windows (`agent-browser`) se baja al usarla desde un release de upstream.
+    Está fijada por tamaño y SHA256, así que no se puede cambiar; conviene copiarla a nuestro repo.
+- [x] M5-2 (#29, fusionado; lo hizo Grok porque Codex no tenía cupo, Agy auditó 2 rondas hasta PASS): README en
+  inglés y español, escritos desde el código. Se sacó todo lo de upstream que no es cierto en Edu Bot (MausBot
+  Cloud, el servicio de Composio de MausBot, links de descarga de upstream). Explica cómo abrir la app sin firma.
+- [ ] M5-3: publicar la versión v0.1.0.
+
 ## Cómo trabajamos
 
 - Límites de uso (pedido 22-11): si se acaba el límite semanal de Claude, no me detengo en silencio:
@@ -206,6 +225,8 @@ Fallan a veces y pasan al re-correr. No vienen de nuestros cambios.
 Se sumaron a `scripts/testing/ci-retry-list.json`: 2 reintentos solo en CI. Si siguen, hay que arreglarlos.
 - También en la lista (22-11): `post-to-room` (2 veces), `checkpoints-perf` (3 veces) y 2 tests de pestañas de
   Chrome en Windows (2 veces). Pasan solos en este PC; fallan por carga en CI.
+- 23-11: `antigravity-turn-outcome` (inodo reusado) y la espera del teléfono por USB en Mac: arreglados de verdad,
+  sin reintentos. Va a la lista: `saved-steps/store` "keeps the 200 most recently used" (Windows, 40 s).
 - Pendiente: recalibrar el reparto de tests entre partes de CI (`update-shard-weights`). Los tests nuevos de
   M2 y M3 no tienen tiempo registrado y una parte quedó más lenta.
 
@@ -230,6 +251,8 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 ## Para la auditoría final (M6)
 
 - Test "browser driver S4" en Windows: falla seguido incluso con reintentos (pestañas de Chrome). Revisar en M6.
+- En español, el chat de un bot nuevo aún muestra textos en inglés: "Pick a starting point", "Sol sets itself up for
+  whichever you choose…" y el botón "Connect apps". Se ven en la captura del README; rehacer la captura en M6.
 - Mensajes de motores no instalados dicen "for the user running OpenMausBot". Cambiar a Edu Bot (inglés y español).
 - Herramientas de datos locales (heredadas de upstream): un bot puede leer archivos de tu computador con ellas, igual
   que con su terminal. Se intentó encerrarlas en M4 y rompía cosas; se revisará en M6 con calma.
@@ -244,6 +267,8 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 - Incidente (22-11): el comando `gh` de Grok usó el repo de upstream por defecto y abrió por error un PR en
   milind-soni/OpenMausBot (#7038). No se subió código allá; el PR quedó cerrado de inmediato, pero es visible.
   Arreglo: todas las copias fijan EduardoMoraga/edu-bot como repo por defecto y las reglas exigen `-R` en cada `gh`.
+
+- 23-11, 08:19: el computador se reinició y cerró todos los agentes. No se perdió trabajo (todo estaba subido).
 
 - Incidente (22-11): una prueba de la auditoría de Agy arrancó un servidor sin carpeta temporal y creó `~/.edubot`
   (solo 2 bots de prueba; la carpeta no existía antes, no se perdió nada). La moví a
@@ -265,3 +290,7 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 5. **Memoria del equipo.** Con 12 GB y 5 agentes, el sistema corta los procesos largos.
    Opcional: iniciar Claude Code con `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`,
    o cerrar las otras sesiones de agentes que no uses.
+6. **Opcional: certificados para firmar los instaladores.** Sin ellos, Mac y Windows muestran un aviso al abrir
+   la app (el README explica cómo abrirla igual). Para Mac: Apple Developer ID (USD 99 al año) y sus secretos
+   `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD` y los de notarización. Para Windows: un certificado de firma de código
+   (`WIN_CSC_LINK`). No es urgente.
