@@ -249,6 +249,8 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 ## Para la auditoría final (M6)
 
 - Test "browser driver S4" en Windows: falla seguido incluso con reintentos (pestañas de Chrome). Revisar en M6.
+- En español, el chat de un bot nuevo aún muestra textos en inglés: "Pick a starting point", "Sol sets itself up for
+  whichever you choose…" y el botón "Connect apps". Se ven en la captura del README; rehacer la captura en M6.
 - Mensajes de motores no instalados dicen "for the user running OpenMausBot". Cambiar a Edu Bot (inglés y español).
 - Herramientas de datos locales (heredadas de upstream): un bot puede leer archivos de tu computador con ellas, igual
   que con su terminal. Se intentó encerrarlas en M4 y rompía cosas; se revisará en M6 con calma.
