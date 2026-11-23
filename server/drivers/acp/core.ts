@@ -65,7 +65,7 @@ import { acpSessionOperationKey, acpShellRequest, answersAlone, permissionLaunch
 import { openQuestionRequest, questionRequestFor, type AcpQuestionRequest } from "./question-requests.ts";
 import { commandSummary, toolDetailPreview } from "../../tool-summary.ts";
 import { acpToolEndEvents } from "./tool-items.ts";
-import { AcpHost } from "./host.ts"; import { SignInRequests, type AcpDriverHooks } from "./driver-hooks.ts";
+import { AcpHost } from "./host.ts"; import { SignInRequests, type AcpDriverHooks, type AcpLaunch } from "./driver-hooks.ts";
 import { exitBeforeResult } from "./exit-report.ts"; import { readNodeVersion } from "./node-version.ts";
 import { decodeAcpConfig } from "./config-decode.ts";
 import { endTurn, trackAssistantImage, trackAssistantWords, trackThoughtAfterTool, trackRunningTool, trackToolEndShown, type AcpAskFinish, type AcpSession, type AcpTurn } from "./turn-state.ts";
@@ -171,7 +171,7 @@ export interface AcpSupport extends AcpDriverHooks {
     env: Record<string, string | undefined>,
     config: AcpConfig,
     instanceId: string,
-  ): Promise<{ command: string; args?: string[]; env?: Record<string, string | undefined>; ro?: readonly string[] }>;
+  ): Promise<AcpLaunch>;
   /** Snapshot override for agents whose binary has no conventional --version. */
   snapshot?(
     env: Record<string, string | undefined>,
@@ -605,13 +605,8 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
       };
 
       const openSession = (
-        threadId: string,
-        launch: { command: string; args?: string[]; ro?: readonly string[] },
-        argv: string[],
-        env: Record<string, string | undefined>,
-        cwd: string,
-        contractKey: string,
-        hostKey: string | null,
+        threadId: string, launch: AcpLaunch, argv: string[], env: Record<string, string | undefined>,
+        cwd: string, contractKey: string, hostKey: string | null,
       ): AcpSession => {
         const commandCwd = permissionLaunchCwd(cwd);
         const host = hostFor(threadId, launch, argv, env, cwd, hostKey);
@@ -996,23 +991,17 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
           resolvedModel !== undefined && resolvedModel !== turn.model
             ? { ...turn, model: resolvedModel }
             : turn;
-        let launch: { command: string; args?: string[]; env?: Record<string, string | undefined>; ro?: readonly string[] };
-        try {
-          launch = support.resolveCommand
-            ? await support.resolveCommand(env, turnConfig, instanceId)
-            : { command: turnConfig.cli };
-        } catch (error) {
+        const failSetup = (error: unknown) => {
           requireRunning();
           emit({ ...base(threadId, turnId), type: "turn.started" });
-          emit({
-            ...base(threadId, turnId),
-            type: "runtime.error",
-            message: error instanceof Error ? error.message : String(error),
-            setup: true,
-          });
+          emit({ ...base(threadId, turnId), type: "runtime.error", message: error instanceof Error ? error.message : String(error), setup: true });
           emit({ ...base(threadId, turnId), type: "turn.completed", ok: false, stopReason: "setup_required", cost: null });
           return { turnId };
-        }
+        };
+        let launch: AcpLaunch;
+        try {
+          launch = support.resolveCommand ? await support.resolveCommand(env, turnConfig, instanceId) : { command: turnConfig.cli };
+        } catch (error) { return failSetup(error); }
 
         requireRunning();
         const spawnArgs = support.spawnArgs(turnConfig, cliTurn);
@@ -1033,8 +1022,16 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         let launchedThisTurn = false;
         // The folder and the tool selection ride session/new, so threads differing only there can share a process (in the bot box, only one bot's); never two audiences of a Team Cloud, whose engine homes differ.
         const hostKey = support.shareProcess && inheritedScopeFingerprint === null ? JSON.stringify([...processContract, launchModel ?? null, engineHomes.scope(), sharedBoxScope(cwd)]) : null;
-        const launchSession = () => {
-          const opened = openSession(threadId, launch, [...(launch.args ?? []), ...spawnArgs], launchEnv, cwd, contractKey, hostKey);
+        const prepareLaunch = async (): Promise<AcpLaunch> => {
+          if (sharedHost(hostKey, threadId, cwd) || !launch.beforeSpawn) return launch;
+          const { command, args } = await launch.beforeSpawn();
+          return { ...launch, command, args: args ?? launch.args };
+        };
+        const launchPrepared = (ready: AcpLaunch): AcpSession => {
+          requireRunning();
+          const busy = active.get(threadId);
+          if (busy && busy.turnId !== turnId) throw new Error("a turn is already running on this thread");
+          const opened = openSession(threadId, ready, [...(ready.args ?? []), ...spawnArgs], launchEnv, cwd, contractKey, hostKey);
           opened.launchModel = launchModel;
           launchedThisTurn = true;
           return opened;
@@ -1061,7 +1058,9 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
           await turn.engineAdmission?.(joining ? "session" : "process", joining?.child.pid);
           requireRunning();
           if (active.has(threadId)) throw new Error("a turn is already running on this thread");
-          session = launchSession();
+          let ready = launch;
+          try { if (launch.beforeSpawn && !sharedHost(hostKey, threadId, cwd)) ready = await prepareLaunch(); } catch (error) { if (active.has(threadId)) throw error; return failSetup(error); }
+          session = launchPrepared(ready);
           sessions.set(threadId, session);
         }
       // `session` rebinds when the establishment retry respawns the child: never capture its connection.
@@ -1247,7 +1246,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               if (cursor && liveSessionId === cursor) {
                 session.current = null;
                 closeSession(threadId, "reestablish");
-                session = launchSession();
+                try { session = launchPrepared(await prepareLaunch()); } catch (error) { session.current = current; throw error; }
                 sessions.set(threadId, session);
                 session.current = current;
                 runtimeAcceptsImages = await handshake();
@@ -1546,7 +1545,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         try {
           const turn = { threadId: `memory-text-${newId()}`, text: prompt, approvalMode: "ask", cwd } as SendTurnInput;
           support.applyTurnEnv?.(env, { fullAuto: false, cwd, threadId: turn.threadId, mcpServers: [] });
-          const launch: { command: string; args?: string[]; env?: Record<string, string | undefined>; ro?: readonly string[] } = support.resolveCommand ? await support.resolveCommand(env, turnConfig, instanceId) : { command: turnConfig.cli };
+          const launch: AcpLaunch = support.resolveCommand ? await support.resolveCommand(env, turnConfig, instanceId) : { command: turnConfig.cli };
           const spawnEnv = launch.env ?? env;
           return await runAcpOneShot({
             displayName: support.displayName,

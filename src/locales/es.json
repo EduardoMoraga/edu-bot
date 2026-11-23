@@ -2591,7 +2591,7 @@
   "engineSetup.managedSignIn": "Cada configuración de Antigravity tiene su propia cuenta de Google. Tu navegador completa el acceso seguro.",
   "engineSetup.terminalSignIn": "Termina el acceso a la cuenta en la Terminal. Vuelve a abrir este menú después y lo comprobamos otra vez.",
   "engineSetup.injectDesc": "Instala el agente una vez y podrás usarlo con modelos locales, sin acceso en la nube.",
-  "engineSetup.managedDesc": "{app} instala su propio entorno de ejecución de Antigravity verificado. Es independiente de la app Antigravity y de la CLI agy; instálalo aquí, inicia sesión con Google y esta lista de modelos se actualizará desde tu cuenta.",
+  "engineSetup.managedDesc": "{app} usa tu CLI agy instalada (v1.5+) automáticamente si está presente, o instala su propio entorno de ejecución de Antigravity verificado. Instálalo aquí, inicia sesión con Google y esta lista de modelos se actualizará desde tu cuenta.",
   "engineSetup.installDesc": "Instala la app de línea de comandos una vez. Los modelos aparecerán aquí en cuanto esté lista.",
   "engineSetup.installDescSignIn": "Instala la app de línea de comandos una vez. Los modelos aparecerán aquí en cuanto esté lista; después puede pedirte iniciar sesión.",
   "engineSetup.notReady": "{name} no está listo",
@@ -6613,5 +6613,11 @@
   "botSettings.data.save": "Guardar",
   "botSettings.data.saved": "Guardado.",
   "botSettings.data.allow": "Permitir",
-  "profiles.field.data": "conexiones de datos"
+  "profiles.field.data": "conexiones de datos",
+  "accounts.removeBodyAntigravity": "Esto quita la cuenta y su inicio de sesión de {app}. Tus otras cuentas de Antigravity siguen conectadas.",
+  "accounts.signOutAria": "Cerrar sesión en {name}",
+  "accounts.signOutCliBody": "Esto también cierra la sesión de la app de línea de comandos de {name} en este equipo.",
+  "engineSetup.cloudCantInstall": "{name} aún no se puede instalar en la nube. Elige otra IA en el selector de modelos.",
+  "engineSetup.details": "Detalles",
+  "engineSetup.otherComputerUrl": "Dirección de la página desde el otro equipo"
 }

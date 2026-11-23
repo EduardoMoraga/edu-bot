@@ -4,6 +4,15 @@ import type { ChildProcess } from "node:child_process";
 
 import type { AcpHost } from "./host.ts";
 
+export interface AcpLaunch {
+  command: string;
+  args?: string[];
+  env?: Record<string, string | undefined>;
+  ro?: readonly string[];
+  /** Final verification and argv assembly immediately before spawnCli, after engineAdmission resolves. */
+  beforeSpawn?(): Promise<{ command: string; args?: string[] }>;
+}
+
 export interface AcpDriverHooks {
   /** Local video, image, audio and PDF files named in the turn text go to the model as `resource_link` blocks
    * the agent reads itself, for an agent whose own file tool returns media as raw bytes (Antigravity). */

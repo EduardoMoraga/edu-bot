@@ -2259,7 +2259,6 @@
   "engineSetup.managedSignIn": "Her Antigravity kurulumunun kendi Google hesabı vardır. Güvenli girişi tarayıcınız tamamlar.",
   "engineSetup.terminalSignIn": "Hesap girişini Terminal'de tamamlayın. Ardından bu menüyü tekrar açtığınızda kontrol edeceğiz.",
   "engineSetup.injectDesc": "Ajanı bir kez kurun, ardından yerel modellerle çalıştırabilirsiniz; bulut girişi gerekmez.",
-  "engineSetup.managedDesc": "{app} kendi doğrulanmış Antigravity çalışma zamanını kurar. Antigravity uygulaması ve agy CLI'dan ayrıdır; buradan kurun, Google ile giriş yapın, bu model listesi hesabınızdan yenilenecektir.",
   "engineSetup.installDesc": "Komut satırı uygulamasını bir kez kurun. Hazır olur olmaz modeller burada görünecektir.",
   "engineSetup.installDescSignIn": "Komut satırı uygulamasını bir kez kurun. Hazır olur olmaz modeller burada görünecektir; ardından giriş yapılması gerekebilir.",
   "engineSetup.notReady": "{name} hazır değil",

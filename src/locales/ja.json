@@ -3139,7 +3139,6 @@
   "engineSetup.managedSignIn": "Antigravity のセットアップごとに Google アカウントがあります。安全なサインインはブラウザーで完了します。",
   "engineSetup.terminalSignIn": "アカウントのサインインはターミナルで完了してください。その後このメニューを開き直せば、もう一度確認します。",
   "engineSetup.injectDesc": "エージェントを一度インストールすれば、ローカルモデルで動かせます。クラウドのサインインは不要です。",
-  "engineSetup.managedDesc": "{app} は検証済みの独自 Antigravity ランタイムをインストールします。Antigravity アプリや agy CLI とは別物です。ここでインストールして Google でサインインすると、このモデル一覧があなたのアカウントから更新されます。",
   "engineSetup.installDesc": "コマンドラインアプリを一度インストールしてください。準備ができ次第、ここにモデルが表示されます。",
   "engineSetup.installDescSignIn": "コマンドラインアプリを一度インストールしてください。準備ができ次第ここにモデルが表示されます。その後サインインが必要な場合があります。",
   "engineSetup.notReady": "{name} は準備できていません",

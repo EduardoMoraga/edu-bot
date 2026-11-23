@@ -118,6 +118,7 @@ Use only mapped, tested commands:
 - [Usage ledger](usage-ledger.md)
 - [Bounded built-in tool results](tool-results.md)
 - [Composio project key](composio-own-key.md)
+- [Antigravity live verification](antigravity-live.md)
 - [Memory: recall, upkeep and the tidy-up](memory-layer.md)
 - [Spend cap and sell prices](spend-cap.md)
 

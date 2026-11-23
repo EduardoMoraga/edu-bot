@@ -23,13 +23,13 @@ import { request as httpRequest } from "node:http";
 import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 
-import { DATA_DIR, stripWorkspaceCredentialEnv } from "../config.ts";
+import { DATA_DIR, PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
 import { writeFileAtomic } from "../atomic.ts";
 import { killCliTree, spawnCli } from "../procs.ts";
 import type { BoxRelay } from "../bot-box/relay.ts";
 import type { ModelCatalog } from "../contracts.ts";
 import type { ChildProcess } from "node:child_process";
-import type { AntigravityRuntime } from "./antigravity-runtime.ts";
+import { antigravityExecutablePath, antigravitySpawnArgs, cliProbeKey, isAntigravityCli, type AntigravityRuntime } from "./antigravity-runtime.ts";
 import { acpVariantOption, surveyModelVariants } from "./acp/config-options.ts";
 import { StderrTail, exitDetail } from "./acp/exit-report.ts";
 import {
@@ -64,8 +64,7 @@ export interface AntigravityProfile {
 }
 
 const REMOVED_ENVIRONMENT_KEYS = new Set([
-  "GEMINI_API_KEY",
-  "GOOGLE_API_KEY",
+  ...PROVIDER_CREDENTIAL_ENV,
   "GOOGLE_APPLICATION_CREDENTIALS",
   "GOOGLE_CLOUD_PROJECT",
   "GOOGLE_CLOUD_LOCATION",
@@ -135,7 +134,7 @@ export async function verifyAntigravityBrowserHelper(profile: AntigravityProfile
   if (verifiedBrowserHelpers.has(helper)) return;
   const reason = await antigravityBrowserHelperProblem(profile.environment, helper);
   if (reason) {
-    throw new Error(`Google sign-in cannot start: the helper that passes the sign-in link to OpenMausBot failed a check (${reason}). Restart OpenMausBot and try again. If it keeps failing, share this message.`);
+    throw new Error(`Google sign-in cannot start: the helper that passes the sign-in link to Edu Bot failed a check (${reason}). Restart Edu Bot and try again. If it keeps failing, share this message.`);
   }
   verifiedBrowserHelpers.add(helper);
 }
@@ -254,7 +253,7 @@ export async function prepareAntigravityProfile(input: {
 
   const executable = process.platform === "win32" ? process.execPath.replaceAll("\\", "/") : process.execPath;
   if (/\r|\n|\0|%s/u.test(executable) || executable.includes(delimiter)) {
-    throw new Error("The OpenMausBot runtime path cannot safely suppress Antigravity browser launches.");
+    throw new Error("The Edu Bot runtime path cannot safely suppress Antigravity browser launches.");
   }
   const browserCommand = [executable, "-e", browserHelperSource, "--", "%s"]
     .map(quoteBrowserArgument)
@@ -265,19 +264,24 @@ export async function prepareAntigravityProfile(input: {
   }
   stripWorkspaceCredentialEnv(environment);
   const caBundle = (input.platform ?? process.platform) === "linux" ? linuxCaBundle(input.baseEnv ?? process.env) : undefined;
+  const cli = isAntigravityCli(input.runtime);
   Object.assign(environment, {
     ...(caBundle ? { SSL_CERT_FILE: caBundle } : {}),
-    GEMINI_HOME: directory,
-    AGY_ACP_FORCE_FILE_STORAGE: "1",
-    ANTIGRAVITY_HARNESS_PATH: input.runtime.harnessPath,
+    ...(cli
+      ? {}
+      : {
+          GEMINI_HOME: directory,
+          AGY_ACP_FORCE_FILE_STORAGE: "1",
+          ...(input.runtime.harnessPath ? { ANTIGRAVITY_HARNESS_PATH: input.runtime.harnessPath } : {}),
+          PYTHONUNBUFFERED: "1",
+        }),
     BROWSER: browserCommand,
-    PYTHONUNBUFFERED: "1",
     ELECTRON_RUN_AS_NODE: "1",
   });
-  // On Windows the runtime unpacks 0.34-1.26 GB into TEMP per launch: one OMB folder per instance,
+  // On Windows the packaged ACP server unpacks 0.34-1.26 GB into TEMP per launch: one OMB folder per instance,
   // stable so the pooled spawn contract (which hashes this env) holds.
   let tempDirectory: string | undefined;
-  if ((input.platform ?? process.platform) === "win32") {
+  if (!cli && (input.platform ?? process.platform) === "win32") {
     tempDirectory = resolve(input.tempDirectory ?? antigravityTempDir(input.baseDir ?? DATA_DIR, input.instanceId));
     await mkdir(tempDirectory, { recursive: true });
     setAntigravityTempEnvironment(environment, tempDirectory, "win32");
@@ -302,6 +306,183 @@ export async function antigravityProfileAuthenticated(profile: AntigravityProfil
   } catch {
     return false;
   }
+}
+
+const CLI_AUTH_OK_MS = 5 * 60_000;
+const CLI_AUTH_OUT_MS = 30_000;
+const CLI_AUTH_PROBE_TIMEOUT_MS = 10_000;
+const cliAuthCache = new Map<string, { authenticated: Promise<boolean>; until: number }>();
+const cliModesCache = new Map<string, { modes: Promise<string[] | null>; until: number }>();
+
+function cliAuthKey(instanceId: string, runtime: AntigravityRuntime, profile: AntigravityProfile): string {
+  const binaryId = runtime.cliVerification ? cliProbeKey(runtime.cliVerification) : runtime.executablePath;
+  return [instanceId, binaryId, runtime.version ?? "", profile.environment.HOME ?? profile.environment.USERPROFILE ?? ""].join("\0");
+}
+
+export function advertisedAntigravityModeValues(configOptions: unknown): string[] | null {
+  const modeOption = Array.isArray(configOptions)
+    ? configOptions.find((option: any) => option?.id === "mode")
+    : undefined;
+  if (!modeOption) return null;
+  const values: string[] = [];
+  const visit = (entry: unknown) => {
+    if (!entry || typeof entry !== "object") return;
+    const record = entry as { value?: unknown; options?: unknown };
+    if (Array.isArray(record.options)) {
+      record.options.forEach(visit);
+      return;
+    }
+    if (typeof record.value === "string" && record.value) values.push(record.value);
+  };
+  visit(modeOption);
+  return values;
+}
+
+export function noteAntigravityCliModes(
+  instanceId: string,
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  configOptions: unknown,
+): string[] | null {
+  const modes = advertisedAntigravityModeValues(configOptions);
+  cliModesCache.set(cliAuthKey(instanceId, runtime, profile), {
+    modes: Promise.resolve(modes),
+    until: Date.now() + (modes?.length ? CLI_AUTH_OK_MS : CLI_AUTH_OUT_MS),
+  });
+  return modes;
+}
+
+export function noteAntigravityCliSignedIn(instanceId: string, runtime?: AntigravityRuntime, profile?: AntigravityProfile): void {
+  if (runtime && profile) {
+    cliAuthCache.set(cliAuthKey(instanceId, runtime, profile), {
+      authenticated: Promise.resolve(true),
+      until: Date.now() + CLI_AUTH_OK_MS,
+    });
+    return;
+  }
+  for (const key of cliAuthCache.keys()) {
+    if (key.startsWith(`${instanceId}\0`)) cliAuthCache.delete(key);
+  }
+}
+
+export function noteAntigravityCliSignInRequired(instanceId: string, runtime?: AntigravityRuntime, profile?: AntigravityProfile): void {
+  if (runtime && profile) {
+    cliAuthCache.set(cliAuthKey(instanceId, runtime, profile), {
+      authenticated: Promise.resolve(false),
+      until: Date.now() + CLI_AUTH_OUT_MS,
+    });
+    return;
+  }
+  for (const key of cliAuthCache.keys()) {
+    if (key.startsWith(`${instanceId}\0`)) {
+      cliAuthCache.set(key, { authenticated: Promise.resolve(false), until: Date.now() + CLI_AUTH_OUT_MS });
+    }
+  }
+}
+
+export function clearAntigravityCliAuth(instanceId?: string): void {
+  if (!instanceId) {
+    cliAuthCache.clear();
+    cliModesCache.clear();
+    return;
+  }
+  for (const key of cliAuthCache.keys()) {
+    if (key.startsWith(`${instanceId}\0`)) cliAuthCache.delete(key);
+  }
+  for (const key of cliModesCache.keys()) {
+    if (key.startsWith(`${instanceId}\0`)) cliModesCache.delete(key);
+  }
+}
+
+export async function probeAntigravityCliModes(
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  instanceId: string,
+  timeoutMs = CLI_AUTH_PROBE_TIMEOUT_MS,
+): Promise<string[] | null> {
+  const key = cliAuthKey(instanceId, runtime, profile);
+  const cached = cliModesCache.get(key);
+  if (cached && cached.until > Date.now()) return cached.modes;
+  const probe = (async () => {
+    const client = new AntigravityAcpClient(runtime, profile, profile.directory);
+    try {
+      const deadline = Date.now() + timeoutMs;
+      const initialized = await client.initialize(timeoutMs, deadline);
+      const authLeft = Math.max(1_000, deadline - Date.now());
+      await client.request("authenticate", { methodId: "oauth-personal" }, authLeft);
+      const sessionLeft = Math.max(1_000, deadline - Date.now());
+      const session = await client.request(
+        "session/new",
+        { cwd: profile.directory, mcpServers: [], ...antigravitySessionSetup(initialized) },
+        sessionLeft,
+      );
+      return advertisedAntigravityModeValues(session?.configOptions);
+    } catch (error) {
+      if (error instanceof AntigravitySignInRequired) {
+        noteAntigravityCliSignInRequired(instanceId, runtime, profile);
+      }
+      throw error;
+    } finally {
+      client.close();
+    }
+  })();
+  const entry = { modes: probe, until: Number.POSITIVE_INFINITY };
+  cliModesCache.set(key, entry);
+  void probe.then(
+    (modes) => {
+      if (cliModesCache.get(key) === entry) {
+        cliModesCache.set(key, { modes: probe, until: Date.now() + (modes?.length ? CLI_AUTH_OK_MS : CLI_AUTH_OUT_MS) });
+      }
+    },
+    () => {
+      if (cliModesCache.get(key) === entry) cliModesCache.delete(key);
+    },
+  );
+  return probe;
+}
+
+/** Checks whether the installed `agy` CLI already has a working Google sign-in via ACP `authenticate`. */
+export async function probeAntigravityCliAuthenticated(
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  instanceId: string,
+  timeoutMs = CLI_AUTH_PROBE_TIMEOUT_MS,
+): Promise<boolean> {
+  const key = cliAuthKey(instanceId, runtime, profile);
+  const cached = cliAuthCache.get(key);
+  if (cached && cached.until > Date.now()) return cached.authenticated;
+  const probe = (async () => {
+    const client = new AntigravityAcpClient(runtime, profile, profile.directory);
+    try {
+      const deadline = Date.now() + timeoutMs;
+      await client.initialize(timeoutMs, deadline);
+      const left = Math.max(1_000, deadline - Date.now());
+      await client.request("authenticate", { methodId: "oauth-personal" }, left);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      client.close();
+    }
+  })();
+  const entry = { authenticated: probe, until: Number.POSITIVE_INFINITY };
+  cliAuthCache.set(key, entry);
+  void probe.then((signedIn) => {
+    if (cliAuthCache.get(key) === entry) {
+      cliAuthCache.set(key, { authenticated: probe, until: Date.now() + (signedIn ? CLI_AUTH_OK_MS : CLI_AUTH_OUT_MS) });
+    }
+  });
+  return probe;
+}
+
+export async function antigravityRuntimeAuthenticated(
+  runtime: AntigravityRuntime,
+  profile: AntigravityProfile,
+  instanceId: string,
+): Promise<boolean> {
+  return isAntigravityCli(runtime)
+    ? probeAntigravityCliAuthenticated(runtime, profile, instanceId)
+    : antigravityProfileAuthenticated(profile);
 }
 
 interface PendingRpc {
@@ -341,8 +522,8 @@ export class AntigravityAcpClient {
     this.tempDirectory = profile.tempDirectory;
     this.runtimeVersion = runtime.version;
     this.child = spawnCli(
-      runtime.executablePath,
-      process.platform === "linux" ? ["--uid="] : [],
+      antigravityExecutablePath(runtime),
+      antigravitySpawnArgs(runtime),
       { cwd, env: profile.environment, stdio: ["pipe", "pipe", "pipe"], box: { ro: [join(profile.directory, "omb-skills")], ...(relay ? { relay: relay.socketPath } : {}) } },
       "bot",
     );
@@ -492,7 +673,7 @@ export class AntigravityAcpClient {
         (this.nativeStartupHint ? `${this.nativeStartupHint} ` : "") +
         `Startup output: ${this.startupOutputBytes} bytes; diagnostic output: ${this.startupDiagnosticBytes} bytes. ` +
         (this.tempDirectory ? `Unpacked into temp: ${Math.round(Math.max(0, now - before) / 1_000_000)} MB. ` : "") +
-        "Retry setup. If it still fails, share this error and your OpenMausBot version; do not paste Google sign-in links or tokens.",
+        "Retry setup. If it still fails, share this error and your Edu Bot version; do not paste Google sign-in links or tokens.",
       );
     };
     const initialized = await this.request("initialize", {
@@ -665,6 +846,7 @@ export function catalogFromAntigravityConfigOptions(
 export async function probeAntigravityModels(input: {
   runtime: AntigravityRuntime;
   profile: AntigravityProfile;
+  instanceId?: string;
   cwd?: string;
   fallbackDefault: string;
   timeoutMs?: number;
@@ -679,11 +861,17 @@ export async function probeAntigravityModels(input: {
   try {
     const initialized = await client.initialize(remaining(), deadline);
     await client.request("authenticate", { methodId: "oauth-personal" }, remaining());
+    if (isAntigravityCli(input.runtime) && input.instanceId) {
+      noteAntigravityCliSignedIn(input.instanceId, input.runtime, input.profile);
+    }
     const session = await client.request(
       "session/new",
       { cwd: input.cwd ?? input.profile.directory, mcpServers: [], ...antigravitySessionSetup(initialized) },
       remaining(),
     );
+    if (isAntigravityCli(input.runtime) && input.instanceId) {
+      noteAntigravityCliModes(input.instanceId, input.runtime, input.profile, session?.configOptions);
+    }
     const catalog = catalogFromAntigravityConfigOptions(session?.configOptions, input.fallbackDefault);
     if (!catalog) throw new Error("Antigravity did not return a model catalog for this Google account.");
     const budget = Math.min(VARIANT_SURVEY_MS, deadline - Date.now());
@@ -697,7 +885,12 @@ export async function probeAntigravityModels(input: {
       }),
     };
   } catch (error) {
-    if (error instanceof AntigravitySignInRequired) noteAntigravitySignInRequired(input.profile.tokenPath);
+    if (error instanceof AntigravitySignInRequired) {
+      noteAntigravitySignInRequired(input.profile.tokenPath);
+      if (isAntigravityCli(input.runtime) && input.instanceId) {
+        noteAntigravityCliSignInRequired(input.instanceId, input.runtime, input.profile);
+      }
+    }
     throw error;
   } finally {
     client.close();
@@ -733,7 +926,7 @@ export function isValidAntigravityInitializeResult(
 ): boolean {
   if (!initialized || initialized.protocolVersion !== 1) return false;
   const name = initialized.agentInfo?.name;
-  if (name !== "antigravity-acp" && name !== "Google Antigravity") return false;
+  if (name !== "antigravity-acp" && name !== "Google Antigravity" && name !== "Antigravity ACP Server") return false;
   const actualVersion = initialized.agentInfo?.version;
   if (typeof actualVersion !== "string") return false;
   const normalizedActual = runtimeVersion(actualVersion);

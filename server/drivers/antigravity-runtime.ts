@@ -1,25 +1,28 @@
+import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   access,
   chmod,
+  lstat,
   mkdir,
   mkdtemp,
   open,
   readdir,
   readFile,
+  realpath,
   rename,
   rm,
   stat,
   statfs,
   writeFile,
 } from "node:fs/promises";
-import { constants } from "node:fs";
-import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
+import { constants, createReadStream } from "node:fs";
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 
 import { DATA_DIR } from "../config.ts";
 import { antigravityRuntimesRoot } from "../engine-roots.ts";
 import { extractZipMember, readZipDirectory } from "../zip-archive.ts";
-import { augmentedPath } from "../env-path.ts";
+import { augmentedPath, resolveCliSpawn } from "../env-path.ts";
 import {
   resolveAntigravityReleaseAsset,
   type AntigravityReleaseAsset,
@@ -61,11 +64,53 @@ export async function retryOnWindowsFileLock<T>(step: () => Promise<T>, options:
 
 const INSTALL_RECORD = ".install-complete.json";
 
+export interface AntigravityCliVerification {
+  /** Exact path probed and spawned: the symlink entry itself for argv0-dispatch shims (e.g. mise), otherwise realpath. */
+  launchPath: string;
+  realpath: string;
+  isShim: boolean;
+  dev: string;
+  ino: string;
+  size: string;
+  sha256: string;
+}
+
 export interface AntigravityRuntime {
   executablePath: string;
   harnessPath: string;
+  kind?: "acp-server" | "cli";
   source: "managed" | "override" | "path";
   version: string | null;
+  cliVerification?: AntigravityCliVerification;
+}
+
+export interface AntigravityPreparedSpawn {
+  command: string;
+  args: string[];
+  runtime: AntigravityRuntime;
+}
+
+export function cliProbeKey(verification: AntigravityCliVerification): string {
+  if (verification.isShim) return `shim\0${verification.launchPath}`;
+  return `${verification.launchPath}\0${verification.dev}\0${verification.ino}\0${verification.size}\0${verification.sha256}`;
+}
+
+export function antigravityExecutablePath(
+  runtime: Pick<AntigravityRuntime, "executablePath" | "cliVerification">,
+): string {
+  return runtime.cliVerification?.launchPath ?? runtime.executablePath;
+}
+
+export function isAntigravityCli(runtime: Pick<AntigravityRuntime, "kind">): boolean {
+  return runtime.kind === "cli";
+}
+
+/** Base launch arguments without permission-skip flags; use `prepareAntigravitySpawn` to verify a CLI immediately before adding `--dangerously-skip-permissions`. */
+export function antigravitySpawnArgs(runtime: Pick<AntigravityRuntime, "kind">): string[] {
+  if (isAntigravityCli(runtime)) {
+    return ["acp", "--stdio", "--disable-telemetry"];
+  }
+  return process.platform === "linux" ? ["--uid="] : [];
 }
 
 export class AntigravitySetupError extends Error {
@@ -155,7 +200,191 @@ async function externalRuntime(candidate: string, source: "override" | "path"): 
   return { executablePath, harnessPath, source, version: null };
 }
 
-/** Legacy `agy` commands (saved absolute paths, Windows shims) migrate without editing user config. */
+const CLI_PROBE_TIMEOUT_MS = 4_000;
+const AGY_CLI_NAME = /^(?:agy|antigravity)(?:\.(?:cmd|bat|exe|ps1|mjs|js|ts))?$/iu;
+const ACP_HELP_PATTERN = /\b(?:agy|antigravity)\s+acp\b/iu;
+const CLI_VERSION_PATTERN = /\b(\d+)\.(\d+)\.(\d+)(?:[-+][\w.-]+)?\b/u;
+const MIN_CLI_VERSION: readonly number[] = [1, 5, 0];
+
+export function clearAntigravityCliCacheForTests(): void {}
+
+export function isSupportedAntigravityCliVersion(version: string | null | undefined): boolean {
+  if (!version) return false;
+  const match = CLI_VERSION_PATTERN.exec(version);
+  if (!match) return false;
+  const parts = [Number(match[1]), Number(match[2]), Number(match[3])];
+  return MIN_CLI_VERSION.reduce((diff, min, index) => diff || parts[index]! - min, 0) >= 0;
+}
+
+function hashFileSha256(filePath: string): Promise<string> {
+  return new Promise((done, reject) => {
+    const hash = createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.once("error", reject);
+    stream.once("end", () => done(hash.digest("hex")));
+  });
+}
+
+async function cliBinaryIdentity(
+  executablePath: string,
+  env: NodeJS.ProcessEnv,
+): Promise<AntigravityCliVerification | null> {
+  try {
+    const entryInfo = await lstat(executablePath);
+    const resolvedPath = await realpath(executablePath);
+    const info = await stat(resolvedPath, { bigint: true });
+    if (!info.isFile()) return null;
+    if (process.platform !== "win32") await access(resolvedPath, constants.X_OK);
+    // mise shims symlink `agy` to `/usr/bin/mise` and dispatch on argv0; spawning realpath runs mise directly.
+    const isShim = entryInfo.isSymbolicLink() && !AGY_CLI_NAME.test(basename(resolvedPath));
+    const launchPath = isShim ? executablePath : resolvedPath;
+    let sha256 = "";
+    if (!isShim) {
+      sha256 = await hashFileSha256(resolvedPath);
+      if (process.platform === "win32") {
+        const spawn = resolveCliSpawn(resolvedPath, [], env);
+        const target = spawn.command !== resolvedPath ? spawn.args[0] : undefined;
+        if (target) {
+          const targetReal = await realpath(target).catch(() => null);
+          if (targetReal && targetReal !== resolvedPath) {
+            const targetHash = await hashFileSha256(targetReal);
+            sha256 = createHash("sha256").update(`${sha256}\0${targetReal}\0${targetHash}`).digest("hex");
+          }
+        }
+      }
+    }
+    return {
+      launchPath,
+      realpath: resolvedPath,
+      isShim,
+      dev: info.dev.toString(),
+      ino: info.ino.toString(),
+      size: info.size.toString(),
+      sha256,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function runCliProbe(executablePath: string, args: string[], env: NodeJS.ProcessEnv): Promise<{ ok: boolean; output: string }> {
+  const spawn = resolveCliSpawn(executablePath, args, env);
+  return new Promise((done) => {
+    try {
+      execFile(spawn.command, spawn.args, {
+        env: spawn.env ? { ...env, ...spawn.env } : env,
+        timeout: CLI_PROBE_TIMEOUT_MS,
+        maxBuffer: 64 * 1024,
+        windowsHide: true,
+      }, (error, stdout, stderr) => {
+        done({ ok: !error, output: `${String(stdout ?? "")}\n${String(stderr ?? "")}` });
+      }).once("error", () => done({ ok: false, output: "" }));
+    } catch {
+      done({ ok: false, output: "" });
+    }
+  });
+}
+
+function sameCliBinaryIdentity(
+  before: AntigravityCliVerification,
+  after: AntigravityCliVerification,
+): boolean {
+  return (
+    before.launchPath === after.launchPath &&
+    before.realpath === after.realpath &&
+    before.isShim === after.isShim &&
+    before.dev === after.dev &&
+    before.ino === after.ino &&
+    before.size === after.size &&
+    before.sha256 === after.sha256
+  );
+}
+
+async function probeAntigravityCli(
+  executablePath: string,
+  env: NodeJS.ProcessEnv,
+): Promise<{ version: string; verification: AntigravityCliVerification } | null> {
+  if (!AGY_CLI_NAME.test(basename(executablePath))) return null;
+  const verification = await cliBinaryIdentity(executablePath, env);
+  if (!verification) return null;
+  const help = await runCliProbe(verification.launchPath, ["acp", "--help"], env);
+  if (!help.ok || !ACP_HELP_PATTERN.test(help.output)) return null;
+  const afterHelp = await cliBinaryIdentity(executablePath, env);
+  if (!afterHelp || !sameCliBinaryIdentity(verification, afterHelp)) return null;
+  const ver = await runCliProbe(verification.launchPath, ["--version"], env);
+  const version = ver.ok ? CLI_VERSION_PATTERN.exec(ver.output)?.[0] ?? null : null;
+  if (!version || !isSupportedAntigravityCliVersion(version)) return null;
+  return { version, verification };
+}
+
+async function cliRuntime(
+  candidate: string,
+  source: "override" | "path",
+  env: NodeJS.ProcessEnv,
+): Promise<AntigravityRuntime | null> {
+  const executablePath = resolve(candidate);
+  const probed = await probeAntigravityCli(executablePath, env);
+  if (!probed) return null;
+  return {
+    executablePath,
+    harnessPath: "",
+    kind: "cli",
+    source,
+    version: probed.version,
+    cliVerification: probed.verification,
+  };
+}
+
+/** Runs live `acp --help` and `--version` probes on the exact executable that will spawn; returns null on any mismatch. */
+export async function verifyAntigravityCli(
+  runtime: Pick<AntigravityRuntime, "executablePath" | "kind" | "source" | "cliVerification">,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<AntigravityRuntime | null> {
+  if (!isAntigravityCli(runtime)) return null;
+  const target = antigravityExecutablePath(runtime);
+  const probed = await probeAntigravityCli(target, env);
+  if (!probed) return null;
+  return {
+    executablePath: runtime.executablePath,
+    harnessPath: "",
+    kind: "cli",
+    source: runtime.source,
+    version: probed.version,
+    cliVerification: probed.verification,
+  };
+}
+
+/** Verifies the exact executable about to spawn (help + version) immediately before adding `--dangerously-skip-permissions`. */
+export async function prepareAntigravitySpawn(
+  runtime: AntigravityRuntime,
+  env: NodeJS.ProcessEnv = process.env,
+  options: { fullAuto?: boolean } = {},
+): Promise<AntigravityPreparedSpawn> {
+  if (!isAntigravityCli(runtime)) {
+    return {
+      command: runtime.executablePath,
+      args: antigravitySpawnArgs(runtime),
+      runtime,
+    };
+  }
+  const verified = await verifyAntigravityCli(runtime, env);
+  if (!verified) {
+    throw new AntigravitySetupError(
+      "Antigravity CLI failed verification immediately before launch and was not started.",
+    );
+  }
+  return {
+    command: antigravityExecutablePath(verified),
+    args: [
+      ...antigravitySpawnArgs(verified),
+      ...(options.fullAuto === true ? ["--dangerously-skip-permissions"] : []),
+    ],
+    runtime: verified,
+  };
+}
+
+/** Resolves an explicit override, or (for the default `agy` name) a verified `agy` CLI (v1.5+) on PATH, the managed runtime, or `agy_acp_server` on PATH. */
 export async function resolveAntigravityRuntime(
   binaryPath?: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -163,24 +392,38 @@ export async function resolveAntigravityRuntime(
 ): Promise<AntigravityRuntime> {
   const override = binaryPath?.trim();
   const legacyCli = override !== undefined && /(?:^|[\\/])agy(?:\.(?:cmd|bat|exe|ps1))?$/iu.test(override);
+  const asset = resolveAntigravityReleaseAsset();
+  const names = executableNames();
   if (override && override !== "agy") {
     for (const candidate of pathCandidates(override, env)) {
-      const found = await externalRuntime(candidate, "override");
+      const found = await externalRuntime(candidate, "override") ?? await cliRuntime(candidate, "override", env);
       if (found) return found;
     }
-    if (!legacyCli) {
+    if (legacyCli) {
+      if (!asset) {
+        throw new AntigravitySetupError(
+          `Antigravity no longer runs the agy command, and Google does not publish its official runtime for ${process.platform}-${process.arch}. Set the custom executable path to ${names.executable}, with ${names.harness} in the same folder.`,
+        );
+      }
       throw new AntigravitySetupError(
-        "The custom Antigravity ACP executable or its localharness_external sibling is missing.",
+        "Antigravity now uses Google's official runtime. Choose Install official Antigravity, then Sign in with Google. Your previous agy login is not copied.",
       );
     }
+    throw new AntigravitySetupError(
+      "The custom Antigravity ACP executable or its localharness_external sibling is missing.",
+    );
   }
 
-  const asset = resolveAntigravityReleaseAsset();
+  for (const cliName of process.platform === "win32" ? ["agy.exe", "agy.cmd", "agy"] : ["agy"]) {
+    for (const candidate of pathCandidates(cliName, env)) {
+      const found = await cliRuntime(candidate, "path", env);
+      if (found) return found;
+    }
+  }
   if (asset) {
     const managed = await completedRelease(join(runtimeRoot(baseDir), "versions", asset.sha256), asset);
     if (managed) return managed;
   }
-  const names = executableNames();
   for (const candidate of pathCandidates(names.executable, env)) {
     const found = await externalRuntime(candidate, "path");
     if (found) return found;

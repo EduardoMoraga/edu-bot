@@ -71,7 +71,7 @@ describe("the client name an Antigravity runtime is started with", () => {
     const instance = await AntigravityDriver.create({
       instanceId, displayName: "Antigravity", enabled: true,
       config: { cli: turn.executable, fullAuto: false },
-      environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", FAKE_ACP_MODELS: "gemini-3.8-flash", FAKE_ACP_AGENT_NAME: "Google Antigravity", FAKE_ACP_DUMP: turn.dump },
+      environment: { FAKE_ACP_AUTH_METHOD: "oauth-personal", FAKE_ACP_MODELS: "gemini-3.8-flash", FAKE_ACP_MODES: "default,yolo,auto_edit", FAKE_ACP_AGENT_NAME: "Google Antigravity", FAKE_ACP_DUMP: turn.dump },
     });
     instances.push(instance);
     const recorder = recordEvents(instance.adapter);
