@@ -126,6 +126,20 @@
       "owner": "EduardoMoraga",
       "reason": "Windows shard 8/8 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45174928250 timed out at 40s (job 137694463574); the same shard passed on re-run.",
       "since": "2026-11-23"
+    },
+    {
+      "file": "server/index.test.ts",
+      "test": "harness HTTP API > refuses a second live server that shares the same data directory",
+      "owner": "EduardoMoraga",
+      "reason": "Failed on Ubuntu (PR #25, run of 2026-11-22) and twice on macOS (CI runs 45231506226, 45253151083): the competing server did not exit in time under load. Passes alone.",
+      "since": "2026-11-23"
+    },
+    {
+      "file": "server/host/chief-incident-spend.test.ts",
+      "test": "a routine every 5 minutes whose tool server is dead, for a day > starts 9 routine turns and 2 Chief turns: the first failure, and the one that spaces it out",
+      "owner": "EduardoMoraga",
+      "reason": "Timed out at 40 s on Windows shard 5/8 of https://github.com/EduardoMoraga/edu-bot/actions/runs/45253151083; the same commit passed it on Ubuntu and macOS.",
+      "since": "2026-11-23"
     }
   ]
 }
