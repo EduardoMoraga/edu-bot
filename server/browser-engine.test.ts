@@ -781,6 +781,20 @@ describe("finding the browser engine", () => {
     expect(browserEngineStatus({ dataDir, env, exists, versionOf: () => AGENT_BROWSER_VERSION })).toMatchObject({ kind: "ready", binaryPath: pathBinary, managed: false });
   });
 
+  it("stays not installed when the package resources have no browser-engine", () => {
+    const resources = mkdtempSync(join(tmpdir(), "omb-browser-resources-"));
+    const dataDir = mkdtempSync(join(tmpdir(), "omb-engine-"));
+    scratch.push(resources, dataDir);
+    const env = { OMB_RESOURCES_PATH: resources, PATH: "" };
+    const host = { platform: "linux" as const, arch: "x64", dataDir, env };
+    expect(resolveAgentBrowserBinary(host)).toBeNull();
+    expect(browserEngineStatus(host)).toEqual({
+      kind: "unavailable",
+      reason: "agent-browser is not installed on this machine yet",
+      installable: true,
+    });
+  });
+
   it("hands agent-browser the Chrome OMB prepared instead of the bundled shell, never when it attaches to the person's Chrome", () => {
     const resources = mkdtempSync(join(tmpdir(), "omb-browser-resources-"));
     scratch.push(resources);
