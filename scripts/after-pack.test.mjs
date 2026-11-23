@@ -76,6 +76,48 @@ describe.skipIf(process.platform === "win32")("Linux afterPack permissions", () 
   });
 });
 
+const CUA_DRIVER_NOTICES = [
+  "cua-driver-LICENSE.md",
+  "cua-driver-Inter-OFL-1.1.txt",
+  "cua-driver-THIRD_PARTY_NOTICES.md",
+];
+
+describe("macOS and Windows CUA 0.45.4 notices", () => {
+  function packaged(appOutDir, resources, platform, arch) {
+    return {
+      electronPlatformName: platform,
+      arch,
+      appOutDir,
+      packager: { getResourcesDir: () => resources },
+    };
+  }
+
+  it("fails a real macOS or Windows package when a notice is missing", async () => {
+    const darwin = fixture();
+    await expect(afterPack(packaged(darwin.appOutDir, darwin.resources, "darwin", 3)))
+      .rejects.toThrow(/licenses\/cua-driver-LICENSE\.md/);
+    const win = fixture();
+    const licenses = path.join(win.resources, "licenses");
+    fs.mkdirSync(licenses, { recursive: true });
+    fs.writeFileSync(path.join(licenses, "cua-driver-LICENSE.md"), "notice\n");
+    fs.writeFileSync(path.join(licenses, "cua-driver-Inter-OFL-1.1.txt"), "notice\n");
+    await expect(afterPack(packaged(win.appOutDir, win.resources, "win32", 1)))
+      .rejects.toThrow(/licenses\/cua-driver-THIRD_PARTY_NOTICES\.md/);
+  });
+
+  it("accepts the three notices before the rest of a real package is required", async () => {
+    const { appOutDir, resources } = fixture();
+    const licenses = path.join(resources, "licenses");
+    fs.mkdirSync(licenses, { recursive: true });
+    for (const name of CUA_DRIVER_NOTICES) fs.writeFileSync(path.join(licenses, name), "notice\n");
+    await expect(afterPack(packaged(appOutDir, resources, "darwin", 3)))
+      .rejects.toThrow(/cloudflared/);
+    fs.rmSync(path.join(licenses, "cua-driver-Inter-OFL-1.1.txt"));
+    await expect(afterPack(packaged(appOutDir, resources, "win32", 1)))
+      .rejects.toThrow(/licenses\/cua-driver-Inter-OFL-1\.1\.txt/);
+  });
+});
+
 describe("desktop browser package gate", () => {
   it("rejects a real package that still contains Chrome or Android platform-tools", async () => {
     const { appOutDir, resources } = fixture();

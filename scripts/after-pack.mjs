@@ -30,6 +30,25 @@ async function requireRegularFile(file, mode) {
   if (mode !== undefined) await chmod(file, mode);
 }
 
+const CUA_DRIVER_NOTICES = [
+  "cua-driver-LICENSE.md",
+  "cua-driver-Inter-OFL-1.1.txt",
+  "cua-driver-THIRD_PARTY_NOTICES.md",
+];
+
+async function requirePackagedCuaNotices(resources, platform) {
+  const mode = platform === "win32" ? undefined : 0o644;
+  for (const name of CUA_DRIVER_NOTICES) {
+    const file = path.join(resources, "licenses", name);
+    try {
+      await requireRegularFile(file, mode);
+    } catch (error) {
+      if (error?.code === "ENOENT") throw new Error(`Packaged ${platform} app is missing licenses/${name}`);
+      throw error;
+    }
+  }
+}
+
 async function validateCloudflared(resources, platform, required) {
   const root = path.join(resources, "cloudflared");
   try {
@@ -137,8 +156,12 @@ export default async function afterPack(context) {
       ? path.join(context.appOutDir, `${PRODUCT_NAME}.app`, "Contents", "Resources")
       : path.join(context.appOutDir, "resources")
   );
-  await rejectUnpackagedVendors(resources, Boolean(context.packager));
-  await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));
+  const packaging = Boolean(context.packager);
+  await rejectUnpackagedVendors(resources, packaging);
+  if (packaging && (context.electronPlatformName === "darwin" || context.electronPlatformName === "win32")) {
+    await requirePackagedCuaNotices(resources, context.electronPlatformName);
+  }
+  await validateCloudflared(resources, context.electronPlatformName, packaging);
   const browserRoot = path.join(resources, "browser-engine");
   const hasBrowser = await lstat(browserRoot).then(() => true, (error) => {
     if (error?.code === "ENOENT") return false;

@@ -84,6 +84,11 @@ describe("Edu Bot 0.1.0 release metadata", () => {
     expect(doc).toContain("resources/elevate.exe");
     expect(doc).toContain("0.45.4");
     expect(doc).toContain("Mirroring that exact binary onto this repository is deferred.");
+    const afterPack = read("scripts/after-pack.mjs");
+    for (const name of ["cua-driver-LICENSE.md", "cua-driver-Inter-OFL-1.1.txt", "cua-driver-THIRD_PARTY_NOTICES.md"]) {
+      expect(afterPack).toContain(name);
+      expect(releaseText.split(`$res/licenses/${name}`).length - 1).toBe(2);
+    }
   });
 
   it("names the installers Edu Bot and publishes to this repository", () => {

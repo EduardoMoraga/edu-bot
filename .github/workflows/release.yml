@@ -192,6 +192,9 @@ jobs:
             done
             test -x "$res/cloudflared/cloudflared" || { echo "::error::missing cloudflared in $app"; exit 1; }
             test -f "$res/licenses/cloudflared-LICENSE.txt" || { echo "::error::missing cloudflared license in $app"; exit 1; }
+            test -f "$res/licenses/cua-driver-LICENSE.md" || { echo "::error::missing CUA license in $app"; exit 1; }
+            test -f "$res/licenses/cua-driver-Inter-OFL-1.1.txt" || { echo "::error::missing CUA font license in $app"; exit 1; }
+            test -f "$res/licenses/cua-driver-THIRD_PARTY_NOTICES.md" || { echo "::error::missing CUA notices in $app"; exit 1; }
             OMB_SMOKE_DIST="$res/server" node scripts/smoke-packaged-server.mjs \
               || { echo "::error::packaged server in $app failed to start"; exit 1; }
             node scripts/check-module-scopes.mjs "$res"
@@ -393,6 +396,9 @@ jobs:
           test -f "$res/cloudflared/cloudflared.exe"
           test -f "$res/licenses/cloudflared-LICENSE.txt"
           test -f "$res/licenses/cloudflared-README.md"
+          test -f "$res/licenses/cua-driver-LICENSE.md"
+          test -f "$res/licenses/cua-driver-Inter-OFL-1.1.txt"
+          test -f "$res/licenses/cua-driver-THIRD_PARTY_NOTICES.md"
           node scripts/check-module-scopes.mjs "$res"
           expected=$(node --input-type=module -e "import { CLOUDFLARED_ASSETS } from './scripts/prepare-cloudflared.mjs'; console.log(Object.values(CLOUDFLARED_ASSETS).find((asset) => asset.name === 'cloudflared-windows-amd64.exe').binarySha256)")
           actual=$(sha256sum "$res/cloudflared/cloudflared.exe" | cut -d' ' -f1)
