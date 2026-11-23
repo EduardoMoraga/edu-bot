@@ -1,4 +1,4 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, truncateSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, truncateSync, unlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -1720,6 +1720,121 @@ await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
     expect(lines.some((line) => line.startsWith("EVIL ") && line.includes("--dangerously-skip-permissions"))).toBe(false);
     expect(lines.some((line) => line.startsWith("EVIL ") && line.includes("--stdio"))).toBe(false);
     expect(existsSync(`${dump}.prompt.json`)).toBe(false);
+  }, 30_000);
+
+  it("re-runs prepareAntigravitySpawn after engineAdmission resolves and refuses a CLI replaced during admission", async () => {
+    if (process.platform === "win32") return;
+    ensureDirs();
+    const dir = mkdtempSync(join(tmpdir(), "omb-agy-admission-swap-"));
+    scratch.push(dir);
+    const binPath = join(dir, "agy");
+    const logPath = join(dir, "exec.log");
+    const dump = join(dir, "dump.json");
+
+    const goodBody = `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logPath)}, "GOOD " + JSON.stringify(args) + "\\n");
+if (args[0] === "acp" && args.includes("--help")) { console.log("Usage: agy acp [flags]"); process.exit(0); }
+if (args.includes("--version")) { console.log("1.5.14"); process.exit(0); }
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`;
+    const evilBody = `#!/usr/bin/env node
+import { appendFileSync } from "node:fs";
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(logPath)}, "EVIL " + JSON.stringify(args) + "\\n");
+if (args[0] === "acp" && args.includes("--help")) { console.log("not a probed cli"); process.exit(0); }
+if (args.includes("--version")) { console.log("9.9.9"); process.exit(0); }
+await import(${JSON.stringify(pathToFileURL(FAKE_ACP).href)});
+`;
+    writeFileSync(binPath, goodBody, { mode: 0o755 });
+
+    instance = await AntigravityDriver.create({
+      instanceId: "antigravity-admission-swap",
+      displayName: "Google Gemini (Antigravity)",
+      enabled: true,
+      config: { cli: binPath, fullAuto: false },
+      environment: {
+        FAKE_ACP_AUTH_METHOD: "oauth-personal",
+        FAKE_ACP_AGENT_NAME: "Antigravity ACP Server",
+        FAKE_ACP_AGENT_VERSION: "1.5.14",
+        FAKE_ACP_MODELS: "gemini-3.8-flash",
+        FAKE_ACP_MODES: "default,accept-edits,auto,plan",
+        FAKE_ACP_DUMP: dump,
+        FAKE_ACP_DUMP_PROMPT: "1",
+      },
+    });
+    await instance.startupModelRefresh;
+
+    const realSpawn = procs.spawnCli;
+    const spawnedAfterAdmission: Array<{ command: string; args: string[] }> = [];
+    let admissionResolved = false;
+    const spawnSpy = vi.spyOn(procs, "spawnCli").mockImplementation((...args) => {
+      if (admissionResolved) spawnedAfterAdmission.push({ command: args[0], args: [...args[1]] });
+      return realSpawn(...args);
+    });
+
+    try {
+      recorder = recordEvents(instance.adapter);
+      const { turnId } = await instance.adapter.sendTurn({
+        threadId: "thread-admission-swap",
+        text: "hello",
+        approvalMode: "full",
+        model: "gemini-3.8-flash",
+        cwd: dir,
+        engineAdmission: async () => {
+          appendFileSync(logPath, "ADMISSION_SWAP\n");
+          await new Promise((r) => setTimeout(r, 40));
+          writeFileSync(binPath, evilBody, { mode: 0o755 });
+          await new Promise((r) => setTimeout(r, 40));
+          admissionResolved = true;
+        },
+      });
+      const completed = await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+      expect(completed).toMatchObject({ ok: false, stopReason: "setup_required" });
+      const setupError = recorder.events.find((e) => e.type === "runtime.error" && e.turnId === turnId);
+      expect(setupError).toMatchObject({ setup: true });
+      expect(spawnedAfterAdmission).toEqual([]);
+      expect(existsSync(`${dump}.prompt.json`)).toBe(false);
+
+      const swapLines = readFileSync(logPath, "utf8").trim().split("\n");
+      const admissionIndex = swapLines.indexOf("ADMISSION_SWAP");
+      expect(admissionIndex).toBeGreaterThanOrEqual(0);
+      const afterSwapAdmission = swapLines.slice(admissionIndex + 1);
+      expect(afterSwapAdmission).toEqual(['EVIL ["acp","--help"]']);
+      expect(swapLines.some((line) => line.startsWith("EVIL ") && line.includes("--dangerously-skip-permissions"))).toBe(false);
+      expect(swapLines.some((line) => line.startsWith("EVIL ") && line.includes("--stdio"))).toBe(false);
+
+      // Restore the verified CLI and confirm the post-admission probe still runs immediately before spawnCli.
+      writeFileSync(binPath, goodBody, { mode: 0o755 });
+      admissionResolved = false;
+      const { turnId: okTurnId } = await instance.adapter.sendTurn({
+        threadId: "thread-admission-ok",
+        text: "hello",
+        approvalMode: "full",
+        model: "gemini-3.8-flash",
+        cwd: dir,
+        engineAdmission: async () => {
+          appendFileSync(logPath, "ADMISSION_OK\n");
+          admissionResolved = true;
+        },
+      });
+      expect(await recorder.until((e) => e.type === "turn.completed" && e.turnId === okTurnId)).toMatchObject({ ok: true });
+      const okLines = readFileSync(logPath, "utf8").trim().split("\n");
+      const okAdmissionIndex = okLines.indexOf("ADMISSION_OK");
+      expect(okAdmissionIndex).toBeGreaterThanOrEqual(0);
+      expect(okLines.slice(okAdmissionIndex + 1)).toEqual([
+        'GOOD ["acp","--help"]',
+        'GOOD ["--version"]',
+        'GOOD ["acp","--stdio","--disable-telemetry","--dangerously-skip-permissions"]',
+      ]);
+      expect(spawnedAfterAdmission).toEqual([{
+        command: realpathSync(binPath),
+        args: ["acp", "--stdio", "--disable-telemetry", "--dangerously-skip-permissions"],
+      }]);
+    } finally {
+      spawnSpy.mockRestore();
+    }
   }, 30_000);
 
   it("probes and spawns mise-style argv0 shims via the PATH entry without caching under the shim target hash", async () => {

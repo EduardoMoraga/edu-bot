@@ -13,6 +13,7 @@ import type {
   SendTurnInput,
 } from "../contracts.ts";
 import { createAcpDriver, type AcpConfig, type AcpSupport } from "./acp/core.ts";
+import type { AcpLaunch } from "./acp/driver-hooks.ts";
 import {
   advertisedAntigravityModeValues,
   antigravityClientInfo,
@@ -37,6 +38,7 @@ import { antigravityLimitFacts, watchAntigravityPromptOutcome } from "./antigrav
 import { AntigravityAuthController } from "./antigravity-auth.ts";
 import {
   antigravityManagedInstallAvailable,
+  antigravitySpawnArgs,
   installAntigravityRuntime,
   isAntigravityCli,
   prepareAntigravitySpawn,
@@ -175,21 +177,32 @@ const support: AcpSupport = {
     launchedVersions.set(instanceId, runtime.version);
     const profile = await prepareAntigravityProfile({ instanceId, runtime, baseEnv: env });
     if (profile.tempDirectory) scheduleAntigravityTempSweep(instanceId);
-    if (isAntigravityCli(runtime) && config.fullAuto === true) {
+    const fullAuto = config.fullAuto === true;
+    if (isAntigravityCli(runtime) && fullAuto) {
       const advertisedModes = await probeAntigravityCliModes(runtime, profile, instanceId);
       if (advertisedModes === null) throw new Error(MISSING_MODE_ERROR);
       if (!antigravityPermissionMode(true, "full", advertisedModes)) throw new Error(UNADVERTISED_MODE_ERROR);
     }
-    const prepared = await prepareAntigravitySpawn(runtime, profile.environment, {
-      fullAuto: config.fullAuto === true,
-    });
+    const prepared = await prepareAntigravitySpawn(runtime, profile.environment, { fullAuto });
     launchedVersions.set(instanceId, prepared.runtime.version);
-    return {
+    let currentRuntime = prepared.runtime;
+    const launch: AcpLaunch = {
       command: prepared.command,
       args: prepared.args,
       env: profile.environment,
       ro: [join(profile.directory, "omb-skills")],
+      beforeSpawn: async () => {
+        // Drop skip-permissions before re-probing so a failed probe never keeps the flag on launch.args.
+        launch.args = antigravitySpawnArgs(currentRuntime);
+        const verified = await prepareAntigravitySpawn(currentRuntime, profile.environment, { fullAuto });
+        currentRuntime = verified.runtime;
+        launchedVersions.set(instanceId, verified.runtime.version);
+        launch.command = verified.command;
+        launch.args = verified.args;
+        return { command: verified.command, args: verified.args };
+      },
     };
+    return launch;
   },
 
   resolveModels: async (env, config, instanceId) => {
