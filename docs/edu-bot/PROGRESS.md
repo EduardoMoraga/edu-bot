@@ -152,9 +152,11 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   y una lista de tablas por bot. Los números salen de las consultas, nunca del modelo.
   Decisión (22-11): tras 2 auditorías de Agy con fallas graves (saltar la lista de tablas, leer archivos del computador),
   el conector sale SOLO DE LECTURA. Escribir en la base queda para después. La clave de la base nunca llega a un bot.
-- [ ] M4-5: el tope de aprobación por área se cumple siempre, y un visor de auditoría por bot y por área.
-- [ ] M4-6 (pedido 22-11): Antigravity como proveedor, para usar los modelos de Google (Gemini) desde la app.
-  Ya existe como motor heredado; hay que probarlo de punta a punta con tu `agy` real y arreglar lo que falle.
+- [ ] M4-5 (en curso, Codex): el tope de aprobación por área se cumple siempre, y un visor de auditoría por bot y por área.
+- [x] M4-6 (#25, fusionado; lo hizo Agy, Grok auditó 5 rondas hasta PASS): Antigravity como proveedor, para usar
+  Gemini desde la app. La app rechazaba tu `agy` 1.5 instalado; ahora lo usa. Prueba real con tu `agy`: respondió,
+  usó una herramienta de Edu Bot y se canceló bien (3 turnos cortos). El permiso "acceso total" solo se da a un
+  `agy` verificado justo antes de arrancar.
 
 ## Cómo trabajamos
 
@@ -223,6 +225,7 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
 
 ## Para la auditoría final (M6)
 
+- Test "browser driver S4" en Windows: falla seguido incluso con reintentos (pestañas de Chrome). Revisar en M6.
 - Herramientas de datos locales (heredadas de upstream): un bot puede leer archivos de tu computador con ellas, igual
   que con su terminal. Se intentó encerrarlas en M4 y rompía cosas; se revisará en M6 con calma.
 
