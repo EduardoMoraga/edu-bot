@@ -2,11 +2,12 @@
 // platform's vitest shards run, on the commit itself, on a commit with the same
 // tree, or (for a version-only bump) on its parent.
 //
-// A push to main or a merge group runs no macOS shards, so the release
-// commit's own run proves nothing; CI then starts on a `release-ci/v<version>`
-// branch no merge on main can touch, as a manual run of every platform. A main
-// run is never re-run in place: the re-run would join main's group and cancel
-// the newest merge's waiting run.
+// A merge group runs no macOS shards, so that run is only partial proof. A push
+// to main runs every platform's vitest shards. When the commit has no green run
+// of every platform's shards, CI starts on a `release-ci/v<version>` branch no
+// merge on main can touch, as a manual run of every platform. A main run is
+// never re-run in place: the re-run would join main's group and cancel the
+// newest merge's waiting run.
 import { pathToFileURL } from "node:url";
 import { FULL_LANE_EVENTS, VITEST_SHARDS, versionOnlyPackageJson } from "./ci-scope.mjs";
 
@@ -27,8 +28,8 @@ const neverStarted = (job) => !(job.steps ?? []).some((step) => step.conclusion 
 /**
  * What one finished CI run proves.
  * - "green": the gate passed and every platform's every vitest shard ran and passed.
- * - "partial": the gate passed and every vitest job that ran passed, but not every platform's shards ran (a push to
- *   main or a merge group runs no macOS shards).
+ * - "partial": the gate passed and every vitest job that ran passed, but not every platform's shards ran (a merge
+ *   group runs no macOS shards).
  * - "scoped": the gate passed but vitest did not run (docs- or version-only).
  * - "runner-lost": the gate failed, and every other failed job never started.
  * - "red": the gate failed for any other reason.

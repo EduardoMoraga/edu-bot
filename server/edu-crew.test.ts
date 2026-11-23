@@ -1,6 +1,6 @@
-import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import type { EduBrainSetting } from "../shared/edu-brain.ts";
@@ -25,6 +25,7 @@ const dataDir = join(root, "data");
 const project = join(home, "Projects", "shop");
 const brain = join(dataDir, "brains", "bot-1");
 for (const dir of [project, join(brain, ".edu", "specs"), join(home, ".edu")]) mkdirSync(dir, { recursive: true });
+const projectReal = realpathSync(project);
 const specPath = join(brain, ".edu", "specs", "add-hello.md");
 writeFileSync(specPath, "# Add hello\n\n- **R-1** hello.txt exists\n");
 
@@ -236,10 +237,10 @@ describe("Edu crew plan", () => {
     expect(started.body.text).toContain(JOB);
     expect(started.body.text).toMatch(/Only the person can approve/);
     const runCall = calls[0]!;
-    expect(runCall.args).toEqual([CLI, "--cwd", project, "run", "--detach", "--playbook", "quick", "--", "Add a hello file"]);
+    expect(runCall.args).toEqual([CLI, "--cwd", projectReal, "run", "--detach", "--playbook", "quick", "--", "Add a hello file"]);
     expect(runCall.args.join(" ")).not.toMatch(/--yes|\s-y\b|autoApprove/);
     expect(runCall.env.EDU_HOME).toBe(join(brain, ".edu"));
-    expect(runCall.env.EDU_CEILING_DIRECTORIES).toBe(join(home, "Projects"));
+    expect(runCall.env.EDU_CEILING_DIRECTORIES).toBe(dirname(projectReal));
     expect(runCall.env).not.toHaveProperty("EDU_CREW_JOB");
     const line = threads.get("t-1")!.find((message) => message.eduCrew);
     expect(line).toMatchObject({ kind: "activity", eduCrew: { jobId: JOB, kind: "plan", status: "running", title: "Add a hello file" } });
@@ -248,7 +249,7 @@ describe("Edu crew plan", () => {
     await crew.tick();
     const card = threads.get("t-1")!.find((message) => message.card?.eduCrewGate)!.card!;
     expect(card).toMatchObject({ tool: "edu_crew_gate", fixedOptions: true, options: ["Approve", "Reject"], title: "Let Edu crew go on?",
-      eduCrewGate: { jobId: JOB, gateId: GATE, gate: "Approve spec", goal: "Add a hello file", folder: project } });
+      eduCrewGate: { jobId: JOB, gateId: GATE, gate: "Approve spec", goal: "Add a hello file", folder: projectReal } });
     expect(card.eduCrewGate!.spec).toContain("hello.txt exists");
     expect(threads.get("t-1")!.find((message) => message.eduCrew)!.eduCrew).toMatchObject({ status: "waiting" });
     expect(decisions.at(-1)).toMatchObject({ decision: "card-shown", tool: "edu_crew_gate" });
@@ -264,7 +265,7 @@ describe("Edu crew plan", () => {
 
     const before = calls.length;
     expect(await crew.resolve("t-1", card.requestId!, "allow")).toEqual({ ok: true, outcome: "allowed-once" });
-    expect(calls.slice(before).filter((call) => !call.args.includes("status")).map((call) => call.args.slice(1))).toEqual([["--cwd", project, "crew", "approve", JOB, "--request", GATE]]);
+    expect(calls.slice(before).filter((call) => !call.args.includes("status")).map((call) => call.args.slice(1))).toEqual([["--cwd", projectReal, "crew", "approve", JOB, "--request", GATE]]);
     expect(threads.get("t-1")!.find((message) => message.card?.eduCrewGate)!.card).toMatchObject({ answered: "allow" });
     expect(decisions.at(-1)).toMatchObject({ decision: "user-approved", source: "user" });
     expect(await crew.resolve("t-1", card.requestId!, "deny")).toMatchObject({ ok: true, alreadySettled: true });
@@ -286,7 +287,7 @@ describe("Edu crew plan", () => {
     expect(await crew.resolve("t-1", first.card!.requestId!, "allow")).toMatchObject({ ok: true, alreadySettled: true });
     const before = calls.length;
     expect(await crew.resolve("t-1", cards[1]!.card!.requestId!, "deny")).toEqual({ ok: true, outcome: "rejected" });
-    expect(calls.slice(before).filter((call) => !call.args.includes("status")).map((call) => call.args.slice(1))).toEqual([["--cwd", project, "crew", "reject", JOB, "--request", GATE2]]);
+    expect(calls.slice(before).filter((call) => !call.args.includes("status")).map((call) => call.args.slice(1))).toEqual([["--cwd", projectReal, "crew", "reject", JOB, "--request", GATE2]]);
     crew.stop();
   });
 
@@ -307,7 +308,7 @@ describe("Edu crew plan", () => {
     await crew.stopped("other-thread");
     expect(calls.some((call) => call.args.includes("cancel"))).toBe(false);
     await crew.stopped("t-1");
-    expect(calls.filter((call) => call.args.includes("cancel")).map((call) => call.args.slice(1))).toEqual([["--cwd", project, "crew", "cancel", JOB, "--json"]]);
+    expect(calls.filter((call) => call.args.includes("cancel")).map((call) => call.args.slice(1))).toEqual([["--cwd", projectReal, "crew", "cancel", JOB, "--json"]]);
     const rows = threads.get("t-1")!;
     expect(rows.find((message) => message.eduCrew)).toMatchObject({ eduCrew: { status: "cancelled" }, tool: { name: "Edu crew stopped “Long work”" } });
     expect(rows.find((message) => message.card?.eduCrewGate)!.card).toMatchObject({ answered: "unavailable", dismissed: true });
@@ -336,7 +337,7 @@ describe("Edu crew review", () => {
     expect(answer.body.text).toContain("No findings.");
     expect(answer.body.text).toMatch(/not instructions/);
     const dispatch = calls[0]!.args.slice(1);
-    expect(dispatch.slice(0, 10)).toEqual(["--cwd", project, "crew", "dispatch", "--autonomy", "readonly", "--json", "--", "codex", expect.stringContaining("Question: Is the parser safe?")]);
+    expect(dispatch.slice(0, 10)).toEqual(["--cwd", projectReal, "crew", "dispatch", "--autonomy", "readonly", "--json", "--", "codex", expect.stringContaining("Question: Is the parser safe?")]);
     expect(dispatch[9]).toContain("Do not modify files");
     crew.stop();
   });

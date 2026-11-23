@@ -143,6 +143,18 @@ describe.skipIf(process.platform !== "linux")("Linux DEB upgrade hook", () => {
     expect(fs.lstatSync(external).mode & 0o777).toBe(0o777);
   });
 
+  it("installs when the package does not ship the bot browser", () => {
+    const { appRoot, browserRoot, apparmorDir, resources, cuaRoot, chromiumSandbox } = fixture();
+    fs.rmSync(browserRoot, { recursive: true });
+    const result = runHook(appRoot);
+    expect(result.status, result.stderr).toBe(0);
+    expect(fs.existsSync(path.join(apparmorDir, "edubot-browser"))).toBe(false);
+    expect(fs.lstatSync(cuaRoot).mode & 0o777).toBe(0o755);
+    expect(fs.lstatSync(path.join(cuaRoot, "cua-driver")).mode & 0o777).toBe(0o755);
+    expect(fs.lstatSync(chromiumSandbox).mode & 0o7777).toBe(0o4755);
+    expect(fs.lstatSync(resources).mode & 0o777).toBe(0o755);
+  });
+
   it("fails the install when a bundled executable is missing", () => {
     const { appRoot, cuaRoot } = fixture();
     fs.unlinkSync(path.join(cuaRoot, "cua-driver"));

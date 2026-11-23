@@ -31,6 +31,7 @@ describe("the known-flaky list", () => {
     }
     const keys = list.map((entry) => `${entry.file} :: ${entry.test}`);
     expect(new Set(keys).size).toBe(keys.length);
+    expect(list.map((entry) => entry.file)).not.toContain("server/drivers/antigravity-turn-outcome.test.ts");
   });
 
   it("retries only in CI", () => {

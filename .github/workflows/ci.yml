@@ -21,7 +21,8 @@ on:
   # repository (docs/ci.md); this trigger is what lets CI report on those runs.
   merge_group:
   # The full lane every night on main's newest commit: every platform's shards
-  # and smokes, which pushes to main and merge groups leave out (docs/ci.md).
+  # and smokes. A push to main also runs the macOS shards. A pull request does
+  # not take a macOS runner (docs/ci.md).
   schedule:
     - cron: "17 21 * * *"
 
@@ -186,9 +187,10 @@ jobs:
     if: contains(needs.static.outputs.jobs, '"vitest"')
     # scripts/ci-scope.mjs picks the platforms and their shards: PRs run Linux,
     # and Windows only when their change can break Windows or they carry the
-    # windows label (the account runs only five macOS jobs at a time), main
-    # pushes and merge groups Linux and Windows, and the full lane (nightly,
-    # manual runs, the release lane) all three. A pull request that
+    # windows label. A pull request does not run macOS vitest (the account runs
+    # only five macOS jobs at a time). A push to main runs Linux, Windows and
+    # macOS. A merge group runs Linux and Windows. The full lane (nightly,
+    # manual runs, the release lane on release-ci/*) runs all three. A pull request that
     # cannot affect a platform's results leaves it out, and one that changes
     # only translations runs the locale tests alone. On a Boat VM the static
     # job runs the Linux entries itself. Linux runs every file;
@@ -352,10 +354,9 @@ jobs:
     needs: static
     if: contains(needs.static.outputs.jobs, '"electron-smokes"')
     # Real Electron utility processes against disposable homes and fake CLIs.
-    # Never the live app. Each script prints its own evidence lines. Every
-    # PR's, push's and merge group's macOS checks live in this one job: macOS
-    # runners are the scarce ones, and each extra job pays its own queue wait
-    # and install.
+    # Never the live app. Each script prints its own evidence lines. A push to
+    # main, a merge group and the full lane (release-ci/* among them) run this
+    # job. A pull request does not: macOS runners are the scarce ones.
     name: macOS smokes (packaged server + Electron)
     runs-on: macos-latest
     timeout-minutes: 25

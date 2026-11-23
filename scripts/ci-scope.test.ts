@@ -68,9 +68,11 @@ function outputs(text: string) {
 const packaged = (oses: string[]) => oses.filter((os) => os !== "macos-latest");
 const everything = (oses: string[]) => ({ jobs: SELECTABLE_JOBS, vitest_os: oses, packaged_server_os: packaged(oses), vitest_matrix: vitestMatrix(oses) });
 const staticOnly = (oses: string[], build: boolean) => ({ jobs: build ? ["build"] : [], vitest_os: oses, packaged_server_os: packaged(oses), vitest_matrix: vitestMatrix(oses) });
-/** What a push to main and a merge group run: Linux's and Windows' shards, the macOS smokes and the short Linux checks. */
+/** What a merge group runs: Linux's and Windows' shards, the macOS smokes and the short Linux checks. */
 const MAIN_JOBS = ["build", "vitest", "behavior-evals", "packaged-server", "electron-smokes", "foss", "control-plane", "ui-smoke", "browser-identity"];
 const mainLane = () => ({ jobs: MAIN_JOBS, vitest_os: MAIN, packaged_server_os: MAIN, vitest_matrix: vitestMatrix(MAIN) });
+/** What a push to main runs: those checks, plus the macOS shards. */
+const pushLane = () => ({ jobs: MAIN_JOBS, vitest_os: ALL, packaged_server_os: packaged(ALL), vitest_matrix: vitestMatrix(ALL) });
 
 describe("vitest matrix", () => {
   it("gives Linux and Windows eight shards each and macOS four, and only Linux every e2e file", () => {
@@ -638,7 +640,11 @@ describe("CI scope CLI", () => {
       pull_request: { base: { sha: base }, head: { sha: git("rev-parse", "HEAD") } },
     });
     // A server change that cannot break Windows first: its Windows jobs wait for main.
-    expect(output).toEqual({ jobs: SERVER_JOBS, vitest_os: LINUX, packaged_server_os: LINUX, vitest_matrix: vitestMatrix(LINUX) });
+    // A pull request takes no macOS runner. macOS vitest and the macOS smokes run on a push to main and in the release lane.
+    expect(output).toEqual({
+      jobs: SERVER_JOBS.filter((job) => job !== "electron-smokes"),
+      vitest_os: LINUX, packaged_server_os: LINUX, vitest_matrix: vitestMatrix(LINUX),
+    });
     expect(stderr).toBe("");
   });
 
@@ -675,7 +681,8 @@ describe("CI scope CLI", () => {
       pull_request: { base: { sha: base }, head: { sha: kind === "invalid" ? "--help" : kind === "unavailable" ? "f".repeat(40) : base } },
     };
     const { output, stderr } = run(directory, "pull_request", payload);
-    expect(output).toEqual(everything(ALL));
+    expect(output).toEqual({ ...everything(PR), jobs: SELECTABLE_JOBS.filter((job) => job !== "electron-smokes") });
+    expect(output.vitest_matrix.include.some((entry: { os: string }) => entry.os === "macos-latest")).toBe(false);
     expect(stderr).toContain("using all checks");
   });
 
@@ -789,7 +796,7 @@ describe("CI scope CLI on a push to main", () => {
     const api = await fakeRunsApi({ [before]: [{ event: "pull_request", status: "completed", conclusion: "failure" }, ...green] });
     try {
       const { output, stderr } = await runPush(directory, { before, after }, github(api));
-      expect(output).toEqual(staticOnly(MAIN, true));
+      expect(output).toEqual(staticOnly(ALL, true));
       expect(stderr).toBe("");
       expect(api.requests).toEqual([runsOf(after), runsOf(before)]);
     } finally {
@@ -805,7 +812,7 @@ describe("CI scope CLI on a push to main", () => {
     });
     try {
       const { output, stderr } = await runPush(directory, { before, after }, github(api));
-      expect(output).toEqual(ciOutputs(QUEUED_SCOPE, MAIN));
+      expect(output).toEqual(ciOutputs(QUEUED_SCOPE, ALL));
       expect(stderr).toBe("");
     } finally {
       await api.close();
@@ -820,7 +827,7 @@ describe("CI scope CLI on a push to main", () => {
     const api = await fakeRunsApi({ [after]: [{ id: 78, event: "merge_group", status: "completed", conclusion: "failure" }] }, { 78: gateJobs });
     try {
       const { output, stderr } = await runPush(directory, { before, after }, github(api));
-      expect(output).toEqual(mainLane());
+      expect(output).toEqual(pushLane());
       expect(stderr).toBe("");
       expect(api.requests).toEqual([runsOf(after), "GET /repos/o/r/actions/runs/78/jobs?per_page=100 Bearer t"]);
     } finally {
@@ -838,7 +845,7 @@ describe("CI scope CLI on a push to main", () => {
     const api = await fakeRunsApi({ [before]: runs });
     try {
       const { output, stderr } = await runPush(directory, { before, after }, github(api));
-      expect(output).toEqual(mainLane());
+      expect(output).toEqual(pushLane());
       expect(stderr).toContain("has no green CI run of its own");
     } finally {
       await api.close();
@@ -848,7 +855,7 @@ describe("CI scope CLI on a push to main", () => {
   it("runs main's checks when the pushed commit's CI cannot be read", async () => {
     const { directory, before, after } = pushFixture(bump);
     const { output, stderr } = await runPush(directory, { before, after }, { GH_TOKEN: undefined, GITHUB_REPOSITORY: undefined });
-    expect(output).toEqual(mainLane());
+    expect(output).toEqual(pushLane());
     expect(stderr).toContain("using main's checks");
   });
 
@@ -861,7 +868,7 @@ describe("CI scope CLI on a push to main", () => {
     const api = await fakeRunsApi({ [before]: green });
     try {
       const { output, stderr } = await runPush(directory, { before, after }, github(api));
-      expect(output).toEqual(mainLane());
+      expect(output).toEqual(pushLane());
       expect(stderr).toBe("");
       expect(api.requests).toEqual([runsOf(after)]);
     } finally {
@@ -876,7 +883,7 @@ describe("CI scope CLI on a push to main", () => {
   ])("falls back loudly to main's checks for %s", async (_, payload) => {
     const { directory } = fixture();
     const { output, stderr } = await runPush(directory, payload, {});
-    expect(output).toEqual(mainLane());
+    expect(output).toEqual(pushLane());
     expect(stderr).toContain("using main's checks");
   });
 });
@@ -916,7 +923,12 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
     return { output: outputs(readFileSync(outputPath, "utf8")), stdout, stderr };
   }
 
-  const serverJobs = (oses: string[]) => ({ jobs: SERVER_JOBS, vitest_os: oses, packaged_server_os: oses, vitest_matrix: vitestMatrix(oses) });
+  const serverJobs = (oses: string[]) => ({
+    jobs: SERVER_JOBS.filter((job) => job !== "electron-smokes"),
+    vitest_os: oses,
+    packaged_server_os: oses.filter((os) => os !== "macos-latest"),
+    vitest_matrix: vitestMatrix(oses),
+  });
 
   it("runs the Windows jobs for a changed line that names Windows, and says why", async () => {
     const { directory, payload } = serverChange('if (process.platform === "win32") quote();\n');
@@ -930,6 +942,8 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
     const { directory, payload } = serverChange("export const greeting = \"hello\";\n");
     const { output, stdout, stderr } = await runPullRequest(directory, payload);
     expect(output).toEqual(serverJobs(LINUX));
+    expect(output.vitest_matrix.include.some((entry: { os: string }) => entry.os === "macos-latest")).toBe(false);
+    expect(output.jobs).not.toContain("electron-smokes");
     expect(stdout).toContain('label the PR "windows" and re-run');
     expect(stderr).toBe("");
   });

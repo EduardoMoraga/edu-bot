@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { DATA_LIMITS, DATA_TOOL_NAMES, type DataColumn } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE } from "../../shared/data-connections.ts";
+import { flushDecisionLog } from "../decision-log.ts";
 import { ConnectionStore } from "./connections.ts";
 import { FakeDataDatabase } from "../testing/fake-data-database.ts";
 import { DataSheetStore } from "./sheet.ts";
@@ -40,7 +41,11 @@ function freshDir(): string {
   dirs.push(dir);
   return dir;
 }
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
+afterEach(async () => {
+  const pending = dirs.splice(0);
+  for (const dir of pending) await flushDecisionLog(dir);
+  for (const dir of pending) rmSync(dir, { recursive: true, force: true });
+});
 
 function context(overrides: Partial<DataContext> = {}) {
   const dir = freshDir();

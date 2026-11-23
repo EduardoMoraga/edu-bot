@@ -325,7 +325,7 @@ describe("the Chrome launcher", () => {
     await chrome.ready(headless("/bundle/chrome-headless-shell"));
     await chrome.prepare();
     expect(calibrate).not.toHaveBeenCalled();
-    expect(chrome.describe()).toBe("the bundled Chromium headless shell (OMB_BROWSER_LEGACY_SHELL=1)");
+    expect(chrome.describe()).toBe("agent-browser's own browser (OMB_BROWSER_LEGACY_SHELL=1)");
     expect(readdirSync(machine.root)).not.toContain("data");
   });
 

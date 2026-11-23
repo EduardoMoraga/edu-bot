@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 
 // The ci.yml jobs a pull request runs only when its change can affect them;
 // `static` and the `CI` gate always run. Besides these job ids a scope's checks
-// name the vitest job's parts: "linux-tests", "host-tests" (Windows, and macOS
-// where the event runs it), and the subsets in VITEST_SUBSETS.
+// name the vitest job's parts: "linux-tests", "host-tests" (Windows on a pull
+// request when windowsReason says so; macOS and Windows on a push to main and
+// on the full lane), and the subsets in VITEST_SUBSETS.
 export const SELECTABLE_JOBS = [
   "build", "vitest", "behavior-evals", "packaged-server", "windows-cua", "electron-smokes", "cloudflared-linux-arm64",
   "foss", "control-plane", "ui-smoke", "browser-identity", "package-linux", "browser-driver", "relay",
@@ -197,7 +198,7 @@ export const VITEST_SUBSETS = {
   },
   "docs-tests": {
     part: "docs tests",
-    files: ["server/model-providers-docs.test.ts", "src/locales/vocabulary.test.ts"],
+    files: ["scripts/edu-release.test.ts", "server/model-providers-docs.test.ts", "src/locales/vocabulary.test.ts"],
     shards: 1,
     nodeTests: false,
   },
@@ -247,8 +248,9 @@ export function areaOf(file) {
 export const FULL_SCOPE = { areas: ["everything"], checks: [...EVERY_CHECK].sort() };
 
 /** A push to main and a merge group: the build, every test file on Linux and the Windows shards, the macOS smokes and
- * the Linux checks no longer than a shard. The macOS shards, the Windows CUA smoke, the Linux package, the browser driver
- * and the ARM installer run in the full lane only: nightly, manual runs and the release lane. */
+ * the Linux checks no longer than a shard. A push to main also runs the macOS shards (the CLI adds that platform).
+ * A merge group does not. The Windows CUA smoke, the Linux package, the browser driver and the ARM installer run in
+ * the full lane only: nightly, manual runs and the release lane (`release-ci/*`). */
 export const MAIN_SCOPE = {
   areas: ["main"],
   checks: [
@@ -336,11 +338,13 @@ export function selectPushScope(files, show) {
   return { runtime: true };
 }
 
-// macOS runners are the scarce ones (five at a time for the whole account),
-// and only a couple of test blocks are macOS-only, so a PR runs the suite on
-// Linux, and on Windows only when its change can break Windows (windowsReason);
-// a push to main and a merge group run Linux and Windows. The full lane adds
-// macOS. A PR that can affect the macOS smokes still runs them.
+// macOS runners are the scarce ones (five at a time for the whole account).
+// A pull request runs Linux, and Windows only when the change can break
+// Windows (windowsReason). It does not run macOS vitest or the macOS smokes
+// job. A push to main runs Linux, Windows and the macOS shards, plus the
+// macOS smokes. A merge group runs Linux, Windows and the macOS smokes, not
+// the macOS shards. The full lane (nightly, a manual run, and release-ci/*)
+// runs every platform.
 export const ALL_OS = ["macos-latest", "ubuntu-latest", "windows-latest"];
 export const LINUX_OS = ["ubuntu-latest"];
 export const WINDOWS_OS = ["ubuntu-latest", "windows-latest"];
@@ -494,6 +498,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   let scope = lane === "main" ? MAIN_SCOPE : FULL_SCOPE;
   let vitestOs = lane === "main" ? WINDOWS_OS : ALL_OS;
   if (lane === "pr") {
+    // An unreadable diff still runs Linux and Windows. It never takes a macOS runner.
+    vitestOs = WINDOWS_OS;
     try {
       const { pull_request: pr } = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
       const base = pr?.base?.sha;
@@ -511,14 +517,16 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
           hostE2e: Object.keys((await import("./testing/host-e2e.ts")).HOST_E2E),
           lines: () => changedCodeLines(`${base}...${head}`),
         });
-        if (why) vitestOs = WINDOWS_OS;
+        vitestOs = why ? WINDOWS_OS : LINUX_OS;
         console.log(why ? `CI scope: Windows runs for ${why}`
           : `CI scope: nothing here can break Windows first, so its jobs wait for main (label the PR "${WINDOWS_LABEL}" and re-run to run them)`);
       }
     } catch (error) {
       console.warn(`CI scope: using all checks because the pull request diff is unavailable: ${error.message}`);
     }
+    scope = { ...scope, checks: scope.checks.filter((check) => check !== "electron-smokes") };
   } else if (process.env.GITHUB_EVENT_NAME === "push") {
+    vitestOs = ALL_OS;
     // A push to main is scoped by its own commits; the release gate counts only
     // a run of every platform's shards as tested.
     try {

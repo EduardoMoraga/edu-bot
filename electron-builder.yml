@@ -1,5 +1,6 @@
 appId: io.github.eduardomoraga.edubot
 productName: Edu Bot
+copyright: Copyright © 2026 Eduardo Moraga
 artifactName: EduBot-${version}-${arch}.${ext}
 
 protocols:
@@ -97,8 +98,6 @@ extraResources:
     to: companion
   - from: skills
     to: skills
-  - from: dist-native/android-platform-tools
-    to: android-platform-tools
 
 mac:
   # Two single-arch artifacts rather than one universal binary: the app is
@@ -127,10 +126,15 @@ mac:
       to: cua-driver
     - from: dist-native/${arch}/cua-sdk
       to: cua-sdk
+    # Cua Driver 0.45.4: MIT, the Inter OFL, and the MPL source notice. Linux packages 0.41.3 with its own copies.
+    - from: third_party/cua-driver-0.45.4/LICENSE.md
+      to: licenses/cua-driver-LICENSE.md
+    - from: third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt
+      to: licenses/cua-driver-Inter-OFL-1.1.txt
+    - from: third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md
+      to: licenses/cua-driver-THIRD_PARTY_NOTICES.md
     - from: dist-native/cloudflared/darwin-${arch}/cloudflared
       to: cloudflared/cloudflared
-    - from: dist-native/browser/darwin-${arch}
-      to: browser-engine
     # The Data engine's native modules (DuckDB, resvg; server/data/engine.ts)
     # as a node_modules tree the server requires at runtime; prepare-duckdb
     # stages this arch's slice. The copy names the node_modules directory
@@ -154,7 +158,10 @@ mac:
   notarize: false
 
 dmg:
-  sign: true
+  title: Edu Bot ${version}
+  # electron-builder signs the dmg only when this is exactly true. The release
+  # workflow sets it when a Developer ID certificate is configured.
+  sign: false
   # ${arch} is load-bearing: without it the x64 dmg silently overwrites
   # the arm64 one when both arches build (this section overrides both the
   # top-level and mac-level artifactName, so it must carry the arch itself)
@@ -181,8 +188,6 @@ win:
   extraResources:
     - from: dist-native/cloudflared/win32-x64/cloudflared.exe
       to: cloudflared/cloudflared.exe
-    - from: dist-native/browser/win32-x64
-      to: browser-engine
     - from: dist-native/duckdb/win32-x64/node_modules
       to: duckdb/node_modules
     - from: dist-native/duckdb/win32-x64/extensions
@@ -194,6 +199,13 @@ win:
       to: cua-driver-background.exe
     - from: dist-native/cua-win32-x64/cua-sdk
       to: cua-sdk
+    # Cua Driver 0.45.4: MIT, the Inter OFL, and the MPL source notice. Linux packages 0.41.3 with its own copies.
+    - from: third_party/cua-driver-0.45.4/LICENSE.md
+      to: licenses/cua-driver-LICENSE.md
+    - from: third_party/cua-driver-0.45.4/Inter-OFL-1.1.txt
+      to: licenses/cua-driver-Inter-OFL-1.1.txt
+    - from: third_party/cua-driver-0.45.4/THIRD_PARTY_NOTICES.md
+      to: licenses/cua-driver-THIRD_PARTY_NOTICES.md
   # No signing config yet (would go under win.signtoolOptions or
   # win.azureSignOptions — eb 26 nests it, there is no top-level
   # win.certificateFile). The installer is unsigned, so SmartScreen shows
@@ -208,6 +220,7 @@ nsis:
   oneClick: true
   perMachine: false
   shortcutName: Edu Bot
+  uninstallDisplayName: Edu Bot
   # Versioned, like the .dmg. The README's /latest/download/ button needs a
   # STABLE filename, so ship a second copy named EduBot-setup.exe on the
   # release — the same trick as EduBot.dmg beside EduBot-${version}.dmg.
@@ -238,8 +251,6 @@ linux:
       to: cua-linux-x64
     - from: dist-native/cloudflared/linux-x64/cloudflared
       to: cloudflared/cloudflared
-    - from: dist-native/browser/linux-x64
-      to: browser-engine
     - from: dist-native/duckdb/linux-x64/node_modules
       to: duckdb/node_modules
     - from: dist-native/duckdb/linux-x64/extensions

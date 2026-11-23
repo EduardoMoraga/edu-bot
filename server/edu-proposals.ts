@@ -94,7 +94,7 @@ export function proposalBody(file: string): string | undefined {
 export function parseProposals(stdout: string, folder: string, globalHome: string, shared = false): EduProposal[] {
   const rows: unknown = JSON.parse(stdout);
   if (!Array.isArray(rows)) throw new Error("edu brain proposals did not print a list");
-  const own = join(folder, ".edu");
+  const own = resolveThroughLinks(join(folder, ".edu"));
   const home = resolveThroughLinks(globalHome);
   const proposals: EduProposal[] = [];
   for (const row of rows) {

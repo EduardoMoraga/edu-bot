@@ -50,13 +50,30 @@ export function fakePhone({ mode = "", video = SCRCPY_VIDEO, devices = "", under
     /** Every byte the phone's control socket has received, in hex, once there are at least `bytes` of them. */
     control: (bytes: number) =>
       new Promise<string>((resolve) => {
-        const look = () => {
-          const received = existsSync(join(dir, "control.hex")) ? read("control.hex") : "";
-          if (received.length < bytes * 2) return;
+        let settled = false;
+        let timer: ReturnType<typeof setInterval> | undefined;
+        let changes: ReturnType<typeof watch>;
+        const finish = (received: string) => {
+          if (settled) return;
+          settled = true;
+          clearInterval(timer);
           changes.close();
           resolve(received);
         };
-        const changes = watch(dir, look);
+        const look = () => {
+          let received = "";
+          try {
+            received = existsSync(join(dir, "control.hex")) ? read("control.hex") : "";
+          } catch {
+            return;
+          }
+          if (received.length < bytes * 2) return;
+          finish(received);
+        };
+        // macOS can drop a directory watch event, so this wait also polls.
+        changes = watch(dir, look);
+        timer = setInterval(look, 25);
+        timer.unref?.();
         look();
       }),
     /** More video on the running session's socket; settles once the phone has passed all of it on. */

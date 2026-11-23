@@ -16,59 +16,37 @@ if (!runnerTemp || !path.isAbsolute(runnerTemp) || !fs.existsSync(runnerTemp)) {
 const candidate = path.resolve(process.argv[2] ?? "");
 if (!candidate.endsWith(".deb") || !fs.existsSync(candidate)) fail("pass the newly built DEB path");
 
-try {
-  const status = execFileSync("dpkg-query", ["-W", "-f=${db:Status-Abbrev}", "edu-bot"], {
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
-  }).trim();
-  if (status.startsWith("ii")) fail("refusing to replace a pre-existing Edu Bot installation");
-} catch (error) {
-  if (String(error?.message ?? error).includes("refusing to replace")) throw error;
+function packageStatus() {
+  try {
+    return execFileSync("dpkg-query", ["-W", "-f=${db:Status-Abbrev}", "edu-bot"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return "";
+  }
 }
 
-const temporary = fs.mkdtempSync(path.join(path.resolve(runnerTemp), "omb-deb-upgrade-"));
-if (path.dirname(temporary) !== path.resolve(runnerTemp)) fail("temporary fixture escaped RUNNER_TEMP");
-const legacyRoot = path.join(temporary, "legacy-package");
-const controlRoot = path.join(legacyRoot, "DEBIAN");
-const legacyApp = path.join(legacyRoot, "opt", "edu-bot");
-const legacyResources = path.join(legacyApp, "resources");
-const legacyDeb = path.join(temporary, "edu-bot_0.1.7_amd64.deb");
+function purgeInstalled() {
+  if (!packageStatus()) return;
+  execFileSync("dpkg", ["--purge", "edu-bot"], { stdio: "inherit" });
+}
 
-try {
-  fs.mkdirSync(controlRoot, { recursive: true, mode: 0o755 });
-  fs.mkdirSync(legacyResources, { recursive: true, mode: 0o775 });
-  fs.chmodSync(legacyApp, 0o775);
-  fs.chmodSync(legacyResources, 0o775);
-  fs.writeFileSync(
-    path.join(controlRoot, "control"),
-    [
-      "Package: edu-bot",
-      "Version: 0.1.7",
-      "Architecture: amd64",
-      "Maintainer: Edu Bot CI <ci@edubot.invalid>",
-      "Description: Legacy Edu Bot directory-mode upgrade fixture",
-      "",
-    ].join("\n"),
-    { mode: 0o644 },
-  );
-  fs.writeFileSync(path.join(legacyResources, "legacy-upgrade-fixture"), "0.1.7\n", { mode: 0o644 });
+function installedVersion() {
+  return execFileSync("dpkg-query", ["-W", "-f=${Version}", "edu-bot"], { encoding: "utf8" }).trim();
+}
 
-  execFileSync("dpkg-deb", ["--build", "--root-owner-group", legacyRoot, legacyDeb], {
-    stdio: "inherit",
-  });
-  execFileSync("dpkg", ["--install", legacyDeb], { stdio: "inherit" });
-  for (const directory of ["/opt/edu-bot", "/opt/edu-bot/resources"]) {
-    const mode = fs.lstatSync(directory).mode & 0o777;
-    if (mode !== 0o775) fail(`legacy fixture did not reproduce 0775 at ${directory}`);
-  }
-
-  // apt configures the real artifact and resolves its declared desktop
-  // dependencies. Calling dpkg directly can leave the package unconfigured on
-  // the intentionally minimal runner before its post-install hook is tested.
-  execFileSync("apt-get", ["install", "-y", "--no-install-recommends", candidate], {
+function aptInstall(deb) {
+  // apt configures the package and resolves its declared desktop dependencies.
+  // Calling dpkg directly can leave the package unconfigured on the
+  // intentionally minimal runner before its post-install hook is tested.
+  execFileSync("apt-get", ["install", "-y", "--no-install-recommends", deb], {
     env: { ...process.env, DEBIAN_FRONTEND: "noninteractive" },
     stdio: "inherit",
   });
+}
+
+function assertUpgradedTree() {
   for (const directory of [
     "/opt/edu-bot",
     "/opt/edu-bot/resources",
@@ -100,11 +78,75 @@ try {
   ) {
     fail(`upgraded Chromium sandbox is not root:root 4755: ${chromiumSandbox}`);
   }
-  const installedVersion = execFileSync("dpkg-query", ["-W", "-f=${Version}", "edu-bot"], {
-    encoding: "utf8",
-  }).trim();
+}
+
+const temporary = fs.mkdtempSync(path.join(path.resolve(runnerTemp), "omb-deb-upgrade-"));
+if (path.dirname(temporary) !== path.resolve(runnerTemp)) fail("temporary fixture escaped RUNNER_TEMP");
+
+const candidateVersion = execFileSync("dpkg-deb", ["-f", candidate, "Version"], { encoding: "utf8" }).trim();
+if (!/^[0-9][0-9A-Za-z.+~:-]*$/.test(candidateVersion)) fail(`candidate version is not a Debian version: ${candidateVersion}`);
+const olderVersion = `${candidateVersion}~smoke`;
+const newerVersion = `${candidateVersion}+smoke`;
+
+function stageDeb(version, { looseModes }) {
+  const stage = path.join(temporary, `stage-${version.replace(/[^0-9A-Za-z.+~]/g, "_")}`);
+  const controlRoot = path.join(stage, "DEBIAN");
+  const app = path.join(stage, "opt", "edu-bot");
+  const resources = path.join(app, "resources");
+  const deb = path.join(temporary, `edu-bot_${version}_amd64.deb`);
+  fs.mkdirSync(controlRoot, { recursive: true, mode: 0o755 });
+  fs.mkdirSync(resources, { recursive: true, mode: looseModes ? 0o775 : 0o755 });
+  if (looseModes) {
+    fs.chmodSync(app, 0o775);
+    fs.chmodSync(resources, 0o775);
+  }
+  fs.writeFileSync(
+    path.join(controlRoot, "control"),
+    [
+      "Package: edu-bot",
+      `Version: ${version}`,
+      "Architecture: amd64",
+      "Maintainer: Edu Bot CI <ci@edubot.invalid>",
+      "Description: Edu Bot upgrade smoke fixture",
+      "",
+    ].join("\n"),
+    { mode: 0o644 },
+  );
+  fs.writeFileSync(path.join(resources, "upgrade-fixture"), `${version}\n`, { mode: 0o644 });
+  execFileSync("dpkg-deb", ["--build", "--root-owner-group", stage, deb], { stdio: "inherit" });
+  return deb;
+}
+
+try {
+  purgeInstalled();
+  const olderDeb = stageDeb(olderVersion, { looseModes: true });
+  execFileSync("dpkg", ["--install", olderDeb], { stdio: "inherit" });
+  for (const directory of ["/opt/edu-bot", "/opt/edu-bot/resources"]) {
+    const mode = fs.lstatSync(directory).mode & 0o777;
+    if (mode !== 0o775) fail(`legacy fixture did not reproduce 0775 at ${directory}`);
+  }
+
+  aptInstall(candidate);
+  assertUpgradedTree();
+  if (installedVersion() !== candidateVersion) {
+    fail(`upgrade installed ${installedVersion()}, not ${candidateVersion}`);
+  }
+
+  const newerDeb = stageDeb(newerVersion, { looseModes: false });
+  execFileSync("dpkg", ["--compare-versions", candidateVersion, "lt", newerVersion], { stdio: "inherit" });
+  aptInstall(newerDeb);
+  if (installedVersion() !== newerVersion) {
+    fail(`a later version did not upgrade ${candidateVersion} to ${newerVersion} (installed ${installedVersion()})`);
+  }
+
+  purgeInstalled();
+  aptInstall(candidate);
+  assertUpgradedTree();
+  if (installedVersion() !== candidateVersion) {
+    fail(`restored package is ${installedVersion()}, not ${candidateVersion}`);
+  }
   console.log(
-    `[smoke-deb-upgrade] OK: 0.1.7 legacy modes repaired by ${installedVersion} without weakening the runtime path`,
+    `[smoke-deb-upgrade] OK: ${olderVersion} legacy modes repaired by ${candidateVersion}, and ${newerVersion} upgrades without a downgrade`,
   );
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

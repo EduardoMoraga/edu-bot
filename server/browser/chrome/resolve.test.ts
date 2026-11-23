@@ -67,27 +67,29 @@ describe("which Chrome the bots' browser runs", () => {
     expect(registryData(output, "Missing")).toBeNull();
   });
 
-  it("on a Linux desktop without its own Google Chrome keeps the bundled shell, as a fixed choice", () => {
-    const linuxDesktop = (files: string[]) => host("linux", files, { env: { OMB_RESOURCES_PATH: "/opt/OpenMausBot/resources" } });
-    expect(resolveChromePlan(linuxDesktop(["/opt/google/chrome/chrome"]), managed)).toMatchObject({ kind: "chrome", chrome: { source: "installed" }, fallback: null });
-    expect(resolveChromePlan(linuxDesktop([]), managed)).toEqual({ kind: "legacy", reason: "Google Chrome is not installed", noChrome: true });
+  it("on a Linux desktop uses installed Google Chrome, and downloads Chrome for Testing when it is missing or managed", () => {
+    const linuxDesktop = (files: string[]) => host("linux", files, { env: { OMB_RESOURCES_PATH: "/opt/edu-bot/resources" } });
+    const pin = chromeForTestingPin("linux", "arm64");
+    expect(resolveChromePlan(linuxDesktop(["/opt/google/chrome/chrome"]), managed)).toMatchObject({ kind: "chrome", chrome: { source: "installed" }, fallback: pin });
+    expect(resolveChromePlan(linuxDesktop([]), managed)).toEqual({ kind: "download", pin });
     const policy = linuxDesktop(["/opt/google/chrome/chrome", "/etc/opt/chrome/policies/managed/corp.json"]);
     expect(chromePolicyManaged(policy)).toBe(true);
-    expect(resolveChromePlan(policy, managed)).toEqual({ kind: "legacy", reason: "Google Chrome here is managed by an organization" });
+    expect(resolveChromePlan(policy, managed)).toEqual({ kind: "download", pin });
     expect(chromePolicyManaged(linuxDesktop(["/etc/opt/chrome/policies/managed/README"]))).toBe(false);
   });
 
   it("on a Linux desktop finds a Google Chrome that is only on PATH, as on NixOS", () => {
     const linuxDesktop = (files: string[]) => host("linux", files, { env: { OMB_RESOURCES_PATH: "/opt/OpenMausBot/resources", PATH: "/run/wrappers/bin:/run/current-system/sw/bin:/usr/bin" } });
+    const pin = chromeForTestingPin("linux", "arm64");
     expect(resolveChromePlan(linuxDesktop(["/run/current-system/sw/bin/google-chrome"]), managed))
-      .toEqual({ kind: "chrome", chrome: { path: "/run/current-system/sw/bin/google-chrome", source: "installed" }, fallback: null });
+      .toEqual({ kind: "chrome", chrome: { path: "/run/current-system/sw/bin/google-chrome", source: "installed" }, fallback: pin });
     expect(resolveChromePlan(linuxDesktop(["/usr/bin/google-chrome-stable", "/usr/bin/google-chrome"]), managed))
-      .toMatchObject({ kind: "chrome", chrome: { path: "/usr/bin/google-chrome-stable", source: "installed" } });
+      .toMatchObject({ kind: "chrome", chrome: { path: "/usr/bin/google-chrome-stable", source: "installed" }, fallback: pin });
     expect(resolveChromePlan(linuxDesktop(["/opt/google/chrome/chrome", "/usr/bin/google-chrome"]), managed))
-      .toMatchObject({ kind: "chrome", chrome: { path: "/opt/google/chrome/chrome", source: "installed" } });
-    expect(resolveChromePlan(linuxDesktop(["/usr/bin/chromium"]), managed)).toEqual({ kind: "legacy", reason: "Google Chrome is not installed", noChrome: true });
+      .toMatchObject({ kind: "chrome", chrome: { path: "/opt/google/chrome/chrome", source: "installed" }, fallback: pin });
+    expect(resolveChromePlan(linuxDesktop(["/usr/bin/chromium"]), managed)).toEqual({ kind: "legacy", reason: "agent-browser found a browser on this server" });
     expect(resolveChromePlan(linuxDesktop(["/usr/bin/google-chrome", "/etc/opt/chrome/policies/managed/corp.json"]), managed))
-      .toEqual({ kind: "legacy", reason: "Google Chrome here is managed by an organization" });
+      .toEqual({ kind: "legacy", reason: "agent-browser found a browser on this server" });
   });
 
   it("on a server uses the Chrome for Testing agent-browser installed, newest first", () => {

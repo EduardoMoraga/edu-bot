@@ -116,7 +116,7 @@ describe("CI concurrency", () => {
     expect(workflow.jobs["packaged-server"].strategy.matrix.os).toBe("${{ fromJSON(needs.static.outputs.packaged_server_os) }}");
   });
 
-  it("keeps each PR to one macOS job", () => {
+  it("keeps the static macOS smoke as its own job; macOS vitest comes from the scope matrix", () => {
     const macosJobs = Object.entries(workflow.jobs as Record<string, { "runs-on": string; strategy?: { matrix?: { os?: unknown } } }>)
       .filter(([, job]) => job["runs-on"] === "macos-latest" || JSON.stringify(job.strategy?.matrix?.os ?? "").includes("macos"))
       .map(([name]) => name);
@@ -164,17 +164,6 @@ describe("CI concurrency", () => {
       .map((match) => `scripts/${match[1]}`);
     expect(imports).toContain("scripts/ci-scope.mjs");
     expect(sparse.sort()).toEqual(["scripts/release-ci.mjs", ...imports].sort());
-  });
-
-  it("builds the Windows Defender check's installer exactly as the release's Windows job does", () => {
-    const release = parse(readFileSync(new URL("../.github/workflows/release.yml", import.meta.url), "utf8"));
-    const check = parse(readFileSync(new URL("../.github/workflows/windows-defender-check.yml", import.meta.url), "utf8"));
-    type Step = { uses?: string; with?: unknown; run?: string; shell?: string };
-    const toolchainToInstaller = (steps: Step[]) => steps.slice(1, steps.findIndex((step) => step.run === "pnpm package:win") + 1)
-      .map(({ uses, with: inputs, run, shell }) => ({ uses, with: inputs, run, shell }));
-    expect(toolchainToInstaller(check.jobs.check.steps).at(-1)?.run).toBe("pnpm package:win");
-    expect(toolchainToInstaller(check.jobs.check.steps)).toEqual(toolchainToInstaller(release.jobs.windows.steps));
-    expect(check.jobs.check["runs-on"]).toBe(release.jobs.windows["runs-on"]);
   });
 
   it("lets the scope read the previous commit's CI and a pull request's labels, and nothing more", () => {

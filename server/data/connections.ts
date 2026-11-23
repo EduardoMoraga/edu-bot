@@ -1,10 +1,11 @@
 // Named connections live in data-connections.json, mode 0600. A postgres password is only a Vault id on that file.
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { writeFileAtomic } from "../atomic.ts";
+import { resolveThroughLinks } from "../sentinel/paths.ts";
 import { CONNECTION_NAME, connectionNameError, containsRawDsn } from "../../shared/data-connections.ts";
 import { probeConnection } from "./session.ts";
 
@@ -168,7 +169,9 @@ export class ConnectionStore {
 
   private knownFolder(path: string, folders: string[]): string {
     const expanded = this.expand(path);
-    const saved = folders.find((item) => item === expanded || item === path || item === resolve(path));
+    // macOS realpath maps `/var` to `/private/var`, including a leaf that is already gone.
+    const wanted = resolveThroughLinks(expanded);
+    const saved = folders.find((item) => item === expanded || item === path || item === resolve(path) || resolveThroughLinks(item) === wanted);
     if (saved) {
       try { return this.directory(saved); } catch { return saved; }
     }
@@ -259,15 +262,29 @@ function windowsTooBroad(real: string): boolean {
   });
 }
 
+/** macOS `realpath("/tmp")` is `/private/tmp`. `os.tmpdir()` is `/var/folders/<id>/<id>/T`, and `realpath` prefixes `/private`. */
+const DARWIN_TEMP = /^\/private\/var\/folders\/[^/]+\/[^/]+\/T$/;
+
+function underTemp(real: string): boolean {
+  const roots = [realOr("/tmp"), realOr("/var/tmp")];
+  if (process.platform === "darwin") {
+    const own = realOr(tmpdir());
+    if (DARWIN_TEMP.test(own)) roots.push(own);
+  }
+  return roots.some((root) => isInside(root, real));
+}
+
 function folderRejected(real: string, dataDir: string): string | null {
   const data = realOr(dataDir);
   if (real === data || isInside(data, real) || isInside(real, data)) return "Edu Bot's data folder cannot hold a database connection.";
   const home = realOr(homedir());
   if (real === home || isInside(real, home)) return "That folder is too broad.";
   if (EXACT_ROOTS.has(real) || windowsTooBroad(real)) return "That folder is too broad.";
-  if (isInside("/tmp", real) || isInside("/var/tmp", real)) return null;
+  if (real === realOr(tmpdir())) return "That folder is too broad.";
+  if (underTemp(real)) return null;
   for (const root of CHILD_ROOTS) {
-    if (real === root || isInside(root, real)) return "That folder is too broad.";
+    const canonical = realOr(root);
+    if (real === root || real === canonical || isInside(root, real) || isInside(canonical, real)) return "That folder is too broad.";
   }
   return null;
 }

@@ -1,6 +1,6 @@
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -8,6 +8,22 @@ import { NAMED_CONNECTION_SENTENCE, containsRawDsn, dataGrantWidens, parseDataGr
 import { ConnectionStore, type ConnectionVault } from "./connections.ts";
 
 const dirs: string[] = [];
+
+function existingDirectoryChild(root: string): string | undefined {
+  if (!existsSync(root)) return undefined;
+  let real: string;
+  try { real = realpathSync(root); } catch { return undefined; }
+  let names: string[];
+  try { names = readdirSync(real); } catch { return undefined; }
+  for (const name of names) {
+    const folder = join(real, name);
+    try {
+      if (statSync(folder).isDirectory()) return folder;
+    } catch { /* another user's directory */ }
+  }
+  return undefined;
+}
+
 function freshDir(): string {
   const dir = mkdtempSync(join(tmpdir(), "omb-data-connections-"));
   dirs.push(dir);
@@ -99,8 +115,8 @@ describe("connection storage", () => {
     expect(() => store.add({ name: "shop", type: "sqlite", path: inside })).toThrow(/folder/);
     store.addFolder(allowed);
     const added = store.add({ name: "shop", type: "sqlite", path: inside });
-    expect(added.where).toBe(inside);
-    expect(store.add({ name: "notes", type: "duckdb", path: duck }).where).toBe(duck);
+    expect(added.where).toBe(realpathSync(inside));
+    expect(store.add({ name: "notes", type: "duckdb", path: duck }).where).toBe(realpathSync(duck));
     expect(() => store.add({ name: "gone", type: "sqlite", path: hidden })).toThrow(/folder/);
     expect(() => store.add({ name: "escape", type: "sqlite", path: join(allowed, "escape.sqlite") })).toThrow(/folder/);
     expect(JSON.stringify(store.list())).not.toContain("password");
@@ -169,5 +185,52 @@ describe("grants", () => {
     rmSync(allowed, { recursive: true });
     store.removeFolder(allowed);
     expect(store.list().folders).toEqual([]);
+  });
+
+  it("rejects system trees named by TMPDIR, and allows a workspace that contains its temp folder", () => {
+    if (process.platform === "win32") {
+      const store = new ConnectionStore(freshDir(), vault());
+      expect(() => store.addFolder(tmpdir())).toThrow(/too broad|data folder/);
+      return;
+    }
+    const outside = mkdtempSync("/var/tmp/omb-conn-outside-");
+    dirs.push(outside);
+    const data = join(outside, "data");
+    mkdirSync(data);
+    const store = new ConnectionStore(data, vault());
+    const previous = process.env.TMPDIR;
+    try {
+      expect(() => store.addFolder("/tmp")).toThrow(/too broad|data folder/);
+      const temp = mkdtempSync("/var/tmp/omb-conn-temp-");
+      dirs.push(temp);
+      const child = join(temp, "kept");
+      mkdirSync(child);
+      process.env.TMPDIR = temp;
+      expect(realpathSync(tmpdir())).toBe(realpathSync(temp));
+      expect(() => store.addFolder(temp)).toThrow(/too broad/);
+      expect(() => store.addFolder(dirname(temp))).toThrow(/too broad|data folder/);
+      expect(() => store.addFolder(child)).not.toThrow();
+      for (const [env, folder] of [["/", "/var/log"], ["/var", "/var/log"], ["/etc", "/etc/ssl"]] as const) {
+        process.env.TMPDIR = env;
+        expect(() => store.addFolder(folder), env).toThrow(/too broad/);
+      }
+      for (const root of ["/etc/ssl", "/usr/share", "/var/lib", "/var/folders"]) {
+        process.env.TMPDIR = root;
+        const opened = existingDirectoryChild(root);
+        if (opened) expect(() => store.addFolder(opened), root).toThrow(/too broad/);
+        else expect(() => store.addFolder("/usr/share/doc"), root).toThrow(/too broad/);
+      }
+      const work = mkdtempSync("/var/tmp/omb-conn-work-");
+      dirs.push(work);
+      const nested = join(work, "tmp");
+      mkdirSync(nested);
+      process.env.TMPDIR = nested;
+      expect(realpathSync(tmpdir())).toBe(realpathSync(nested));
+      expect(() => store.addFolder(work)).not.toThrow();
+      expect(() => store.addFolder(nested)).toThrow(/too broad/);
+    } finally {
+      if (previous === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = previous;
+    }
   });
 });

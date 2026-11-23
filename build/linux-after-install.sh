@@ -206,6 +206,8 @@ repair_executable "$CUA_ROOT/cua-driver"
 repair_executable "$CUA_ROOT/cua-cursor-theme"
 repair_chromium_sandbox "$APP_ROOT/chrome-sandbox"
 BROWSER_ROOT=$APP_ROOT/resources/browser-engine
-repair_directory "$BROWSER_ROOT"
-secure_browser_tree
-install_browser_apparmor_profile
+if [ -e "$BROWSER_ROOT" ] || [ -L "$BROWSER_ROOT" ]; then
+  repair_directory "$BROWSER_ROOT"
+  secure_browser_tree
+  install_browser_apparmor_profile
+fi

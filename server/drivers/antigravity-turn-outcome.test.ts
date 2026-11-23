@@ -2,7 +2,7 @@
 // T3 Tools Inc. (full text in third_party/t3-code/LICENSE); modified:
 //   - apps/server/src/provider/acp/AntigravityTurnOutcome.test.ts (the error
 //     payload fixtures and the cases of the two reader tests).
-import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, closeSync, copyFileSync, fstatSync, mkdirSync, mkdtempSync, openSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -180,10 +180,17 @@ describe("watchAntigravityPromptOutcome", () => {
     const file = join(conversations, "session.db");
     append(file, [[USER_INPUT, "first"]]);
     const check = await watchAntigravityPromptOutcome(NAME, directory, "session");
-    rmSync(file);
-    append(join(conversations, "other.db"), [[USER_INPUT, "hold the inode"]]);
-    append(file, [[USER_INPUT, "second"], [USER_INPUT, "third"], [ERROR_MESSAGE, QUOTA_ERROR]]);
-    expect(await check({ stopReason: "end_turn" })).toBeUndefined();
+    // Linux reuses an unlinked inode. Windows will not delete a file a descriptor still has open.
+    const kept = process.platform === "win32" ? undefined : openSync(file, "r");
+    try {
+      rmSync(file);
+      append(join(conversations, "other.db"), [[USER_INPUT, "hold the inode"]]);
+      append(file, [[USER_INPUT, "second"], [USER_INPUT, "third"], [ERROR_MESSAGE, QUOTA_ERROR]]);
+      if (kept !== undefined) expect(fstatSync(kept).ino).not.toBe(statSync(file).ino);
+      expect(await check({ stopReason: "end_turn" })).toBeUndefined();
+    } finally {
+      if (kept !== undefined) closeSync(kept);
+    }
   });
 });
 
