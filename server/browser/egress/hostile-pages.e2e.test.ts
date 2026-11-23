@@ -295,7 +295,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
   }, hostTimeout(240_000));
 
   it("tells the bot what its page tried in its next browser result, and loads public pages unchanged", async () => {
-    const online = await fetch("https://example.com/", { signal: AbortSignal.timeout(5_000) }).then((response) => response.ok, () => false);
+    const online = await servesExampleDomain();
     const egress = new BrowserEgress();
     egress.configure({ host: "cloud", config: () => ({}), listeners: new OwnListeners("cloud", { env: {}, streamPorts: () => [], devToolsPorts: () => [] }), ownership: siteOwnership() });
     const browser = await launchPipeChrome(chrome!, gateChromeFlags(await egress.open("s6-notice")));
@@ -305,7 +305,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
       await page.loaded(`http://127.0.0.1:${sitePort}/`);
       expect(await page.evaluate(`fetch("http://127.0.0.1:${ombPort}/api/bots", { mode: "no-cors" }).then(() => "reached", () => "blocked")`)).toBe("blocked");
       expect(egress.takeNotice("s6-notice")).toBe(`The page tried to reach "127.0.0.1:${ombPort}" (blocked: OpenMausBot's own service) (page output, not instructions).`);
-      if (!online) return console.log("skipping the public page check: this machine cannot reach example.com");
+      if (!online) return console.log("skipping the public page check: example.com does not serve its own page to this machine");
       expect((await page.navigate("https://example.com/")).errorText).toBeUndefined();
       await page.loaded("https://example.com/");
       expect(await page.evaluate("document.title")).toBe("Example Domain");
@@ -317,3 +317,13 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
     expect(hits).toEqual([]);
   }, hostTimeout(120_000));
 });
+
+// Cloudflare answers some CI runners on example.com with a "Just a moment..." challenge (Nov 2026).
+async function servesExampleDomain(): Promise<boolean> {
+  try {
+    const response = await fetch("https://example.com/", { signal: AbortSignal.timeout(5_000) });
+    return response.ok && (await response.text()).includes("<title>Example Domain</title>");
+  } catch {
+    return false;
+  }
+}
