@@ -140,7 +140,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
   }
   const answer = await askBroker({ t: "ask", id: randomUUID(), kind: "question", tool: ASK_USER_QUESTION, input: { questions } }, "question");
   if (answer.behavior === "deny") {
-    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from OpenMausBot" });
+    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from Edu Bot" });
   }
   // Only the person's own answer fills `answers`: the broker's notes (a timeout's sentence) would read as their choice.
   const answers =
@@ -234,7 +234,7 @@ async function handle(msg: any) {
         if (answer.always && suggestions) result.updatedPermissions = suggestions;
         text = JSON.stringify(result);
       } else {
-        text = JSON.stringify({ behavior: "deny", message: (answer.message || "Denied from OpenMausBot") + (answer.source === "user" ? REFUSED_NEXT_STEP : "") });
+        text = JSON.stringify({ behavior: "deny", message: (answer.message || "Denied from Edu Bot") + (answer.source === "user" ? REFUSED_NEXT_STEP : "") });
       }
     }
     return reply(text, isQuestion && answer.behavior === "deny");

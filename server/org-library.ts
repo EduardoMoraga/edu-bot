@@ -298,7 +298,7 @@ const refusal = (status: number, code: string, error: string) => ({ ok: false as
 
 const NOT_LISTED = "This package is not in your organization's library.";
 const NOT_READY = "This package hasn't finished downloading yet. Try again in a minute.";
-const NEWER_APP = "Update OpenMausBot to add this package.";
+const NEWER_APP = "Update Edu Bot to add this package.";
 const ADD_FAILED = "This package could not be added, so nothing was changed. Try again, or ask your organization's admin.";
 
 export class OrgLibrary {

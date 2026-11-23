@@ -145,7 +145,7 @@ describe("edubot pair", () => {
     const failure = await runPair(options).then(() => null, (error: unknown) => error);
     expect(failure).toBeInstanceOf(Error);
     const message = (failure as Error).message;
-    expect(message).toContain("The OpenMausBot desktop app runs this server");
+    expect(message).toContain("The Edu Bot desktop app runs this server");
     expect(message).toContain("Settings → Phone & devices");
     // A terminal `serve` would not get the keys the app keeps in its own credential store, so it is not offered.
     expect(message).not.toContain("edubot serve");
@@ -155,7 +155,7 @@ describe("edubot pair", () => {
   it("says how to start a server when none runs", async () => {
     fetchMock.mockImplementation(async () => { throw new Error("offline"); });
     expect(await runPair(options)).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No MausBot server is running here. Start it: edubot serve"));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No Edu Bot server is running here. Start it: edubot serve"));
   });
 });
 

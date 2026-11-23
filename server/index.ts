@@ -8966,12 +8966,12 @@ async function deleteBotWithLifecycle(botId: string, revalidate: () => void = ()
           const vm = await containerComputerStatus(undefined, undefined, target);
           if (!vm.daemonUp && existsSync(target.workspaceDir)) {
             return deletionResponse( 409, {
-              error: "start the container runtime so OpenMausBot can remove this bot's Local VM while deleting it",
+              error: "start the container runtime so Edu Bot can remove this bot's Local VM while deleting it",
             });
           }
           if (vm.container !== "missing" && !vm.managed) {
             return deletionResponse(409, {
-              error: `The container named ${vm.container_name} was not created by OpenMausBot. Remove it manually before deleting this bot`,
+              error: `The container named ${vm.container_name} was not created by Edu Bot. Remove it manually before deleting this bot`,
             });
           }
           localVmCleanup = {
@@ -12491,7 +12491,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     if (path === MCP_OAUTH_CALLBACK_PATH) {
       const answer = method === "GET"
         ? await teamConnections.mcpCallback(req.headers.host, url.search)
-        : { status: 400, text: "Invalid sign-in callback. Return to OpenMausBot and try again." };
+        : { status: 400, text: "Invalid sign-in callback. Return to Edu Bot and try again." };
       res.writeHead(answer.status, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store", "referrer-policy": "no-referrer" });
       res.end(answer.text);
       return;

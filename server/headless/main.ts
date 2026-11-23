@@ -153,7 +153,7 @@ edubot computers sleep BOT            put it to sleep; it wakes when the bot nee
   terminal, edubot login is simpler. On a server you started with edubot serve the code is made for you;
   for the desktop app or a server elsewhere, get one from Settings → Phone & devices.
   Then use it: --url URL --token-file FILE (or OPENMAUSBOT_URL and OPENMAUSBOT_TOKEN).`,
-  mcp: "edubot mcp\n  Serve the OpenMausBot MCP tools on stdin and stdout, for an agent (docs/mcp-server.md).",
+  mcp: "edubot mcp\n  Serve the Edu Bot MCP tools on stdin and stdout, for an agent (docs/mcp-server.md).",
   token: "edubot token create NAME --out FILE … | token list | token revoke ID   (see help token create)",
   "token create": `edubot token create NAME --out FILE [--scope client|admin] [--expires 90d] [--force]
   An access token for CI and scripts, saved to FILE (only you can read it) and never printed.

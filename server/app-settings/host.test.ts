@@ -353,7 +353,7 @@ describe("owner-only tier", () => {
     const fx = fixture();
     fx.windowValues.set("remote.relay", false);
     const on = await fx.set("remote.relay", "true");
-    expect(on.body.text).toMatch(/^Done: Let your paired phones reach this computer from anywhere, through MausBot's relay\./);
+    expect(on.body.text).toMatch(/^Done: Let your paired phones reach this computer from anywhere, through Edu Bot's relay\./);
     expect(fx.windowValues.get("remote.relay")).toBe(true);
     const off = await fx.set("remote.relay", false);
     expect(off).toMatchObject({ status: 409, body: { error: "Turning off Reach from anywhere is changed only by the person, in Settings → Phone & devices → How your phone reaches this computer → Anywhere, through Edu Bot (only in the desktop app, on this computer's own page). Tell them where in one line; do not try another way." } });
@@ -433,7 +433,7 @@ describe("every other setting applies at once with Undo, Full access or not", ()
       (fx: ReturnType<typeof fixture>) => expect(fx.saved).toEqual([{ anthropic: { url: "https://proxy.example/v1" } }, { anthropic: { url: "https://api.anthropic.com" } }])],
     ["a library skill", "skills.library", { name: "notes", enabled: true }, "Turn on the library skill notes",
       (fx: ReturnType<typeof fixture>) => expect(fx.routeCalls).toEqual([{ route: "skills", method: "PATCH", path: "/api/skills-library/notes", body: { enabled: true } }, { route: "skills", method: "PATCH", path: "/api/skills-library/notes", body: { enabled: false } }])],
-    ["a window preference", "general.openAtLogin", true, "Open MausBot when you log in", (fx: ReturnType<typeof fixture>) => expect(fx.windowValues.get("general.openAtLogin")).toBe(false)],
+    ["a window preference", "general.openAtLogin", true, "Open Edu Bot when you log in", (fx: ReturnType<typeof fixture>) => expect(fx.windowValues.get("general.openAtLogin")).toBe(false)],
   ])("%s applies with no card to answer, and Undo puts it back", async (_kind, id, value, subtitle, check) => {
     const fx = fixture();
     fx.windowValues.set("general.openAtLogin", false);

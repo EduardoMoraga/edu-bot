@@ -810,7 +810,7 @@ it("ends a Chief's review a second restart cuts, and says so in its conversation
   await expect.poll(() => f.root(), { timeout: 20_000 }).toMatchObject({ status: "running", restart: "rerun" });
   await expect.poll(() => f.consumed(), { timeout: 20_000 }).toBe(4); // warm-up, delegation, review, its rerun
   await f.restart(() => {}, "SIGKILL");
-  const ended = "error: Interrupted by another OpenMausBot restart after resuming once; not resumed again. Some of its steps may already have taken effect.";
+  const ended = "error: Interrupted by another Edu Bot restart after resuming once; not resumed again. Some of its steps may already have taken effect.";
   await expect.poll(async () => (await f.messages()).filter((m: any) => m.tool?.name === ended).length, { timeout: 20_000 }).toBe(1);
   expect(f.root()).toMatchObject({ status: "failed", reported: true });
   f.open(f.gate("review"));

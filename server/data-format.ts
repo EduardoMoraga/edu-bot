@@ -56,7 +56,7 @@ export function readDataFormat(dataDir: string, writes: number = DATA_FORMAT.wri
     console.warn(`[data-format] ${file} cannot be read; taking the data as format 1, the only format any version has written.`);
     return null;
   }
-  throw new DataFormatError(`OpenMausBot startup failed: ${file} cannot be read, so this version cannot tell whether it understands the data in ${dataDir}. Nothing was changed. Restore that file from a backup, or the whole folder from the copy taken before the last update.`);
+  throw new DataFormatError(`Edu Bot startup failed: ${file} cannot be read, so this version cannot tell whether it understands the data in ${dataDir}. Nothing was changed. Restore that file from a backup, or the whole folder from the copy taken before the last update.`);
 }
 
 /** Throws, having changed nothing, when a newer version left the data in a format `reads` does not cover. */
