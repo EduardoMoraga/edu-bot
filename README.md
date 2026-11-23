@@ -15,8 +15,9 @@ Download **0.1.0** from [GitHub Releases](https://github.com/EduardoMoraga/edu-b
 These installers are not signed. Your system asks before it opens them.
 
 **macOS** (Apple silicon or Intel): `EduBot-0.1.0-arm64.dmg` or `EduBot-0.1.0-x64.dmg`. A `.zip` of the same build is on the release too.
-Right-click the app and choose Open.
-If macOS blocks it, open System Settings, then Privacy & Security, then Open Anyway.
+Drag the app from the `.dmg` into Applications.
+Open the app once. macOS blocks it.
+Then open System Settings, then Privacy & Security, then Open Anyway.
 
 **Windows** (64-bit): `EduBot-0.1.0-setup.exe`.
 If SmartScreen appears, choose More info, then Run anyway.
@@ -32,10 +33,10 @@ The app does not update itself. Download the newer installer from Releases and i
 
 ## First steps
 
-1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are on **Model providers and accounts** in Settings.
+1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are in **Settings → AI → Providers**.
 2. Create a bot with **New bot**.
 3. Connect apps with your own Composio project key (it starts with `ak_`), or add your own MCP servers. With no key, Apps tells you the steps. See [Connect apps](docs/composio.md) and [your own MCP servers](docs/custom-mcp-servers.md).
-4. Add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. A bot reads only the tables you allow.
+4. In Settings, turn on **Advanced mode**, or search for **Data**. Then add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. A bot reads only the tables you allow.
 
 ## Edu memory
 
@@ -53,7 +54,7 @@ An organisation, its areas, and its bots can live in files. Two people with the 
 
 The app shows a plan first. Nothing changes until you apply it. A line marked **Gives more access** applies only after you allow it in the desktop app.
 
-Open **Settings → Profiles**, or run `edubot profiles plan` and `edubot profiles apply`.
+Open **Settings → Profiles**. In a source checkout, run `pnpm omb profiles plan <folder>` and `pnpm omb profiles apply <folder>`.
 
 Details: [Profiles](docs/profiles.md).
 
@@ -61,7 +62,7 @@ Details: [Profiles](docs/profiles.md).
 
 Edu Bot sends no usage analytics. The desktop app does not check for updates.
 
-A feature contacts a service only when you use it. The list is in [Network](docs/edu-bot/network.md).
+At start, Edu Bot looks up a few public model and version lists. An engine you already installed may call its own service then. Anything else is contacted only when you use that feature. The list is in [Network](docs/edu-bot/network.md).
 
 Chats, bots, and settings stay in `~/.edubot` on this computer. See [where the files live](docs/edu-bot/data.md).
 
@@ -73,11 +74,11 @@ You need Node.js 24 or newer and pnpm 10.33.0. `package.json` names both.
 git clone https://github.com/EduardoMoraga/edu-bot.git
 cd edu-bot
 pnpm install
-pnpm dev:server
-pnpm dev
 ```
 
-`pnpm dev:server` is the local server. `pnpm dev` is the app in a browser. `pnpm dev:desktop` opens the desktop window. Leave the server running.
+Run `pnpm dev:server` in one terminal and `pnpm dev` in another. Leave both running.
+
+`pnpm dev:server` is the local server. `pnpm dev` is the app in a browser. `pnpm dev:desktop` opens the desktop window, and it needs both of those running.
 
 `pnpm lint` checks this checkout. [CI](docs/ci.md) says which tests run.
 

@@ -14,9 +14,10 @@ Descarga la **0.1.0** desde [GitHub Releases](https://github.com/EduardoMoraga/e
 
 Estos instaladores no están firmados. El sistema pide confirmación antes de abrirlos.
 
-**macOS** (Apple silicon o Intel): `EduBot-0.1.0-arm64.dmg` o `EduBot-0.1.0-x64.dmg`. El release también trae un `.zip` de la misma build.
-Haz clic derecho en la app y elige Abrir.
-Si macOS la bloquea, abre Configuración del Sistema, luego Privacidad y seguridad, y elige Abrir de todas formas.
+**macOS** (Apple silicon o Intel): `EduBot-0.1.0-arm64.dmg` o `EduBot-0.1.0-x64.dmg`. La misma versión también trae un `.zip` de la misma compilación.
+Arrastra la app del `.dmg` a Aplicaciones.
+Ábrela una vez. macOS la bloquea.
+Luego abre Configuración del Sistema, luego Privacidad y seguridad, y elige Abrir de todas formas.
 
 **Windows** (64 bits): `EduBot-0.1.0-setup.exe`.
 Si aparece SmartScreen, elige Más información y después Ejecutar de todas formas.
@@ -26,16 +27,16 @@ Si aparece SmartScreen, elige Más información y después Ejecutar de todas for
 - AppImage: `chmod +x EduBot-0.1.0-x86_64.AppImage` y ejecuta ese archivo.
 - Paquete deb: `sudo apt install ./EduBot-0.1.0-amd64.deb`.
 
-Cada release incluye `SHA256SUMS`. Compara el archivo que descargaste con esa lista antes de abrirlo.
+Cada versión incluye `SHA256SUMS`. Compara el archivo que descargaste con esa lista antes de abrirlo.
 
-La app no se actualiza sola. Descarga el instalador nuevo desde Releases e instálalo del mismo modo. Tus chats siguen en `~/.edubot`.
+La app no se actualiza sola. Descarga el instalador nuevo desde la misma página e instálalo del mismo modo. Tus chats siguen en `~/.edubot`.
 
 ## Primeros pasos
 
-1. Entra a un motor en este computador. Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en Ajustes, en **Proveedores de modelos y cuentas**.
+1. Inicia sesión en un motor en este computador. Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en **Ajustes → IA → Proveedores**.
 2. Crea un bot con **Bot nuevo**.
 3. Conecta apps con tu propia clave de proyecto de Composio (empieza con `ak_`), o agrega tus servidores MCP. Sin clave, Apps explica los pasos. Mira [Conectar apps](docs/composio.md) y [servidores MCP propios](docs/custom-mcp-servers.md).
-4. Agrega una conexión SQL de solo lectura en **Ajustes → Datos → Conexiones de datos**. Sirven SQLite, DuckDB y Postgres. La contraseña queda en la Bóveda. Un bot lee solo las tablas que tú permites.
+4. En Ajustes, activa el **Modo avanzado**, o busca **Datos**. Luego agrega una conexión SQL de solo lectura en **Ajustes → Datos → Conexiones de datos**. Sirven SQLite, DuckDB y Postgres. La contraseña queda en la Bóveda. Un bot lee solo las tablas que tú permites.
 
 ## Memoria Edu
 
@@ -53,7 +54,7 @@ La organización, sus áreas y sus bots pueden vivir en archivos. Dos personas c
 
 La app muestra un plan primero. Nada cambia hasta que lo aplicas. Una línea **Da más acceso** solo se aplica si tú la permites en la app de escritorio.
 
-Ábrelo en **Ajustes → Perfiles**, o usa `edubot profiles plan` y `edubot profiles apply`.
+Ábrelo en **Ajustes → Perfiles**. En una copia local, ejecuta `pnpm omb profiles plan <carpeta>` y `pnpm omb profiles apply <carpeta>`.
 
 Detalle: [Perfiles](docs/profiles.md).
 
@@ -61,7 +62,7 @@ Detalle: [Perfiles](docs/profiles.md).
 
 Edu Bot no envía analítica de uso. La app de escritorio no busca actualizaciones.
 
-Una función contacta un servicio solo cuando la usas. La lista está en [Red](docs/edu-bot/network.md).
+Al iniciar, Edu Bot consulta unas listas públicas de modelos y de versiones. Un motor que ya instalaste puede llamar a su propio servicio en ese momento. Cualquier otro contacto ocurre solo cuando usas esa función. La lista está en [Red](docs/edu-bot/network.md).
 
 Los chats, los bots y los ajustes quedan en `~/.edubot`, en este computador. Mira [dónde viven los archivos](docs/edu-bot/data.md).
 
@@ -73,15 +74,15 @@ Necesitas Node.js 24 o más nuevo, y pnpm 10.33.0. Los dos están en `package.js
 git clone https://github.com/EduardoMoraga/edu-bot.git
 cd edu-bot
 pnpm install
-pnpm dev:server
-pnpm dev
 ```
 
-`pnpm dev:server` es el servidor local. `pnpm dev` es la app en el navegador. `pnpm dev:desktop` abre la ventana de escritorio. Deja el servidor corriendo.
+Ejecuta `pnpm dev:server` en una terminal y `pnpm dev` en otra. Deja las dos corriendo.
 
-`pnpm lint` revisa este checkout. [CI](docs/ci.md) dice qué tests corren.
+`pnpm dev:server` es el servidor local. `pnpm dev` es la app en el navegador. `pnpm dev:desktop` abre la ventana de escritorio, y necesita que las dos estén corriendo.
 
-Para colaborar, parte una rama desde `main` y abre un pull request en este repositorio.
+`pnpm lint` revisa tu copia local. [CI](docs/ci.md) dice qué tests corren.
+
+Para colaborar, crea una rama desde `main` y abre un pull request en este repositorio.
 
 ## Licencia y créditos
 
