@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { approvalModeFor, levelWithin, withinApprovalCeiling, type ApprovalCeiling } from "../../shared/approval-mode.ts";
 import { PROFILE_KEY } from "../../shared/profile-format.ts";
 import type { ProfileSource } from "../../shared/wire.ts";
 import { writeFileAtomic } from "../atomic.ts";
@@ -12,7 +13,7 @@ const stateSchema = z.object({
   version: z.literal(1),
   folder: z.string().optional(),
   applied: z.object({ at: z.number(), commit: z.string().optional(), digest: z.string(), folder: z.string() }).optional(),
-  areas: z.record(z.string(), z.object({ section: z.string(), hashes })).default({}),
+  areas: z.record(z.string(), z.object({ section: z.string(), hashes, maxApproval: z.enum(["ask", "edits", "auto", "full"]).optional() })).default({}),
   mcpServers: z.record(z.string(), z.object({ hash: z.string(), needsKey: z.literal(true).optional() })).default({}),
 });
 
@@ -35,6 +36,38 @@ export function readProfilesState(dataDir: string): ProfilesState {
   } catch { /* falls through to the empty state */ }
   console.warn("profiles.json could not be read; starting with no applied profiles");
   return { version: 1, areas: {}, mcpServers: {} };
+}
+
+type AreaBot = { profileSource?: Pick<ProfileSource, "area">; section?: string };
+
+export function approvalCeiling(dataDir: string, bot: AreaBot): ApprovalCeiling | undefined {
+  if (!bot.profileSource && !bot.section) return undefined;
+  return areaApprovalCeiling(readProfilesState(dataDir).areas, bot);
+}
+
+export function areaApprovalCeiling(areas: ProfilesState["areas"], bot: AreaBot): ApprovalCeiling | undefined {
+  const source = bot.profileSource?.area;
+  const stamped = source && Object.hasOwn(areas, source) ? areas[source]?.maxApproval : undefined;
+  const section = bot.section?.trim().toLowerCase();
+  return Object.values(areas).reduce<ApprovalCeiling | undefined>((limit, area) => {
+    if (!area.maxApproval || area.section.trim().toLowerCase() !== section) return limit;
+    return limit ? withinApprovalCeiling(limit, area.maxApproval) as ApprovalCeiling : area.maxApproval;
+  }, stamped);
+}
+
+export function sectionApprovalCeilings(areas: ProfilesState["areas"]): Record<string, ApprovalCeiling> {
+  return Object.fromEntries(Object.values(areas).flatMap(({ section }) => {
+    const ceiling = areaApprovalCeiling(areas, { section });
+    return ceiling ? [[section.trim().toLowerCase(), ceiling]] : [];
+  }));
+}
+
+export function ceilingWidens(before?: ApprovalCeiling, after?: ApprovalCeiling): before is ApprovalCeiling {
+  return before !== undefined && (after === undefined || !levelWithin(after, before));
+}
+
+export function effectiveApprovalMode(dataDir: string, bot: AreaBot & Parameters<typeof approvalModeFor>[0]) {
+  return withinApprovalCeiling(approvalModeFor(bot), approvalCeiling(dataDir, bot));
 }
 
 export function writeProfilesState(dataDir: string, state: ProfilesState): void {

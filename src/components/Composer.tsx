@@ -41,7 +41,7 @@ import { takePointedChips } from "@/lib/pointed-chips";
 import { openPageFor } from "@/lib/open-page";
 import { splitTranscriptCitations, type CitationAttachment } from "@/lib/citations";
 import { ComposerAdvancedTools } from "./ComposerAdvancedTools";
-import { approvalModeFor } from "../../shared/approval-mode";
+import { approvalModeFor, withinApprovalCeiling } from "../../shared/approval-mode";
 import { useOnCall } from "@/lib/call";
 import { isLiveCallRunning, useLiveMedia } from "@/lib/live-call-media";
 import {
@@ -483,6 +483,8 @@ export function Composer({
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const modeBot = group ? undefined : bot;
   const { choice: approvalChoice, dialogs: approvalDialogs } = useThreadApproval(modeBot);
+  const hasThreadApprovalOverride = bot && profile &&
+    withinApprovalCeiling(approvalModeFor(bot), bot.approvalCeiling) !== withinApprovalCeiling(approvalModeFor(profile), profile.approvalCeiling);
   const uploadImage = useCallback((file: File) => uploadDraftImage(draftId, file), [draftId]);
   const pickFiles = async (picked: FileList | readonly File[] | null) => {
     if (!picked?.length) return;
@@ -813,7 +815,7 @@ export function Composer({
               <ComposerPlusMenu onAttach={() => fileInput.current?.click()} goal={goal} teach={canLearn ? teachTask : undefined} />
               {/* Simple mode shows a mode's chip only while it is on, so a choice made in the + menu or the bot panel stays in view. */}
               {goal?.on && <GoalToggle {...goal} />}
-              {approvalChoice && profile && bot && approvalModeFor(bot) !== approvalModeFor(profile) && <ApprovalChip choice={approvalChoice} />}
+              {approvalChoice && hasThreadApprovalOverride && <ApprovalChip choice={approvalChoice} />}
             </div>
           )}
           <MentionTextarea
@@ -917,7 +919,7 @@ export function Composer({
             )}
           />
           {stacked && (
-            <ComposerAdvancedTools profile={profile} bot={modeBot} task={composerTask} locked={locked} remoteClient={remoteClient}
+            <ComposerAdvancedTools hasThreadApprovalOverride={hasThreadApprovalOverride} bot={modeBot} task={composerTask} locked={locked} remoteClient={remoteClient}
               onAttach={() => fileInput.current?.click()} goal={goal} teach={canLearn ? teachTask : undefined} approval={approvalChoice}
               callBotId={callShown && bot && !group ? bot.id : undefined}
               onPin={(surface) => modeBot && dispatch({ type: "updateTask", botId: modeBot.id, threadId: modeBot.threadId, patch: { surface } })} />

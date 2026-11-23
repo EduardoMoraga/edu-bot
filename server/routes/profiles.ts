@@ -1,3 +1,4 @@
+import { approvalCeilingError } from "../user-errors.ts";
 import type { IncomingMessage } from "node:http";
 import { basename, isAbsolute, resolve } from "node:path";
 
@@ -29,11 +30,16 @@ export interface ProfilesRouteDeps {
    * owns every Vault item, so a profile never points a server at a member's own secret. */
   vaultSecretIds(names: readonly string[]): Record<string, string>;
   stamp(botId: string, source: ProfileSource): void;
-  audit(row: { action: string; target: { kind: string; name: string }; changed: string[]; after: Record<string, unknown> }, auth: RequestAuth, req: IncomingMessage): void;
+  audit(row: { action: string; target: { kind: string; name: string; id?: string }; changed: string[]; after: Record<string, unknown> }, auth: RequestAuth, req: IncomingMessage): void;
 }
 
 /** Security: a profile folder is someone else's commit, so more access needs a person at the desktop app or an admin
  * session of a paired device; a loopback caller may be a bot's own shell. */
+export function mayGiveProfileAccess(auth: RequestAuth, req: IncomingMessage, desktopManaged: boolean): boolean {
+  return req.headers["x-openmausbot-companion"] !== "1" &&
+    (auth.kind === "session" ? auth.scopes.includes("admin") : !auth.companionDevice && auth.trust !== "service" && desktopManaged);
+}
+
 export const PROFILE_ACCESS_REFUSAL = "These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.";
 
 const folderField = z.string().trim().min(1).max(4096).refine((path) => isAbsolute(path) && !path.includes("\0"), "must be an absolute folder path");
@@ -133,9 +139,6 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     return { planned, folder, state };
   };
 
-  const mayGiveAccess = (auth: RequestAuth, req: IncomingMessage) =>
-    req.headers["x-openmausbot-companion"] !== "1" && (auth.kind === "session" ? auth.scopes.includes("admin") : auth.trust !== "service" && deps.desktopManaged);
-
   let applying = false;
 
   return async ({ req, res, path, method, auth, json, readBody }) => {
@@ -165,8 +168,10 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
           if (body.expect !== undefined && body.expect !== planned.plan.digest) {
             return json(res, 409, { error: "The profiles or this app changed since that plan; look at the new plan and apply it.", plan: planned.plan });
           }
+          const ceiling = folder.problems.find((problem) => problem.approvalCeiling)?.approvalCeiling;
+          if (ceiling) return json(res, 403, { ...approvalCeilingError(ceiling), plan: planned.plan });
           const accessLines = planned.plan.lines.filter((line) => line.kind === "access");
-          if (body.giveAccess === true && accessLines.length && !mayGiveAccess(auth, req)) {
+          if (body.giveAccess === true && accessLines.length && !mayGiveProfileAccess(auth, req, deps.desktopManaged)) {
             return json(res, 403, { error: PROFILE_ACCESS_REFUSAL, lines: accessLines });
           }
           return json(res, 200, await applyNow(req, auth, body, planned, folder, state));
@@ -204,12 +209,20 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     const commit = planned.plan.commit;
     const now = Date.now();
     const call = (method: string, route: string, payload?: unknown) => callRoutes(deps.routes(), req, auth, method, route, payload);
-    const outcome = await applyProfilePlan(planned, state.areas, { call, stamp: deps.stamp },
+    const outcome = await applyProfilePlan(planned, state.areas, { call, stamp: deps.stamp,
+      saveAreas: (areas) => writeProfilesState(deps.dataDir, { ...readProfilesState(deps.dataDir), areas }),
+    },
       { giveAccess: body.giveAccess === true, ...(commit ? { commit } : {}), now, folderName: basename(folder.root) });
     writeProfilesState(deps.dataDir, {
-      ...readProfilesState(deps.dataDir), folder: folder.root, areas: outcome.areas, mcpServers: outcome.mcpServers,
+      ...readProfilesState(deps.dataDir), folder: folder.root, mcpServers: outcome.mcpServers,
       applied: { at: now, ...(commit ? { commit } : {}), digest: planned.plan.digest, folder: folder.root },
     });
+    for (const bot of outcome.bots.filter((bot) => bot.fields.length)) {
+      deps.audit({
+        action: "profile.bot.apply", target: { kind: "bot", id: bot.botId, name: bot.name },
+        changed: bot.fields, after: { profile: bot.id, ...(commit ? { commit } : {}) },
+      }, auth, req);
+    }
     if (outcome.applied.length) {
       deps.audit({
         action: "profile.apply", target: { kind: "profile-folder", name: folder.root },

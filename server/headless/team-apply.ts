@@ -5,7 +5,8 @@ import { basename, dirname, join, posix, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
-import { approvalModeFor } from "../../shared/approval-mode.ts";
+import { approvalCeilingMessage, approvalModeFor, levelWithin, withinApprovalCeiling, type ApprovalCeiling } from "../../shared/approval-mode.ts";
+import { ceilingWidens } from "../profiles/state.ts";
 import { assertToolScopeSupported } from "../../shared/tool-scope-support.ts";
 import { mask, redactSecretsInText } from "../../shared/redact.ts";
 import { APPROVAL_LABEL, botPatch, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
@@ -61,6 +62,32 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
     return bots.filter((bot) => key(bot.name) === key(name)).sort((a, b) => inTeam(b) - inTeam(a) || Number(Boolean(a.hidden)) - Number(Boolean(b.hidden)))[0];
   };
 
+  const directory = await client.json<Rec>("/api/sidebar-sections");
+  const sections: string[] = [...(directory.sections ?? [])];
+  const sectionNamed = (name: string) => sections.find((section) => key(section) === key(name));
+  const teamOf = (bot: DesiredBot) => bot.team ? sectionNamed(bot.team) ?? bot.team : undefined;
+  let current = await fleet();
+  const existingFor = (desired: DesiredBot): Rec | undefined =>
+    (desired.was ? findBot(current.bots ?? [], desired.was, teamOf(desired)) : undefined) ?? findBot(current.bots ?? [], desired.name, teamOf(desired));
+  const lookup = (caps: Rec | undefined, k: string): ApprovalCeiling | undefined =>
+    caps && Object.hasOwn(caps, k) ? caps[k] : undefined;
+  for (const desired of file.bots) {
+    const existing = existingFor(desired);
+    const destination = teamOf(desired) ?? existing?.section;
+    const sectionLimit = lookup(directory.approvalCeilings, key(destination));
+    const profileLimit = lookup(directory.profileApprovalCeilings, existing?.profileSource?.area);
+    const moving = Boolean(existing && key(destination) !== key(existing.section));
+    const ceiling = profileLimit ? withinApprovalCeiling(profileLimit, sectionLimit) as ApprovalCeiling
+      : sectionLimit ?? (moving ? undefined : existing?.approvalCeiling);
+    if (moving && ceilingWidens(existing?.approvalCeiling, ceiling)) {
+      throw new HeadlessError(approvalCeilingMessage(existing.approvalCeiling), EXIT.failed);
+    }
+    const requested = desired.approval ?? (existing ? undefined : "full");
+    if (ceiling && requested && !levelWithin(requested, ceiling)) {
+      throw new HeadlessError(approvalCeilingMessage(ceiling), EXIT.failed);
+    }
+  }
+
   if (file.engines.length) {
     const config = await client.json<Rec>("/api/config");
     const instances: Rec[] = (await client.json<Rec>("/api/instances")).instances ?? [];
@@ -89,8 +116,6 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
     }
   }
 
-  const sections: string[] = [...((await client.json<Rec>("/api/sidebar-sections")).sections ?? [])];
-  const sectionNamed = (name: string) => sections.find((section) => key(section) === key(name));
   const teamNames: string[] = [];
   for (const name of [...file.teams.map((team) => team.name), ...file.bots.flatMap((bot) => [bot.team, ...bot.manages]), ...file.rooms.map((room) => room.team)]) {
     if (name && !teamNames.some((known) => key(known) === key(name))) teamNames.push(name);
@@ -113,8 +138,6 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
     }
     note(`team "${name}": ${parts.join(" · ")}`, !parts.length ? "unchanged" : existing ? "changed" : "created");
   }
-  const teamOf = (bot: DesiredBot) => bot.team ? sectionNamed(bot.team) ?? bot.team : undefined;
-
   const instances: Rec[] = (await client.json<Rec>("/api/instances")).instances ?? [];
   for (const desired of file.bots.filter((bot) => bot.model)) {
     const { instanceId, model } = desired.model!;
@@ -125,9 +148,6 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
       throw new HeadlessError(`bot "${desired.name}": ${instanceId} offers no model "${model}"`, EXIT.failed, "edubot models lists them");
     }
   }
-  let current = await fleet();
-  const existingFor = (desired: DesiredBot): Rec | undefined =>
-    (desired.was ? findBot(current.bots ?? [], desired.was, teamOf(desired)) : undefined) ?? findBot(current.bots ?? [], desired.name, teamOf(desired));
   for (const desired of file.bots.filter((bot) => bot.was)) {
     const old = findBot(current.bots ?? [], desired.was!, teamOf(desired));
     const taken = findBot(current.bots ?? [], desired.name, teamOf(desired));
@@ -138,8 +158,8 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
   }
   let workspaceDefault: string | undefined;
   for (const desired of file.bots) {
-    if (!desired.tools) continue;
     const existing = existingFor(desired);
+    if (!desired.tools) continue;
     if (!desired.model && !existing) workspaceDefault ??= (await client.json<Rec>("/api/bot-defaults")).modelSelection?.instanceId;
     const instanceId = desired.model?.instanceId ?? existing?.modelSelection?.instanceId ?? workspaceDefault;
     const driverKind = instances.find((instance) => instance.instanceId === instanceId)?.driverKind;
@@ -159,7 +179,8 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
       created.add(key(desired.name));
       if (!options.apply) continue;
       const made = await write("/api/bots", { method: "POST", body: JSON.stringify({
-        useDefaults: false, name: desired.name, ...(desired.title !== undefined ? { title: desired.title } : {}),
+        useDefaults: false, ...(desired.approval ? { settings: { approvalMode: desired.approval } } : {}),
+        name: desired.name, ...(desired.title !== undefined ? { title: desired.title } : {}),
         ...(desired.description !== undefined ? { description: desired.description } : {}), ...(teamOf(desired) ? { section: teamOf(desired) } : {}),
         ...(desired.model ? { modelSelection: { ...desired.model, ...(desired.effort ? { effort: desired.effort } : {}) }, requireAvailableModel: true } : {}),
       }) });

@@ -217,12 +217,13 @@ function sources(dataDir: string): string[] {
   return [join(dataDir, `${LEGACY_FILE}.1`), join(dataDir, LEGACY_FILE), ...months.map((name) => join(dataDir, DIR, name))];
 }
 
-export function readDecisions(dataDir: string, limit: number): DecisionRow[] {
+export function readDecisions(dataDir: string, limit: number, matches?: (row: DecisionRow) => boolean): DecisionRow[] {
   const files = sources(dataDir);
   const chunks: DecisionRow[][] = [];
   let count = 0;
   for (let index = files.length - 1; index >= 0 && count < limit; index -= 1) {
-    const rows = readRows(files[index]!);
+    const fileRows = readRows(files[index]!);
+    const rows = matches ? fileRows.filter(matches) : fileRows;
     chunks.unshift(rows);
     count += rows.length;
   }

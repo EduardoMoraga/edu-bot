@@ -196,6 +196,31 @@ describe("the Advanced composer in a bot chat", () => {
     expect(chip.textContent).toBe("Full access");
   });
 
+  it("shows the effective thread approval and explains why higher modes are disabled", () => {
+    render({ bot: { ...bot, approvalCeiling: "ask", tasks: [{ ...task, approvalMode: "full" }] } });
+    expect(container.querySelector("[data-approval-chip]")).toBeNull();
+    openPlus();
+    expect(item("approval")?.textContent).toContain("Ask for approval");
+    click(item("approval"));
+    for (const mode of ["edits", "auto", "full"]) {
+      const row = item(`approval:${mode}`)!;
+      expect(row.disabled).toBe(true);
+      expect(row.textContent).toContain("This area allows at most Ask for approval");
+    }
+    expect(item("approval:ask")?.querySelector(".lucide-check")).not.toBeNull();
+    click(item("approval:ask"));
+    expect(fixture.dispatch).not.toHaveBeenCalledWith(expect.objectContaining({ type: "updateTask" }));
+  });
+
+  it("shows the capped level in the approval chip when it still differs from the bot", () => {
+    render({ bot: { ...bot, approvalCeiling: "edits", tasks: [{ ...task, approvalMode: "full" }] } });
+    const chip = container.querySelector('[data-approval-chip="edits"]')!;
+    expect(chip.textContent).toBe("Edits");
+    click(chip.closest("button"));
+    expect(item("approval:full")?.disabled).toBe(true);
+    expect(item("approval:full")?.textContent).toContain("This area allows at most Auto-accept edits");
+  });
+
   it("shows the place chip only while this conversation is pinned to a place", () => {
     render({ bot: { ...bot, tasks: [{ ...task, surface: "browser", surfaceAuto: true }] } });
     expect(container.querySelector('[data-testid="place-chip"]')).toBeNull();

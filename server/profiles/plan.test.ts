@@ -483,6 +483,19 @@ describe("planProfiles", () => {
     expect(kinds(plan(managed).plan.lines, "conflict")).toEqual(['Reporter: description: the file says "From the file", you have "Mine"']);
   });
 
+  it("makes a ceiling-only change visible and keeps the old ceiling until a widening is confirmed", async () => {
+    const { app, apply, plan } = fakeApp();
+    await apply();
+    const raised = folder({ "org.md": withField("maxApproval", "full") });
+    const changed = plan(raised).plan;
+    expect(changed.noChanges).toBe(false);
+    expect(changed.lines).toContainEqual(expect.objectContaining({ kind: "access", field: "maxApproval", subject: expect.objectContaining({ id: "bi" }) }));
+    await apply(raised, { giveAccess: false });
+    expect(app.state.areas.bi?.maxApproval).toBe("auto");
+    await apply(raised);
+    expect(app.state.areas.bi?.maxApproval).toBe("full");
+  });
+
   it("keeps an area's stored name and brief when the app refuses to rename it or set its brief", async () => {
     const { app, plan, apply } = fakeApp();
     await apply();
@@ -491,7 +504,7 @@ describe("planProfiles", () => {
     const renamed = folder({ "areas/bi/area.md": (text) => withField("name", "Business Intelligence")(`${text}\nMore context.\n`) });
     const { outcome } = await apply(renamed);
     expect(outcome.skipped.map((line) => line.reason)).toEqual(["busy", "busy"]);
-    expect(app.state.areas.bi).toEqual({ section: "BI", hashes: before });
+    expect(app.state.areas.bi).toEqual({ section: "BI", hashes: before, maxApproval: "auto" });
     app.refuse = null;
     app.briefs.BI = "Changed here.";
     expect(kinds(plan(renamed).plan.lines, "conflict")).toEqual(["Area Business Intelligence: the file and this app both changed its brief"]);

@@ -10,6 +10,14 @@ describe("what a duplicated bot is created with", () => {
     expect(restrictedCopyRequest({ visibility: "everyone", helperModel: true })).toEqual({});
   });
 
+  it("carries the department and capped approval in the creation request", () => {
+    const source = { section: "BI", approvalMode: "full", approvalCeiling: "ask" } as const;
+    const expected = { section: "BI", settings: { approvalMode: "ask" } };
+    expect(restrictedCopyRequest(source, false)).toEqual(expected);
+    expect(restrictedCopyRequest(source, true)).toEqual(expected);
+    expect(restrictedCopyRequest({ approvalCeiling: "ask" }, false)).toEqual({ settings: { approvalMode: "ask" } });
+  });
+
   it("carries who may see the bot", () => {
     expect(restrictedCopyRequest({ visibility: "admins" })).toEqual({ visibility: "admins" });
     expect(restrictedCopyRequest({ visibility: { people: ["ada@example.test"] } })).toEqual({ visibility: { people: ["ada@example.test"] } });

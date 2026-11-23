@@ -146,11 +146,11 @@ name: Helper
     it("refuses an approval above an area's or the organization's maxApproval, where that approval is set", () => {
       const capped = files();
       capped["areas/bi/area.md"] = capped["areas/bi/area.md"]!.replace("chief: lead\n", "chief: lead\nmaxApproval: edits\n");
-      expect(sentences(capped)).toEqual(["areas/bi/bots/lead.md, line 6: approval is auto, above the most areas/bi/area.md allows (maxApproval: edits)"]);
+      expect(sentences(capped)).toEqual(["areas/bi/bots/lead.md, line 6: approval is auto. This area allows at most Auto-accept edits (areas/bi/area.md)"]);
       capped["org.md"] = capped["org.md"]!.replace("name: Acme\n", "name: Acme\nmaxApproval: ask\n");
       capped["areas/bi/bots/lead.md"] = capped["areas/bi/bots/lead.md"]!.replace("approval: auto\n", "");
-      expect(sentences(capped)).toEqual(["areas/bi/area.md, line 10: defaults.approval is edits for bi/lead, above the most org.md allows (maxApproval: ask)",
-        "areas/bi/area.md, line 10: defaults.approval is edits for bi/helper, above the most org.md allows (maxApproval: ask)"]);
+      expect(sentences(capped)).toEqual(["areas/bi/area.md, line 10: defaults.approval is edits for bi/lead. This area allows at most Ask for approval (org.md)",
+        "areas/bi/area.md, line 10: defaults.approval is edits for bi/helper. This area allows at most Ask for approval (org.md)"]);
     });
   });
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { APPROVAL_MODES, type ApprovalMode } from "./approval-mode.ts";
+import { APPROVAL_MODES, approvalCeilingMessage, type ApprovalMode } from "./approval-mode.ts";
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "./bot-profile.ts";
 import { MCP_SERVER_NAME, RESERVED_MCP_NAMES } from "./mcp-name.ts";
 import { AGENT_MAX_SKILLS, isLoopbackHost, TEAM_BRIEF_MAX_BYTES, utf8Bytes } from "./package-format.ts";
@@ -744,12 +744,13 @@ function checkApprovalCeilings(parsed: Parsed, bots: ResolvedBot[], problems: Pr
   const unsetReported = new Set<string>();
   for (const bot of bots) {
     const area = parsed.areas.get(bot.area)!;
-    const ceilings = [[area.maxApproval, area.file], [parsed.org?.maxApproval, parsed.org?.file]] as const;
+    const ceilings = ([[area.maxApproval, area.file], [parsed.org?.maxApproval, parsed.org?.file]] as const)
+      .slice().sort(([a], [b]) => rank(a ?? highest) - rank(b ?? highest));
     if (!bot.approval) {
       const [ceiling, ceilingFile] = ceilings.find(([ceiling]) => ceiling && ceiling !== highest) ?? [];
       if (!ceiling || !ceilingFile || unsetReported.has(ceilingFile)) continue;
       unsetReported.add(ceilingFile);
-      problems.add({ file: ceilingFile, line: parsed.docs.get(ceilingFile)?.lineOf(["maxApproval"]), field: "maxApproval",
+      problems.add({ file: ceilingFile, line: parsed.docs.get(ceilingFile)?.lineOf(["maxApproval"]), field: "maxApproval", approvalCeiling: ceiling,
         message: `is ${ceiling}, but no level sets approval for ${bot.id}, so the app's default, Full access, would apply; set approval, such as defaults: { approval: ${ceiling} }` });
       continue;
     }
@@ -759,8 +760,8 @@ function checkApprovalCeilings(parsed: Parsed, bots: ResolvedBot[], problems: Pr
       const file = level === "bot" ? bot.file : level === "area" ? area.file : parsed.org!.file;
       const path = level === "bot" ? ["approval"] : ["defaults", "approval"];
       const forBot = level === "bot" ? "" : ` for ${bot.id}`;
-      problems.add({ file, line: parsed.docs.get(file)?.lineOf(path), field: level === "bot" ? "approval" : "defaults.approval",
-        message: `is ${bot.approval}${forBot}, above the most ${ceilingFile} allows (maxApproval: ${ceiling})` });
+      problems.add({ file, line: parsed.docs.get(file)?.lineOf(path), field: level === "bot" ? "approval" : "defaults.approval", approvalCeiling: ceiling,
+        message: `is ${bot.approval}${forBot}. ${approvalCeilingMessage(ceiling)} (${ceilingFile})` });
       break;
     }
   }

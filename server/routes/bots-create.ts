@@ -1,3 +1,5 @@
+import { botApprovalRefusal } from "../profiles/bot-write.ts";
+import { approvalModeFor } from "../../shared/approval-mode.ts";
 import type { BotCreateResponse, WireBot } from "../../shared/wire.ts";
 import { freshLook } from "../bot-look.ts";
 import { LINK_PREFIX } from "../bot-link/protocol.ts";
@@ -18,7 +20,7 @@ import { installOrgSkill, installSkill, parseSkillMd, setSkillEnabled } from "..
 import type { BotRecord, Store } from "../store.ts";
 import type { TeamPeople } from "../team-people.ts";
 import { writeMemoryFile, writeMemoryTopic } from "../workspace.ts";
-import { refusalBody, userError } from "../user-errors.ts";
+import { approvalCeilingError, refusalBody, userError } from "../user-errors.ts";
 import type { ServerErrorBody } from "../../shared/server-text.ts";
 import { botLimitRefusal } from "../bot-limit.ts";
 import { PASS, type RouteHandler } from "./table.ts";
@@ -46,6 +48,7 @@ export interface BotCreateRouteDeps {
   routines(): RoutineManager | null;
   storedAvatarExists(avatarUrl: string): boolean;
   defaultSelection(): Promise<ModelSelection>;
+  supportsApprovalMode(selection: ModelSelection, mode: "edits"): boolean;
   checkedModelSelection(raw: unknown, current?: { selection: ModelSelection; busy: boolean }, requireAvailableModel?: boolean): ModelSelectionCheck;
   cloudOwnerSession(auth: RequestAuth): boolean;
   wireBot(bot: BotRecord): WireBot;
@@ -122,6 +125,7 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       if ("error" in kept) return json(res, kept.error.includes("already") ? 409 : 400, { error: kept.error });
       const { id: _id, threadId: _threadId, ...rest } = body;
       body = rest;
+      const originalBody = body;
       const template = resolveBotCreationDefaults(cfg.newBotDefaults, body);
       const settings = template.profile;
       if (body.preset !== undefined && (typeof body.preset !== "string" || !/^[\w-]{1,64}$/.test(body.preset))) {
@@ -180,6 +184,13 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
           return json(res, 400, { error: "section must be at most 60 characters" });
         }
       }
+      const ceilingRefusal = () => {
+        const requestedApproval = askedSettings(originalBody).approvalMode === undefined ? undefined : approvalModeFor(settings);
+        const ceiling = botApprovalRefusal({ section }, null, { requestedApproval });
+        return ceiling ? approvalCeilingError(ceiling) : undefined;
+      };
+      const initialCeilingRefusal = ceilingRefusal();
+      if (initialCeilingRefusal) return json(res, 403, initialCeilingRefusal);
       const creator = auth.kind === "session" && auth.session.membershipAuthority === "team" ? auth.session.email : undefined;
       let reportsTo: string | undefined;
       if (body.reportsTo !== undefined && body.reportsTo !== null) {
@@ -197,6 +208,9 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
         if (!checked.ok) return json(res, checked.status, refusalBody(checked));
         selection = checked.selection;
       }
+      if (settings.approvalMode === "edits" && !deps.supportsApprovalMode(selection, "edits")) {
+        return json(res, 400, { error: "This engine does not support Auto-accept edits" });
+      }
       if (hostedModels && !hostedModels.allows(selection)) return json(res, 400, { error: hostedModels.error() });
       // The capacity check sits beside the synchronous write, after every await.
       if (store.bots.length >= MAX_WORKSPACE_BOTS) {
@@ -207,6 +221,8 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       if (created && !created.ok) return json(res, 400, { error: created.error });
       // Checked again beside the synchronous write: an await above let another request take the same id.
       if (kept.id && "error" in keptBotIds(kept, store)) return json(res, 409, { error: "a bot with this id already exists here" });
+      const currentCeilingRefusal = ceilingRefusal();
+      if (currentCeilingRefusal) return json(res, 403, currentCeilingRefusal);
       // A bot moved in from another computer keeps its own look; a new one named no look starts in a fresh one.
       const look = kept.id || settings.color || settings.mascotBody ? undefined : freshLook(store.bots);
       const bot = store.createBot({ ...profile.patch, soul: settings.soul, section, modelSelection: selection,

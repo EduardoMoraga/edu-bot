@@ -20,6 +20,7 @@ import { DefaultBotHideRow } from "../DefaultBotControls";
 import { SoulField } from "../SoulField";
 import { BotApiCard } from "../bot-settings/BotApiCard";
 import { PackageProvenance } from "../bot-settings/PackageProvenance";
+import { BotAccessSummary } from "../bot-settings/BotAccessSummary";
 import { DriftMark, ProfileBotBadge, useProfileBotView } from "../profiles/ProfileBotBadge";
 import { REPLY_STYLE_LABELS } from "../bot-settings/ReplyStyleField";
 import { useChoosesVisibility, visibilityLabel } from "../bot-settings/VisibilitySection";
@@ -64,15 +65,18 @@ export function SettingsPage({ bot, derived, onOpen, editingInstructions = false
   // Antigravity's old Auto still executes as Ask: show that without changing the saved mode or granting Full.
   const displayedMode: ApprovalMode = engine?.driverKind === "antigravityAgent" && approvalMode === "auto" ? "ask" : approvalMode;
   const actsLabel = (mode: ApprovalMode) => simpleApprovalName(mode, engine?.driverKind);
+  const fullBlocked = bot.approvalCeiling !== undefined && bot.approvalCeiling !== "full";
+  const ceilingHint = bot.approvalCeiling
+    ? t("botAccess.summary.ceiling", { mode: t(`approvalMode.${bot.approvalCeiling}.label`) }) : undefined;
   const actsOptions: SegmentOption<ApprovalMode>[] = [
     { value: "ask", label: actsLabel("ask"), tooltip: t("botSettings.simple.askHint") },
-    { value: "full", label: actsLabel("full"), tooltip: t("botSettings.simple.fullHint") },
+    { value: "full", label: actsLabel("full"), disabled: fullBlocked, tooltip: fullBlocked ? ceilingHint : t("botSettings.simple.fullHint") },
     ...(displayedMode === "ask" || displayedMode === "full"
       ? []
       : [{ value: displayedMode, label: actsLabel(displayedMode), disabled: true, tooltip: displayedMode === "custom" ? t("botPanel.acts.customHint") : undefined }]),
   ];
   const chooseActs = (mode: ApprovalMode) => {
-    if (mode === approvalMode || (mode !== "ask" && mode !== "full")) return;
+    if (mode === approvalMode || (mode === "full" && fullBlocked) || (mode !== "ask" && mode !== "full")) return;
     dispatch({ type: "updateBot", botId: bot.id, patch: { approvalMode: mode, applyToAllThreads: true } });
   };
 
@@ -109,6 +113,7 @@ export function SettingsPage({ bot, derived, onOpen, editingInstructions = false
     <div data-panel-settings>
       <PackageProvenance bot={bot} />
       <ProfileBotBadge bot={bot} view={profile} />
+      <BotAccessSummary bot={bot} loadedApps={apps} />
       <Card anchor="instructions">
         {soulOpen ? (
           <ColRow data-panel-row="soul">
@@ -153,7 +158,7 @@ export function SettingsPage({ bot, derived, onOpen, editingInstructions = false
         <ColRow data-panel-row="approval">
           <div className="flex items-center gap-2.5">
             <RowIcon icon={ShieldCheck} />
-            <RowText title={<>{t("botSettings.simple.beforeActs", { name })}<DriftMark view={profile} field="approval" /></>} hint={bot.busy ? t("approvalMode.whileWorking") : undefined} />
+            <RowText title={<>{t("botSettings.simple.beforeActs", { name })}<DriftMark view={profile} field="approval" /></>} hint={bot.busy ? t("approvalMode.whileWorking") : ceilingHint} />
           </div>
           <div className="pl-[38px]">
             <Segmented

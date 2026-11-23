@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchVerificationServer, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
+import { readProfilesState, writeProfilesState } from "./profiles/state.ts";
 import { readRegistry, writeRegistry } from "./testing/registry.ts";
 
 const SECRET = "sk-test-123";
@@ -369,3 +370,38 @@ it("a webhook's run may read a setting but not change it", async () => {
   expect(refused).toMatchObject({ isError: true, text: expect.stringMatching(/^Settings change only in the owner's own conversation\./) });
   expect(config().rooms?.turnTimeoutMinutes).toBe(value);
 }, 60_000);
+
+it("keeps a capped bot in its department when app_settings tries to ungroup it", async () => {
+  const previous = readProfilesState(dataDir);
+  const { bot: capped } = await api("POST", "/api/bots", { name: "Reviewer", section: "Capped" }, 201);
+  writeProfilesState(dataDir, { ...previous, areas: { capped: { section: "Capped", hashes: {}, maxApproval: "ask" } } });
+  try {
+    await start("KEEP_CAPPED", [step({ action: "set", id: "bots.groups", value: "{}" }, true)]);
+    const turn = await finished("KEEP_CAPPED");
+    expect(results(turn)[0]).toMatchObject({ isError: true, text: expect.stringContaining("This area allows at most Ask for approval") });
+    expect(readRegistry(dataDir).bots.find((one) => one.id === capped.id)?.section).toBe("Capped");
+  } finally {
+    writeProfilesState(dataDir, previous);
+    await api("DELETE", `/api/bots/${capped.id}`);
+  }
+}, 45_000);
+
+it("clamps a saved Full thread and refuses an app-settings request above the area's ceiling", async () => {
+  const previous = readProfilesState(dataDir);
+  await api("PATCH", `/api/bots/${bot.id}`, { section: "Reviews", approvalMode: "full", applyToAllThreads: true });
+  writeProfilesState(dataDir, { ...previous, areas: { reviews: { section: "Reviews", hashes: {}, maxApproval: "ask" } } });
+  try {
+    const onLoad = (await api("GET", "/api/bots?messages=0")).bots.find((one: any) => one.id === bot.id);
+    expect(onLoad).toMatchObject({ approvalMode: "ask", approvalCeiling: "ask",
+      tasks: expect.arrayContaining([expect.objectContaining({ threadId: bot.threadId, approvalMode: "ask", autoApprove: false })]),
+    });
+    expect(readRegistry(dataDir).bots.find((one) => one.id === bot.id)?.approvalMode).toBe("full");
+    await start("AREA_CEILING", [step({ action: "set", id: "bots.approvalModes", value: JSON.stringify({ botId: bot.id, mode: "full" }) }, true)]);
+    const turn = await finished("AREA_CEILING");
+    expect(turn.permissionMode).toBe("default");
+    expect(results(turn)[0]).toMatchObject({ isError: true, text: expect.stringContaining("This area allows at most Ask for approval") });
+    expect(readRegistry(dataDir).bots.find((one) => one.id === bot.id)).toMatchObject({ approvalMode: "ask", tasks: expect.arrayContaining([expect.objectContaining({ threadId: bot.threadId, approvalMode: "ask" })]) });
+  } finally {
+    writeProfilesState(dataDir, previous);
+  }
+}, 45_000);

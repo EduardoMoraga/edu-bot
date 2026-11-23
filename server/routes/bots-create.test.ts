@@ -39,13 +39,14 @@ function fixture(options: { newBotComputer?: BotCreateRouteDeps["newBotComputer"
     routines: () => null,
     storedAvatarExists: () => false,
     defaultSelection: async () => sonnet,
+    supportsApprovalMode: (selection: ModelSelection) => selection.instanceId === "claude",
     checkedModelSelection: (raw: unknown) => ({ ok: true, selection: raw as ModelSelection }),
     cloudOwnerSession: () => false,
     wireBot: (record: BotRecord) => record as unknown as WireBot,
     ...(options.newBotComputer ? { newBotComputer: (selection: ModelSelection) => { asked.push(selection); return options.newBotComputer!(selection); } } : {}),
   } as unknown as BotCreateRouteDeps;
   const handler = createBotCreateRoutes(deps);
-  const create = async (body: Record<string, unknown>) => {
+  const post = async (body: Record<string, unknown>) => {
     const sent: Array<{ status: number; body: any }> = [];
     const out = await handler({
       req: { headers: {} } as unknown as IncomingMessage,
@@ -59,10 +60,14 @@ function fixture(options: { newBotComputer?: BotCreateRouteDeps["newBotComputer"
     });
     expect(out).not.toBe(PASS);
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.status, JSON.stringify(sent[0]!.body)).toBe(201);
-    return store.bot(sent[0]!.body.bot.id)!;
+    return sent[0]!;
   };
-  return { create, asked, store };
+  const create = async (body: Record<string, unknown>) => {
+    const result = await post(body);
+    expect(result.status, JSON.stringify(result.body)).toBe(201);
+    return store.bot(result.body.bot.id)!;
+  };
+  return { post, create, asked, store };
 }
 
 describe("where a new bot works", () => {
@@ -100,6 +105,15 @@ describe("saving a new bot", () => {
       write.mockRestore();
     }
   };
+
+  it("creates directly at Accept edits only on a model that supports it", async () => {
+    const fx = fixture();
+    const settings = { approvalMode: "edits" };
+    const unsupported = await fx.post({ name: "Unsupported", settings, modelSelection: { instanceId: "codex", model: "fixture" } });
+    expect(unsupported).toMatchObject({ status: 400, body: { error: "This engine does not support Auto-accept edits" } });
+    expect(fx.store.bots).toEqual([]);
+    expect(await fx.create({ name: "Editor", settings })).toMatchObject({ approvalMode: "edits", autoApprove: false });
+  });
 
   it("writes bots.json once for the POST and not again for a PATCH that changes nothing", async () => {
     const fx = fixture({ newBotComputer: () => "local" });

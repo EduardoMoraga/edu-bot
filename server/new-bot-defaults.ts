@@ -29,7 +29,7 @@ function withoutRetiredFields(value: unknown): unknown {
 }
 
 // Preferences only: consent flags, live grants, bot IDs and execution state can never be replayed as permission grants.
-export const botDefaultsProfileSchema = z.preprocess(withoutRetiredFields, profilePatchSchema.extend({
+const botProfileSchema = profilePatchSchema.extend({
   name: z.string({ error: "name must be a string" }).max(100, { error: "name must be at most 100 characters" })
     .refine(fitsOnOneLine, "name must fit on one line").optional(),
   section: z.string({ error: "section must be a string" }).trim().max(60, { error: "section must be at most 60 characters" }).optional(),
@@ -55,7 +55,9 @@ export const botDefaultsProfileSchema = z.preprocess(withoutRetiredFields, profi
   voiceNoteEveryReply: z.boolean({ error: "voiceNoteEveryReply must be true, false or null" }).nullable().optional(),
   /** At creation, so a copy of a bot kept off the helper model is off it from its first moment. */
   helperModel: z.boolean().optional(),
-}).strict());
+}).strict();
+
+export const botDefaultsProfileSchema = z.preprocess(withoutRetiredFields, botProfileSchema);
 
 const scheduleSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("once"), at: timestamp }).strict(),
@@ -137,19 +139,23 @@ export function newBotApproval(saved: NewBotDefaults | undefined, hosted: boolea
   return mode === "custom" || (mode === "full" && hosted) ? undefined : mode;
 }
 
+const botCreationProfileSchema = z.preprocess(withoutRetiredFields, botProfileSchema.extend({
+  approvalMode: z.enum(["ask", "edits", "auto", "full", "custom"]).optional(),
+}));
+
 export function resolveBotCreationDefaults(saved: NewBotDefaults | undefined, body: Record<string, unknown>) {
   if (body.useDefaults !== undefined && typeof body.useDefaults !== "boolean") {
     throw Object.assign(new Error("useDefaults must be true or false"), { status: 400 });
   }
   const template = newBotDefaultsSchema.parse(body.useDefaults === false ? {} : saved ?? {});
-  const checked = botDefaultsProfileSchema.safeParse(body.settings === undefined ? {} : body.settings);
+  const checked = botCreationProfileSchema.safeParse(body.settings === undefined ? {} : body.settings);
   if (!checked.success) throw Object.assign(settingsError(checked.error), { status: 400 });
   const explicit = checked.data;
   const profile = { ...template.profile, ...explicit };
   for (const key of ["name", "title", "description", "modelSelection", "section"] as const) {
     if (Object.hasOwn(body, key)) Object.assign(profile, { [key]: key === "section" && body[key] === null ? "" : body[key] });
   }
-  const resolved = botDefaultsProfileSchema.safeParse(profile);
+  const resolved = botCreationProfileSchema.safeParse(profile);
   if (!resolved.success) throw Object.assign(settingsError(resolved.error), { status: 400 });
   if (!resolved.data.name?.trim()) delete resolved.data.name;
   return { ...template, profile: resolved.data };

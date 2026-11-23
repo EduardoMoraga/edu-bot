@@ -18,10 +18,10 @@ function nodes(value: ReactNode): Node[] {
   const node = value as Node;
   return [node, ...Children.toArray(node.props.children).flatMap(nodes)];
 }
-function render(onSelect: (mode: ApprovalMode) => void, onManageCommandAllowlist?: () => void, trustedModesAvailable = true, busy = false) {
+function render(onSelect: (mode: ApprovalMode) => void, onManageCommandAllowlist?: () => void, trustedModesAvailable = true, busy = false, approvalCeiling?: "ask") {
   let tree: ReactNode;
   function Capture() {
-    tree = ApprovalModeSelector({ providerName: "Codex", driverKind: "codex", approvalMode: "ask", onSelect, onManageCommandAllowlist, trustedModesAvailable, busy });
+    tree = ApprovalModeSelector({ providerName: "Codex", driverKind: "codex", approvalMode: approvalCeiling ? "full" : "ask", approvalCeiling, onSelect, onManageCommandAllowlist, trustedModesAvailable, busy });
     return tree;
   }
   return { html: renderToStaticMarkup(createElement(Capture)), nodes: nodes(tree) };
@@ -39,6 +39,20 @@ describe("command allowlist menu access", () => {
     expect(manage).toHaveBeenCalledOnce();
     expect(select).not.toHaveBeenCalled();
     expect(render(select, manage).html).not.toContain('role="menu"');
+  });
+
+  it("shows the effective level and disables modes beyond the area's ceiling", () => {
+    const select = vi.fn();
+    fixture.open = true;
+    const open = render(select, undefined, true, false, "ask");
+    const modes = open.nodes.filter((node) => node.props.role === "menuitemradio");
+    const full = modes.find((node) => renderToStaticMarkup(node).includes("Full access"))!;
+    const ask = modes.find((node) => !node.props.disabled)!;
+    expect(full.props.disabled).toBe(true);
+    expect(renderToStaticMarkup(full)).toContain("This area allows at most Ask for approval");
+    expect(renderToStaticMarkup(ask)).toContain('aria-checked="true"');
+    full.props.onClick!();
+    expect(select).not.toHaveBeenCalled();
   });
 
   it("leaves Full access selection on its existing callback", () => {

@@ -12,6 +12,7 @@ import { Field, inputCls } from "./field";
 import type { BotPatch } from "./useBotSettingsDerived";
 import { useBotEditor } from "./BotEditorContext";
 import { PackageProvenance } from "./PackageProvenance";
+import { BotAccessSummary } from "./BotAccessSummary";
 import { DriftMark, ProfileBotBadge, useProfileBotView } from "../profiles/ProfileBotBadge";
 import { ProposalStatus } from "./ProposalStatus";
 import { randomBotName } from "@/lib/random-bot-name";
@@ -46,6 +47,7 @@ export function IdentitySection({
       {shows("avatar") && <BotProfileAvatarCard bot={bot} activeState={activeState} mascotMotion={mascotMotion} onPatch={patch} />}
       {shows("provenance") && <PackageProvenance bot={bot} />}
       {shows("provenance") && <ProfileBotBadge bot={bot} view={profile} />}
+      {!draft && shows("provenance") && <BotAccessSummary bot={bot} />}
 
       {shows("name") && <div>
         <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

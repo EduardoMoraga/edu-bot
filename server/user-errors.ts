@@ -1,3 +1,4 @@
+import { approvalCeilingMessage, type ApprovalCeiling } from "../shared/approval-mode.ts";
 import { PAIRING_INPUT_PROBLEM_TEXT } from "../shared/pairing-code.ts";
 import { redactParams } from "../shared/redact.ts";
 import { formatServerText, type ServerErrorBody, type ServerTextParams } from "../shared/server-text.ts";
@@ -45,6 +46,10 @@ export const USER_ERROR = {
   "serverError.page.versionGone": "That version of the page is no longer kept.",
   "serverError.page.notStored": "This app's page is not stored on this computer.",
   "serverError.page.downloadHasFiles": "This page has files beside it, so it can't be saved as one file. Share it for a link instead.",
+  "serverError.approval.ceiling.ask": approvalCeilingMessage("ask"),
+  "serverError.approval.ceiling.edits": approvalCeilingMessage("edits"),
+  "serverError.approval.ceiling.auto": approvalCeilingMessage("auto"),
+  "serverError.approval.ceiling.full": approvalCeilingMessage("full"),
   "serverError.department.notFound": "No such department",
   "serverError.department.missing": "no such department",
   "serverError.department.nameLength": "Department name must be 1 to 60 characters",
@@ -234,6 +239,10 @@ export type UserError = { error: string; errorKey: UserErrorKey; errorParams?: S
 export function userError(key: UserErrorKey, params?: ServerTextParams): UserError {
   const safe = params && redactParams(params);
   return { error: formatServerText(USER_ERROR[key], safe), errorKey: key, ...(safe ? { errorParams: safe } : {}) };
+}
+
+export function approvalCeilingError(ceiling: ApprovalCeiling): UserError {
+  return userError(`serverError.approval.ceiling.${ceiling}`);
 }
 
 export function userErrorThrown(key: UserErrorKey, params?: ServerTextParams): Error {

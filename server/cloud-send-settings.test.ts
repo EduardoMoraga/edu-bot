@@ -1,11 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { adoptConversationSettings, conversationSettings } from "./cloud-send-chats.ts";
 import { listConnections, connectionFingerprints, answerConnection } from "./cloud-connections.ts";
+import { writeProfilesState } from "./profiles/state.ts";
 import type { AppConfig } from "./config.ts";
 
 /** A bot with one conversation, and a room with one, as My Cloud holds them; each change is recorded. */
-function held(task: Record<string, unknown> = {}, room: Record<string, unknown> = {}) {
-  const bot = { id: "b1", threadId: "t-main", modelSelection: { instanceId: "claude", model: "s" }, projects: [{ id: "p1", name: "Launch" }], tasks: [{ threadId: "t1", ...task }] };
+function held(task: Record<string, unknown> = {}, room: Record<string, unknown> = {}, section?: string) {
+  const bot = { id: "b1", section, threadId: "t-main", modelSelection: { instanceId: "claude", model: "s" }, projects: [{ id: "p1", name: "Launch" }], tasks: [{ threadId: "t1", ...task }] };
   const group = { id: "g1", threadId: "t-room", tasks: [{ threadId: "t-room" }], ...room };
   const changes: unknown[] = [];
   const store = {
@@ -20,7 +24,19 @@ function held(task: Record<string, unknown> = {}, room: Record<string, unknown> 
 }
 const allowed = { instance: (id: string) => id === "claude", approval: (_selection: unknown, mode: string) => mode !== "full" };
 
+let dataDir: string;
+beforeEach(() => { dataDir = mkdtempSync(join(tmpdir(), "cloud-send-settings-")); });
+afterEach(() => { rmSync(dataDir, { recursive: true, force: true }); });
+
 describe("a conversation's own settings", () => {
+  it("does not adopt approval above the destination bot's cap even if the model supports it", () => {
+    writeProfilesState(dataDir, { version: 1, mcpServers: {}, areas: { bi: { section: "BI", hashes: {}, maxApproval: "ask" } } });
+    const { store, changes } = held({}, {}, "BI");
+    expect(adoptConversationSettings(store, [{ threadId: "t1", settings: { approvalMode: "full", snoozedUntil: 9 } }],
+      { ...allowed, approval: () => true }, dataDir)).toBe(1);
+    expect(changes).toEqual([["task", "t1", { snoozedUntil: 9 }]]);
+  });
+
   it("go as this computer has them, without Custom approval", () => {
     const { store } = held({ approvalMode: "custom", autoApprove: false, snoozedUntil: 5, projectId: "p1", modelSelection: { instanceId: "claude", model: "o" } });
     expect(conversationSettings(store, { bot: "b1", threadId: "t1" })).toEqual({ snoozedUntil: 5, projectId: "p1", modelSelection: { instanceId: "claude", model: "o" } });
@@ -31,22 +47,22 @@ describe("a conversation's own settings", () => {
   it("fill only what My Cloud's copy lacks, with an engine, approval level and project it has; the audience floor only narrows", () => {
     const settings = { modelSelection: { instanceId: "claude", model: "o" }, approvalMode: "edits" as const, snoozedUntil: 9, projectId: "p1" };
     const fresh = held();
-    expect(adoptConversationSettings(fresh.store, [{ threadId: "t1", settings }], allowed)).toBe(1);
+    expect(adoptConversationSettings(fresh.store, [{ threadId: "t1", settings }], allowed, dataDir)).toBe(1);
     expect(fresh.changes).toEqual([["task", "t1", { modelSelection: settings.modelSelection, approvalMode: "edits", autoApprove: false, snoozedUntil: 9, projectId: "p1" }]]);
-    expect(adoptConversationSettings(fresh.store, [{ threadId: "t1", settings }], allowed), "taken once").toBe(0);
+    expect(adoptConversationSettings(fresh.store, [{ threadId: "t1", settings }], allowed, dataDir), "taken once").toBe(0);
 
     const own = held({ snoozedUntil: 1, approvalMode: "ask" });
-    adoptConversationSettings(own.store, [{ threadId: "t1", settings: { ...settings, modelSelection: { instanceId: "gone", model: "x" }, projectId: "p-unknown" } }], allowed);
+    adoptConversationSettings(own.store, [{ threadId: "t1", settings: { ...settings, modelSelection: { instanceId: "gone", model: "x" }, projectId: "p-unknown" } }], allowed, dataDir);
     expect(own.changes, "My Cloud's own snooze and approval stay; an engine or project it lacks is left out").toEqual([]);
     const full = held();
-    adoptConversationSettings(full.store, [{ threadId: "t1", settings: { approvalMode: "full" } }], allowed);
+    adoptConversationSettings(full.store, [{ threadId: "t1", settings: { approvalMode: "full" } }], allowed, dataDir);
     expect(full.changes, "an approval level My Cloud does not allow on that model is left out").toEqual([]);
 
     const room = held({}, { audienceFloor: { people: ["p_a"] } });
-    expect(adoptConversationSettings(room.store, [{ threadId: "t-room", settings: { turnTimeoutMinutes: 45, audienceFloor: "everyone" } }], allowed)).toBe(1);
+    expect(adoptConversationSettings(room.store, [{ threadId: "t-room", settings: { turnTimeoutMinutes: 45, audienceFloor: "everyone" } }], allowed, dataDir)).toBe(1);
     expect(room.changes).toEqual([["room-task", "t-room", { turnTimeoutMinutes: 45 }]]);
     const wide = held();
-    adoptConversationSettings(wide.store, [{ threadId: "t-room", settings: { audienceFloor: "admins" } }], allowed);
+    adoptConversationSettings(wide.store, [{ threadId: "t-room", settings: { audienceFloor: "admins" } }], allowed, dataDir);
     expect(wide.changes).toEqual([["room", { audienceFloor: "admins" }]]);
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { AudioLines, Check, GraduationCap, ListChecks, Paperclip, Phone, Plus, Target, X } from "lucide-react";
-import { approvalModeFor } from "../../shared/approval-mode";
+import { approvalModeFor, levelWithin, withinApprovalCeiling } from "../../shared/approval-mode";
 import {
   approvalModeOptions,
   approvalModeOptionsFor,
@@ -49,7 +49,8 @@ const check = <Check size={15} className="shrink-0 text-accent" aria-hidden="tru
  * Simple mode names the levels as the bot panel does. */
 function approvalMenu(choice: ApprovalChoice, simple: boolean) {
   const trusted = choice.trustedModesAvailable ?? true;
-  const mode = shownApprovalMode(choice.driverKind, approvalModeFor({ approvalMode: choice.approvalMode, autoApprove: choice.autoApprove }));
+  const ceiling = choice.approvalCeiling;
+  const mode = shownApprovalMode(choice.driverKind, withinApprovalCeiling(approvalModeFor(choice), ceiling));
   const all = approvalModeOptions();
   const shown = approvalModeOptionsFor(choice.driverKind).find((option) => option.mode === mode)
     ?? all.find((option) => option.mode === mode)
@@ -63,14 +64,15 @@ function approvalMenu(choice: ApprovalChoice, simple: boolean) {
     items: [
       ...approvalModeOptionsFor(choice.driverKind, trusted).map((option): SidebarMenuItem => {
         const Icon = option.Icon;
+        const capped = ceiling !== undefined && !levelWithin(option.mode, ceiling);
         return {
           key: `approval:${option.mode}`,
           label: name(option),
-          note: option.description,
+          note: capped ? t("botAccess.summary.ceiling", { mode: t(`approvalMode.${ceiling}.label`) }) : option.description,
           icon: <Icon size={16} />,
           active: option.mode === mode,
           trailing: option.mode === mode ? check : undefined,
-          disabled: localOnly,
+          disabled: localOnly || capped,
           onSelect: () => choice.onSelect(option.mode),
         };
       }),

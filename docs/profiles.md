@@ -275,7 +275,12 @@ the bot's own brain).
 `mcpServers` is the one exception: a bot may use the organization's servers, its area's and its own, each listed once.
 
 `maxApproval` limits the result: a bot whose approval, wherever it was set, is above its area's or organization's
-`maxApproval` is an error. Under a `maxApproval` below `full`, some level must set `approval`, since the app's own
+`maxApproval` is an error. Applying profiles saves the stricter of the organization and area limits.
+That limit follows a bot imported from the area, even if its department is renamed or the bot is moved.
+It also applies when a bot is created in the area's department. Existing conversations run at or below
+the saved limit, including conversations with a higher level on disk. Raising or removing a saved limit
+requires confirming the change in the profile plan. Apply an existing folder again to save its limits.
+Under a `maxApproval` below `full`, some level must set `approval`, since the app's own
 default is Full access.
 
 `edubot profiles check FOLDER --json` shows each bot as it resolves, with `from`, the level each setting came from:

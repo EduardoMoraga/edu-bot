@@ -1,8 +1,11 @@
 import { z } from "zod";
 
+import { DATA_DIR } from "../config.ts";
+import { readProfilesState, sectionApprovalCeilings } from "../profiles/state.ts";
 import type { WireBot } from "../../shared/wire.ts";
 import type { BotRecord, Store } from "../store.ts";
 import type { TeamComputers } from "../team-computers.ts";
+import { mayGiveProfileAccess } from "./profiles.ts";
 import { USER_ERROR, userError, type UserErrorKey } from "../user-errors.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
@@ -18,6 +21,7 @@ export interface SidebarSectionRouteDeps {
   store: Store;
   teamComputers: TeamComputers;
   maxBots: number;
+  desktopManaged?: boolean;
   assertTeamComputerChangeIdle(before: BotRecord, after: BotRecord): void;
   wireBot(bot: BotRecord): WireBot;
   /** A department was renamed (`to`) or deleted (null): what is kept about it by name follows. */
@@ -32,9 +36,14 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
     botIds: z.array(z.string().regex(/^[\w-]+$/)).max(MAX_WORKSPACE_BOTS).default([]),
   }).strict();
 
-  return async ({ req, res, url, path, method, json, readBody }) => {
+  return async ({ req, res, url, path, method, auth, json, readBody }) => {
+    const ceilingWrite = { mayLiftCeiling: mayGiveProfileAccess(auth, req, deps.desktopManaged === true) };
     if (path === "/api/sidebar-sections" && method === "GET") {
-      return json(res, 200, { sections: store.sections });
+      if (!auth.scopes.includes("admin")) return json(res, 200, { sections: store.sections });
+      const { areas } = readProfilesState(DATA_DIR);
+      const profileApprovalCeilings = Object.fromEntries(Object.entries(areas)
+        .flatMap(([key, area]) => area.maxApproval ? [[key, area.maxApproval]] : []));
+      return json(res, 200, { sections: store.sections, approvalCeilings: sectionApprovalCeilings(areas), profileApprovalCeilings });
     }
     if (path === "/api/sidebar-sections" && (method === "PATCH" || method === "DELETE")) {
       const section = url.searchParams.get("section")?.trim();
@@ -46,7 +55,7 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
         if (!parsed.success) return json(res, 400, userError("serverError.department.nameLength"));
         nextName = parsed.data.name;
       }
-      const error = nextName === null ? store.deleteSection(section) : store.renameSection(section, nextName, teamComputers);
+      const error = nextName === null ? store.deleteSection(section, ceilingWrite) : store.renameSection(section, nextName, teamComputers, ceilingWrite);
       if (error) return json(res, error === "No such department" ? 404 : 409, storeRefusal(error));
       deps.renamed?.(section, nextName);
       return json(res, 200, { sections: store.sections });
@@ -60,10 +69,11 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
       for (const [botIds, destination] of [[parsed.data.addBotIds, section], [parsed.data.removeBotIds, undefined]] as const) {
         for (const id of botIds) {
           const bot = store.bot(id);
-          if (bot) assertTeamComputerChangeIdle(bot, { ...bot, section: destination });
+          if (!bot) continue;
+          assertTeamComputerChangeIdle(bot, { ...bot, section: destination });
         }
       }
-      const result = store.updateTeamMembers(section, parsed.data.addBotIds, parsed.data.removeBotIds);
+      const result = store.updateTeamMembers(section, parsed.data.addBotIds, parsed.data.removeBotIds, ceilingWrite);
       if (!result.ok) return json(res, result.reason === "unavailable" ? 404 : 409, result.reason === "chief-conflict" ? userError("serverError.department.moveChiefConflict")
           : result.reason === "membership-changed" ? userError("serverError.department.membershipChanged")
           : { error: "One or more bots are unavailable" });
@@ -82,9 +92,10 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
       if (!name && !botIds.length) return json(res, 400, { error: "Department name is required" });
       for (const botId of botIds) {
         const bot = store.bot(botId);
-        if (bot) assertTeamComputerChangeIdle(bot, { ...bot, section: name || undefined });
+        if (!bot) continue;
+        assertTeamComputerChangeIdle(bot, { ...bot, section: name || undefined });
       }
-      const result = store.setBotsSection(botIds, name);
+      const result = store.setBotsSection(botIds, name, ceilingWrite);
       if (!result.ok) {
         if (result.reason === "chief-conflict") {
           return json(res, 409, {

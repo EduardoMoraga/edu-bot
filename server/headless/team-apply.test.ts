@@ -16,7 +16,7 @@ import { loadTeamFile, type DesiredBot, type TeamFile } from "./team-file.ts";
 
 type Rec = Record<string, any>;
 
-function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; config?: Rec } = {}) {
+function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; config?: Rec; approvalCeilings?: Rec } = {}) {
   const state = {
     bots: (seed.bots ?? []).map((bot) => ({ busy: false, title: "", description: "", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" }, ...bot })) as Rec[],
     groups: seed.groups ?? [],
@@ -42,7 +42,7 @@ function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; co
     if (url.pathname === "/api/instances") return { instances: [{ instanceId: "claude", driverKind: "claudeAgent", snapshot: { state: "available" }, models: { default: "claude-sonnet-5", options: [{ id: "claude-sonnet-5" }, { id: "claude-haiku-5" }] } }] };
     if (url.pathname === "/api/sidebar-sections") {
       if (method === "POST") state.sections.push(body.name);
-      return { sections: state.sections };
+      return { sections: state.sections, approvalCeilings: seed.approvalCeilings };
     }
     if (url.pathname === "/api/section-context") {
       const section = url.searchParams.get("section")!;
@@ -51,7 +51,7 @@ function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; co
     }
     if (url.pathname === "/api/bots" && method === "GET") return { bots: state.bots, groups: state.groups };
     if (url.pathname === "/api/bots" && method === "POST") {
-      const bot = { id: `bot-${++ids}`, busy: false, name: body.name, title: body.title ?? "", description: body.description ?? "",
+      const bot = { id: `bot-${++ids}`, busy: false, name: body.name, approvalMode: body.settings?.approvalMode, title: body.title ?? "", description: body.description ?? "",
         ...(body.section ? { section: body.section } : {}), modelSelection: body.modelSelection ?? { instanceId: "claude", model: "claude-sonnet-5" } };
       state.bots.push(bot);
       return { bot };
@@ -107,6 +107,32 @@ const file = (patch: Partial<TeamFile> = {}): TeamFile => ({
 const options = (patch: Partial<ApplyOptions> = {}): ApplyOptions => ({ apply: true, prune: false, rotateSecrets: false, waitIdleMs: 0, env: {}, ...patch });
 
 describe("team apply", () => {
+  it("refuses a requested approval above a bot's area ceiling without patching it", async () => {
+    const { client, writes, state } = workspace({ sections: ["Launch Room"], bots: [
+      { id: "lead", name: lead.name, section: lead.team, approvalMode: "ask", approvalCeiling: "ask" },
+    ] });
+    await expect(reconcile(client, file({ teams: [], bots: [lead], rooms: [] }), options())).rejects.toThrow("This area allows at most Ask for approval");
+    expect(writes).toEqual([]);
+    expect(state.bots[0]?.approvalMode).toBe("ask");
+  });
+
+  it.each(["edits", undefined] as const)("preflights a new bot's %s approval before any team or bot write", async (approval) => {
+    const { client, writes, state } = workspace({ approvalCeilings: { "launch room": "ask" } });
+    const desired = file({ bots: [{ ...lead, approval }], rooms: [] });
+    for (const apply of [false, true]) {
+      await expect(reconcile(client, desired, options({ apply }))).rejects.toThrow("This area allows at most Ask for approval");
+    }
+    expect(writes).toEqual([]);
+    expect(state.bots).toEqual([]);
+  });
+
+  it("preflights the destination ceiling when moving an existing bot", async () => {
+    const { client, writes } = workspace({ approvalCeilings: { "launch room": "ask" },
+      bots: [{ id: "lead", name: lead.name, section: "Other" }] });
+    await expect(reconcile(client, file({ bots: [lead], rooms: [] }), options())).rejects.toThrow("This area allows at most Ask for approval");
+    expect(writes).toEqual([]);
+  });
+
   it("plans without writing, applies what it planned, and then has nothing left to do", async () => {
     const { client, writes, state } = workspace();
     const plan = await reconcile(client, file(), options({ apply: false }));

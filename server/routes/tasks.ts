@@ -1,4 +1,6 @@
-import { approvalModeFor, approvalModeWidens, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
+import { approvalModeFor, levelWithin, approvalModeWidens, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { threadLinkUrl } from "../../shared/thread-link.ts";
 import type { TaskResponse, WireBot, WireTask } from "../../shared/wire.ts";
 import { validateBotCwd } from "../bot-cwd.ts";
@@ -19,7 +21,7 @@ import { bulkDeleteThreadIds, type BulkDeleteRefusal } from "./bulk-delete.ts";
 import { forkMessageId } from "./fork-request.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 import { madeThread, sawThread } from "../thread-presence.ts";
-import { refusalBody, userError } from "../user-errors.ts";
+import { approvalCeilingError, refusalBody, userError } from "../user-errors.ts";
 import type { ServerErrorBody } from "../../shared/server-text.ts";
 import { readThreadNotifications, type NotificationListed } from "./notifications.ts";
 
@@ -56,7 +58,7 @@ export interface TaskRouteDeps {
   notificationListed: NotificationListed;
   publicBot(bot: BotRecord): WireBot;
   wireBot(bot: BotRecord): WireBot;
-  wireTask(task: TaskRecord, botModel: ModelSelection): WireTask;
+  wireTask(task: TaskRecord, bot: BotRecord): WireTask;
   pageSize(raw: string | null): number | null | undefined;
   messagePage(threadId: string, limit: number | undefined): MessagePage;
   checkedModelSelection(raw: unknown, current?: { selection: ModelSelection; busy: boolean }, requireAvailableModel?: boolean):
@@ -176,7 +178,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
       const task = store.forkTask(bot.id, m[2], messageId);
       if (!task) return json(res, 404, { error: "no such completed message in this conversation" });
       if (auth.kind === "session") threadStarters.set(task.threadId, actorKey(auth));
-      return json(res, 201, { bot: publicBot(store.bot(bot.id)!), task: wireTask(task, store.bot(bot.id)!.modelSelection) } satisfies TaskResponse);
+      const updated = store.bot(bot.id)!;
+      return json(res, 201, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
 
     m = path.match(/^\/api\/bots\/([\w-]+)\/tasks$/);
@@ -200,6 +203,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
       if (body.approvalMode !== undefined && body.approvalMode !== "ask" && body.approvalMode !== "full") {
         return json(res, 400, { error: "new task approvalMode must be ask or full" });
       }
+      const ceiling = approvalCeiling(DATA_DIR, bot);
+      if (ceiling && body.approvalMode && !levelWithin(body.approvalMode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
       if (body.approvalMode === "full") {
         if (auth.kind !== "loopback" || !sharedWorkspaceFullAccessEnabled()) {
           return json(res, 403, { error: "New Full tasks require the operator's dedicated shared-workspace policy" });
@@ -217,7 +222,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         auth.kind === "session" ? (created) => threadStarters.set(created.threadId, actorKey(auth)) : undefined);
       if (!task) return json(res, 500, { error: "couldn't create that task" });
       madeThread(bot.id, task.threadId);
-      return json(res, 201, { bot: publicBot(store.bot(bot.id)!), task: wireTask(task, store.bot(bot.id)!.modelSelection) } satisfies TaskResponse);
+      const updated = store.bot(bot.id)!;
+      return json(res, 201, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
     m = path.match(/^\/api\/bots\/([\w-]+)\/tasks\/delete$/);
     if (m && method === "POST") {
@@ -297,6 +303,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (!profile) return json(res, 404, { error: "no such bot" });
         if (profile.approvalGrant) return json(res, 409, { error: "the bot's approval mode is still being confirmed" });
         const nextMode = approvalModeFor({ ...profile, approvalGrant: undefined });
+        const ceiling = approvalCeiling(DATA_DIR, profile);
+        if (ceiling && !levelWithin(nextMode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
         // Custom never travels over the bot-reachable HTTP surface; only the desktop's private channel copies it.
         if (nextMode === "custom") {
           return json(res, 403, { error: "Refresh Custom access from the packaged desktop app" });
@@ -322,7 +330,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         }
         const task = store.refreshTaskPermissions(profile.id, m[2]);
         if (!task) return json(res, 404, { error: "no such task" });
-        return json(res, 200, { task: wireTask(task, store.bot(profile.id)!.modelSelection), bot: publicBot(store.bot(profile.id)!) } satisfies TaskResponse);
+        const updated = store.bot(profile.id)!;
+        return json(res, 200, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
       }
       const patch: Parameters<typeof store.patchTask>[2] = {};
       if (body.projectId !== undefined) {
@@ -380,6 +389,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (body.autoApprove !== undefined && typeof body.autoApprove !== "boolean") return json(res, 400, { error: "autoApprove must be a boolean" });
         const mode: unknown = body.approvalMode ?? (body.autoApprove ? "auto" : "ask");
         if (!isApprovalMode(mode)) return json(res, 400, { error: "approvalMode must be ask, edits, auto, full, or custom" });
+        const ceiling = approvalCeiling(DATA_DIR, current);
+        if (ceiling && !levelWithin(mode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
         // A thread PATCH cannot manufacture Custom: it needs the trusted desktop transition.
         if (mode === "custom") return json(res, 403, { error: "Custom access requires trusted desktop confirmation" });
         if (mode === "full" && HOSTED_WORKSPACE && approvalModeFor(current) !== "full") return json(res, 403, { error: HOSTED_FULL_ACCESS_REFUSAL });
@@ -407,7 +418,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         ? store.switchTaskModel(m[1], m[2], patch.modelSelection, body.updateBotDefault === true, body.resetApprovalToAsk === true,
           { ...patch, ...hostedModels?.resetTask(current.modelSelection, patch.modelSelection) })!
         : store.patchTask(m[1], m[2], patch)!;
-      return json(res, 200, { task: wireTask(task, store.bot(m[1])!.modelSelection), bot: publicBot(store.bot(m[1])!) } satisfies TaskResponse);
+      const updated = store.bot(m[1])!;
+      return json(res, 200, { task: wireTask(task, updated), bot: publicBot(updated) } satisfies TaskResponse);
     }
     if (m && method === "DELETE") {
       const bot = store.bot(m[1]);
@@ -437,7 +449,7 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (!title) return json(res, 502, { error: "couldn't generate a title — try again, or rename the thread" });
         const task = store.retitleTask(m[1], m[2], startedFrom, title) ?? store.taskByThread(m[1], m[2]);
         if (!task) return json(res, 404, { error: "no such task" });
-        return json(res, 200, { task: wireTask(task, store.bot(m[1])!.modelSelection) });
+        return json(res, 200, { task: wireTask(task, store.bot(m[1])!) });
       } finally {
         titleRegenerations.delete(m[2]);
       }

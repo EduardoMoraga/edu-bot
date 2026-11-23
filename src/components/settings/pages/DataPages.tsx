@@ -1,3 +1,4 @@
+import { useStoreSelector } from "@/state/store-select";
 import { t } from "@/lib/i18n";
 import { ActivitySection } from "../../ActivitySection";
 import { AdminOnly } from "../../AdminOnly";
@@ -41,13 +42,14 @@ export function ImportExportPage() {
 
 export function DataPage() {
   const { ctx } = useSettingsShell();
+  const activityBot = useStoreSelector((state) => state.appSettingsActivityBot);
   return <>
     <AdminOnly><DataConnectionsSection /></AdminOnly>
     <SettingsGroup label={t("settings.data.storage")} block="storage">
       <SettingsRows><AttachmentStorageSettings /></SettingsRows>
     </SettingsGroup>
     {ctx.advanced && <ThreadCleanupSettings />}
-    {!ctx.desktop && ctx.admin && <ActivitySection />}
+    {ctx.admin && <ActivitySection key={activityBot} initialBot={activityBot} />}
   </>;
 }
 
