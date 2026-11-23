@@ -148,8 +148,10 @@ describe("Edu Bot 0.1.0 release metadata", () => {
     expect(releaseText).toContain('[ "$GITHUB_REPOSITORY" = "EduardoMoraga/edu-bot" ]');
     expect(releaseText).toContain(`trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT`);
     expect(releaseText).toContain('if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then');
-    const unsigned = releaseText.slice(releaseText.indexOf('if [ -z "${WIN_CSC_LINK:-}" ]'));
-    expect(unsigned.startsWith('if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then\n            if grep -q "publisherName"')).toBe(true);
+    const gate = 'if [ -z "${WIN_CSC_LINK:-}" ] && [ -z "${CSC_LINK:-}" ]; then\n            if grep -q "publisherName"';
+    const opensUnsigned = (text: string) => text.slice(text.indexOf('if [ -z "${WIN_CSC_LINK:-}" ]')).replaceAll("\r\n", "\n").startsWith(gate);
+    expect(opensUnsigned(releaseText)).toBe(true);
+    expect(opensUnsigned(releaseText.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"))).toBe(true);
     expect(releaseText.toLowerCase()).not.toContain("s3://");
   });
 });
