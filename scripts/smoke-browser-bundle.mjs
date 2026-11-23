@@ -28,7 +28,22 @@ if (values.help) {
 assert(values.resources && isAbsolute(values.resources), "--resources must be an absolute packaged Resources/resources directory");
 const target = values.target ?? `${process.platform}-${process.arch}`;
 const spec = browserBundleSpec(target);
-const paths = browserBundlePaths(join(resolve(values.resources), "browser-engine"), target);
+const engineRoot = join(resolve(values.resources), "browser-engine");
+const paths = browserBundlePaths(engineRoot, target);
+const manifestStat = await stat(paths.manifest).then((info) => info, (error) => {
+  if (error?.code === "ENOENT") return null;
+  throw error;
+});
+if (!manifestStat && values["engine-candidate"] === undefined) {
+  // Chrome for Testing is not redistributable, so an Edu Bot package has no browser-engine.
+  const engineStat = await stat(engineRoot).then((info) => info, (error) => {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  });
+  assert(engineStat === null, "browser-engine is present without manifest.json");
+  console.log(JSON.stringify({ ok: true, target, check: "no-bundled-browser", browserExecuted: false }));
+  process.exit(0);
+}
 const manifest = JSON.parse(await readFile(paths.manifest, "utf8"));
 assert.equal(manifest.schemaVersion, spec.schemaVersion);
 assert.equal(manifest.target, target);

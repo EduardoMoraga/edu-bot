@@ -1,4 +1,4 @@
-import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -99,8 +99,8 @@ describe("connection storage", () => {
     expect(() => store.add({ name: "shop", type: "sqlite", path: inside })).toThrow(/folder/);
     store.addFolder(allowed);
     const added = store.add({ name: "shop", type: "sqlite", path: inside });
-    expect(added.where).toBe(inside);
-    expect(store.add({ name: "notes", type: "duckdb", path: duck }).where).toBe(duck);
+    expect(added.where).toBe(realpathSync(inside));
+    expect(store.add({ name: "notes", type: "duckdb", path: duck }).where).toBe(realpathSync(duck));
     expect(() => store.add({ name: "gone", type: "sqlite", path: hidden })).toThrow(/folder/);
     expect(() => store.add({ name: "escape", type: "sqlite", path: join(allowed, "escape.sqlite") })).toThrow(/folder/);
     expect(JSON.stringify(store.list())).not.toContain("password");

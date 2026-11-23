@@ -5,6 +5,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { writeFileAtomic } from "../atomic.ts";
+import { resolveThroughLinks } from "../sentinel/paths.ts";
 import { CONNECTION_NAME, connectionNameError, containsRawDsn } from "../../shared/data-connections.ts";
 import { probeConnection } from "./session.ts";
 
@@ -168,7 +169,9 @@ export class ConnectionStore {
 
   private knownFolder(path: string, folders: string[]): string {
     const expanded = this.expand(path);
-    const saved = folders.find((item) => item === expanded || item === path || item === resolve(path));
+    // macOS realpath maps `/var` to `/private/var`, including a leaf that is already gone.
+    const wanted = resolveThroughLinks(expanded);
+    const saved = folders.find((item) => item === expanded || item === path || item === resolve(path) || resolveThroughLinks(item) === wanted);
     if (saved) {
       try { return this.directory(saved); } catch { return saved; }
     }
