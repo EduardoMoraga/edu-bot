@@ -1,5 +1,5 @@
 import { readBotActivity } from "../activity.ts";
-import { activityCsv, activityEntries, flushAdminActivity, parseActivityWhat, readAdminActivityRange } from "../admin-activity.ts";
+import { activityBotFilter, activityCsv, activityEntries, flushAdminActivity, parseActivityWhat, readAdminActivityRange } from "../admin-activity.ts";
 import { loadBrand } from "../brand.ts";
 import { browserEngineStatus, ensureChrome, installAgentBrowserBinary, resolveAgentBrowserBinary } from "../browser-engine.ts";
 import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, instanceConfigs, type AppConfig } from "../config.ts";
@@ -177,13 +177,18 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
       return json(res, 200, verdict);
     }
 
+    const bot = url.searchParams.get("bot") ?? undefined;
+    const area = url.searchParams.get("area") ?? undefined;
+    const areaOf = (botId: string) => store.bot(botId)?.section;
+    const matchesBot = activityBotFilter(bot, area, areaOf);
+    const matchesDecision = bot || area ? (row: DecisionRow) => matchesBot(decision(row).botId) : undefined;
     if (method === "GET" && path === "/api/decisions") {
       const rawLimit = url.searchParams.get("limit");
       const parsedLimit = rawLimit === null ? undefined : Number(rawLimit);
       if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
         return json(res, 400, { error: "limit must be a positive whole number" });
       }
-      return json(res, 200, { decisions: readDecisions(DATA_DIR, parsedLimit ?? 200).map(decision) });
+      return json(res, 200, { decisions: readDecisions(DATA_DIR, parsedLimit ?? 200, matchesDecision).map(decision) });
     }
     if (method === "GET" && (path === "/api/admin-activity" || path === "/api/admin-activity.csv")) {
       const fromParam = url.searchParams.get("from") || new Date(Date.now() - 29 * 24 * 60 * 60_000).toISOString().slice(0, 10);
@@ -193,7 +198,7 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
       if (!what) return json(res, 400, { error: "what must be all, approvals, decisions, config, people, session, webhook, mcp, engine, bot, budget or visibility" });
       await flushAdminActivity(DATA_DIR); // rows are appended in the background; a change already answered is listed
       const entries = activityEntries(readDecisionRange(DATA_DIR, range).map(decision), readAdminActivityRange(DATA_DIR, range).filter(deps.records?.adminActionShown(auth) ?? (() => true)), {
-        what,
+        what, bot, area, areaOf,
         who: (url.searchParams.get("who") ?? "").slice(0, 200),
       });
       if (path.endsWith(".csv")) {
@@ -227,7 +232,8 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
         "content-disposition": `attachment; filename="decisions-${stamp(range.from)}-${stamp(range.to)}.csv"`,
         "cache-control": "no-store",
       });
-      res.end(decisionsCsv(readDecisionRange(DATA_DIR, range).map(decision)));
+      const rows = readDecisionRange(DATA_DIR, range).map(decision);
+      res.end(decisionsCsv(rows.filter((row) => matchesBot(row.botId))));
       return;
     }
 

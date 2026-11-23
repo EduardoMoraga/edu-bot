@@ -1,7 +1,8 @@
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { ChevronRight, Download, Loader2, RefreshCw } from "lucide-react";
 
 import { api } from "@/state/store";
+import { useStoreSelector } from "@/state/store-select";
 import { routineLineText } from "@/lib/activity-text";
 import { cn } from "@/lib/cn";
 import { intlLocale, t } from "@/lib/i18n";
@@ -51,8 +52,10 @@ export function ActivityRow({ entry }: { entry: ActivityEntry }) {
   );
 }
 
-export function ActivitySection() {
-  const [filters, setFilters] = useState<ActivityFilters>({ who: "", what: "all", from: "", to: "" });
+export function ActivitySection({ initialBot }: { initialBot?: string }) {
+  const bots = useStoreSelector((state) => state.bots);
+  const areas = [...new Set(bots.flatMap((bot) => bot.section ? [bot.section] : []))].sort((a, b) => a.localeCompare(b, intlLocale()));
+  const [filters, setFilters] = useState<ActivityFilters>({ who: "", what: "all", from: "", to: "", bot: initialBot });
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [total, setTotal] = useState(0);
   const [days, setDays] = useState<number | null>(null);
@@ -61,27 +64,43 @@ export function ActivitySection() {
   const query = activityQuery(filters);
   const settings = useContext(SettingsLook);
 
+  const request = useRef(0);
   const load = useCallback(async () => {
+    const id = ++request.current;
     setLoading(true);
     setError(null);
     try {
       const body = await api(`/api/admin-activity${query}`) as { entries: ActivityEntry[]; total: number; retentionDays: number };
+      if (request.current !== id) return;
       setEntries(body.entries);
       setTotal(body.total);
       setDays(body.retentionDays);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (request.current === id) setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      setLoading(false);
+      if (request.current === id) setLoading(false);
     }
   }, [query]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 250);
-    return () => window.clearTimeout(timer);
+    return () => {
+      request.current += 1;
+      window.clearTimeout(timer);
+    };
   }, [load]);
 
   const set = (patch: Partial<ActivityFilters>) => setFilters((current) => ({ ...current, ...patch }));
+  const scopeFilters = [
+    { field: "bot", label: t("activity.bot"), any: t("activity.allBots"), options: bots.map((bot) => ({ value: bot.id, name: bot.name })) },
+    { field: "area", label: t("activity.area"), any: t("activity.allAreas"), options: areas.map((area) => ({ value: area, name: area })) },
+  ] as const;
+  const selectScope = (filter: typeof scopeFilters[number]) => (
+    <Select value={filters[filter.field] ?? ""} onChange={(event) => set({ [filter.field]: event.target.value })} aria-label={filter.label}>
+      <option value="">{filter.any}</option>
+      {filter.options.map(({ value, name }) => <option key={value} value={value}>{name}</option>)}
+    </Select>
+  );
   if (settings) {
     // In Settings: one section (its description is the foot line), Export CSV as its one action, the filters as rows
     // with their controls on one edge, and the entries in a card of their own.
@@ -98,6 +117,7 @@ export function ActivitySection() {
               {ACTIVITY_WHATS.map((what) => <option key={what} value={what}>{t(`activity.what.${what}` as LocaleKey)}</option>)}
             </Select>
           </SettingRow>
+          {scopeFilters.map((filter) => <SettingRow key={filter.field} title={filter.label}>{selectScope(filter)}</SettingRow>)}
           <SettingRow title={t("activity.dates")}>
             <input type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => set({ from: e.target.value })} aria-label={t("activity.from")}
               className={cn(SETTINGS_INLINE_INPUT, "w-[140px] text-left")} />
@@ -129,6 +149,9 @@ export function ActivitySection() {
             {ACTIVITY_WHATS.map((what) => <option key={what} value={what}>{t(`activity.what.${what}` as LocaleKey)}</option>)}
           </Select>
         </label>
+        {scopeFilters.map((filter) => (
+          <label key={filter.field} className="flex flex-col gap-1 text-[12px] text-ink-secondary">{filter.label}{selectScope(filter)}</label>
+        ))}
         <label className="flex flex-col gap-1 text-[12px] text-ink-secondary">
           {t("activity.from")}
           <input type="date" value={filters.from} max={filters.to || undefined} onChange={(e) => set({ from: e.target.value })} className={inputClass} />

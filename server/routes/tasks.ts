@@ -1,4 +1,6 @@
-import { approvalModeFor, approvalModeWidens, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
+import { approvalModeFor, levelWithin, approvalModeWidens, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { threadLinkUrl } from "../../shared/thread-link.ts";
 import type { TaskResponse, WireBot, WireTask } from "../../shared/wire.ts";
 import { validateBotCwd } from "../bot-cwd.ts";
@@ -19,7 +21,7 @@ import { bulkDeleteThreadIds, type BulkDeleteRefusal } from "./bulk-delete.ts";
 import { forkMessageId } from "./fork-request.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 import { madeThread, sawThread } from "../thread-presence.ts";
-import { refusalBody, userError } from "../user-errors.ts";
+import { approvalCeilingError, refusalBody, userError } from "../user-errors.ts";
 import type { ServerErrorBody } from "../../shared/server-text.ts";
 import { readThreadNotifications, type NotificationListed } from "./notifications.ts";
 
@@ -200,6 +202,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
       if (body.approvalMode !== undefined && body.approvalMode !== "ask" && body.approvalMode !== "full") {
         return json(res, 400, { error: "new task approvalMode must be ask or full" });
       }
+      const ceiling = approvalCeiling(DATA_DIR, bot);
+      if (ceiling && body.approvalMode && !levelWithin(body.approvalMode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
       if (body.approvalMode === "full") {
         if (auth.kind !== "loopback" || !sharedWorkspaceFullAccessEnabled()) {
           return json(res, 403, { error: "New Full tasks require the operator's dedicated shared-workspace policy" });
@@ -297,6 +301,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (!profile) return json(res, 404, { error: "no such bot" });
         if (profile.approvalGrant) return json(res, 409, { error: "the bot's approval mode is still being confirmed" });
         const nextMode = approvalModeFor({ ...profile, approvalGrant: undefined });
+        const ceiling = approvalCeiling(DATA_DIR, profile);
+        if (ceiling && !levelWithin(nextMode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
         // Custom never travels over the bot-reachable HTTP surface; only the desktop's private channel copies it.
         if (nextMode === "custom") {
           return json(res, 403, { error: "Refresh Custom access from the packaged desktop app" });
@@ -380,6 +386,8 @@ export function createTaskRoutes(deps: TaskRouteDeps): RouteHandler & { deleteTa
         if (body.autoApprove !== undefined && typeof body.autoApprove !== "boolean") return json(res, 400, { error: "autoApprove must be a boolean" });
         const mode: unknown = body.approvalMode ?? (body.autoApprove ? "auto" : "ask");
         if (!isApprovalMode(mode)) return json(res, 400, { error: "approvalMode must be ask, edits, auto, full, or custom" });
+        const ceiling = approvalCeiling(DATA_DIR, current);
+        if (ceiling && !levelWithin(mode, ceiling)) return json(res, 403, approvalCeilingError(ceiling));
         // A thread PATCH cannot manufacture Custom: it needs the trusted desktop transition.
         if (mode === "custom") return json(res, 403, { error: "Custom access requires trusted desktop confirmation" });
         if (mode === "full" && HOSTED_WORKSPACE && approvalModeFor(current) !== "full") return json(res, 403, { error: HOSTED_FULL_ACCESS_REFUSAL });

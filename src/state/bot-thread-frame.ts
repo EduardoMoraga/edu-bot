@@ -1,3 +1,4 @@
+import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
 import { botShowsUnread } from "@/lib/bot-unread";
 import type { Bot, BotAnnouncement } from "./store";
 
@@ -19,4 +20,11 @@ export function wholeBotFrame(known: Pick<Bot, "tasks"> | undefined, bot: BotAnn
 export function unreadBeyondFrame(known: Pick<Bot, "tasks"> | undefined, bot: BotAnnouncement): boolean {
   const carried = new Set((bot.tasks ?? []).map((task) => task.threadId));
   return botShowsUnread({ unread: false, tasks: (known?.tasks ?? []).filter((task) => !carried.has(task.threadId)) }) || botShowsUnread({ unread: false, tasks: bot.tasks ?? [] });
+}
+
+export function threadApprovalModes(bot: Pick<Bot, "approvalMode" | "autoApprove" | "tasks">): ApprovalMode[] {
+  return (bot.tasks ?? []).map((task) => approvalModeFor({
+    approvalMode: task.approvalMode ?? (task.autoApprove === undefined ? bot.approvalMode : undefined),
+    autoApprove: task.autoApprove ?? bot.autoApprove,
+  }));
 }

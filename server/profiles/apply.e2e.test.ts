@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { appendDecision, flushDecisionLog } from "../decision-log.ts";
 import { SessionRegistry } from "../sessions.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { launchRestartableServer, type RestartableServer } from "../testing/restartable-server.ts";
@@ -151,12 +152,64 @@ posixOnly("profile apply routes", () => {
 
   it("records each apply in the admin activity log and the applied state", async () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
-    const rows = (await api("GET", "/api/admin-activity?what=profile", undefined, "admin")).body.entries as Rec[];
-    expect(rows.map((row) => row.action)).toEqual(["profile.apply", "profile.apply"]);
+    const activity = (await api("GET", "/api/admin-activity?what=profile", undefined, "admin")).body.entries as Rec[];
+    const rows = activity.filter((row) => row.action === "profile.apply");
+    expect(rows).toHaveLength(2);
+    const bot = (await analyst())!;
+    expect(activity).toContainEqual(expect.objectContaining({ botId: bot.id, action: "profile.bot.apply", area: "BI" }));
     expect(rows.find((row) => row.changed?.includes("bi/analyst.eduCrew") && row.changed.includes("sales/closer.eduBrain") && row.changed.includes("mcp/notion") && row.changed.length === 5)).toBeTruthy();
     expect(rows.find((row) => row.changed?.includes("sales/closer.connectors"))?.after).toMatchObject({ folder });
     const status = (await api("GET", "/api/profiles")).body;
     expect(status).toMatchObject({ folder, applied: { folder, digest: expect.any(String) }, areas: { bi: { section: "BI" }, sales: { section: "Sales" } } });
+  });
+
+  it("stores the stricter ceiling and refuses bot, thread and creation writes above it", async () => {
+    const bot = (await analyst())!;
+    expect(bot.approvalCeiling).toBe("auto");
+    expect(JSON.parse(readFileSync(join(server.dataDir, "profiles.json"), "utf8")).areas).toMatchObject({
+      bi: { maxApproval: "auto" }, sales: { maxApproval: "edits" },
+    });
+    const refusal = { status: 403, body: { error: "This area allows at most Approve for me", errorKey: "serverError.approval.ceiling.auto" } };
+    expect(await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "full" })).toEqual(refusal);
+    expect(await api("PATCH", `/api/bots/${bot.id}/tasks/${bot.threadId}`, { approvalMode: "full" })).toEqual(refusal);
+    expect(await api("POST", "/api/bots", { name: "Outside analyst", section: "BI", settings: { approvalMode: "full" } })).toEqual(refusal);
+    expect(await api("POST", "/api/bots", { name: "Local analyst", section: "BI", settings: { approvalMode: "ask" } })).toMatchObject({
+      status: 201, body: { bot: { approvalMode: "ask", approvalCeiling: "auto" } },
+    });
+  });
+
+  it("refuses to apply a profile above the ceiling before writing it", async () => {
+    const file = join(folder, "areas", "sales", "bots", "closer.md");
+    const text = readFileSync(file, "utf8");
+    writeFileSync(file, text.replace("approval: edits", "approval: full"));
+    try {
+      const applied = await api("POST", "/api/profiles/apply", {}, "admin");
+      expect(applied).toMatchObject({ status: 403, body: { error: "This area allows at most Auto-accept edits" } });
+      expect((await profileBots()).find((bot) => bot.profileSource.key === "closer")?.approvalMode).toBe("ask");
+    } finally {
+      writeFileSync(file, text);
+    }
+  });
+
+  it("filters activity and decisions by bot and the bot's current department", async () => {
+    const bot = (await analyst())!;
+    const closer = (await profileBots()).find((one) => one.profileSource.key === "closer")!;
+    for (const one of [bot, closer]) appendDecision(server.dataDir, {
+      botId: one.id, threadId: one.threadId, botName: one.name, decision: "auto-approved", source: "app-settings",
+    });
+    await flushDecisionLog(server.dataDir);
+    const query = `bot=${bot.id}&area=bi`;
+    const activity = await api("GET", `/api/admin-activity?what=profile&${query}`, undefined, "admin");
+    expect(activity.status).toBe(200);
+    expect(activity.body.entries).toHaveLength(2);
+    expect(activity.body.entries.every((row: Rec) => row.botId === bot.id && row.area === "BI")).toBe(true);
+    const sales = (await api("GET", "/api/admin-activity?what=profile&area=Sales", undefined, "admin")).body.entries;
+    expect(sales).toContainEqual(expect.objectContaining({ botId: closer.id, area: "Sales" }));
+    expect(sales.every((row: Rec) => row.botId === closer.id && row.area === "Sales")).toBe(true);
+    expect((await api("GET", `/api/decisions?limit=1&${query}`, undefined, "admin")).body.decisions).toMatchObject([{ botId: bot.id }]);
+    expect((await api("GET", `/api/decisions?bot=${bot.id}&area=Sales`, undefined, "admin")).body.decisions).toEqual([]);
+    const csv = await fetch(`${server.url}/api/admin-activity.csv?what=profile&${query}`, { headers: { authorization: `Bearer ${tokens.admin}` } });
+    expect(await csv.text()).toContain(bot.name);
   });
 
   it("follows a department renamed in the app, so the next plan keeps it instead of making another", async () => {

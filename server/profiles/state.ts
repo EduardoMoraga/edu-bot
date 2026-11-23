@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import { z } from "zod";
 
+import { approvalModeFor, withinApprovalCeiling, type ApprovalCeiling } from "../../shared/approval-mode.ts";
 import { PROFILE_KEY } from "../../shared/profile-format.ts";
 import type { ProfileSource } from "../../shared/wire.ts";
 import { writeFileAtomic } from "../atomic.ts";
@@ -12,7 +13,7 @@ const stateSchema = z.object({
   version: z.literal(1),
   folder: z.string().optional(),
   applied: z.object({ at: z.number(), commit: z.string().optional(), digest: z.string(), folder: z.string() }).optional(),
-  areas: z.record(z.string(), z.object({ section: z.string(), hashes })).default({}),
+  areas: z.record(z.string(), z.object({ section: z.string(), hashes, maxApproval: z.enum(["ask", "edits", "auto", "full"]).optional() })).default({}),
   mcpServers: z.record(z.string(), z.object({ hash: z.string(), needsKey: z.literal(true).optional() })).default({}),
 });
 
@@ -35,6 +36,23 @@ export function readProfilesState(dataDir: string): ProfilesState {
   } catch { /* falls through to the empty state */ }
   console.warn("profiles.json could not be read; starting with no applied profiles");
   return { version: 1, areas: {}, mcpServers: {} };
+}
+
+type AreaBot = { profileSource?: Pick<ProfileSource, "area">; section?: string };
+
+export function approvalCeiling(dataDir: string, bot: AreaBot): ApprovalCeiling | undefined {
+  if (!bot.profileSource && !bot.section) return undefined;
+  const { areas } = readProfilesState(dataDir);
+  if (bot.profileSource && Object.hasOwn(areas, bot.profileSource.area)) return areas[bot.profileSource.area]?.maxApproval;
+  const section = bot.section?.trim().toLowerCase();
+  return Object.values(areas).reduce<ApprovalCeiling | undefined>((limit, area) => {
+    if (!area.maxApproval || area.section.trim().toLowerCase() !== section) return limit;
+    return limit ? withinApprovalCeiling(limit, area.maxApproval) as ApprovalCeiling : area.maxApproval;
+  }, undefined);
+}
+
+export function effectiveApprovalMode(dataDir: string, bot: AreaBot & Parameters<typeof approvalModeFor>[0]) {
+  return withinApprovalCeiling(approvalModeFor(bot), approvalCeiling(dataDir, bot));
 }
 
 export function writeProfilesState(dataDir: string, state: ProfilesState): void {

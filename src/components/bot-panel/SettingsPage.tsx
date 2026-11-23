@@ -20,6 +20,7 @@ import { DefaultBotHideRow } from "../DefaultBotControls";
 import { SoulField } from "../SoulField";
 import { BotApiCard } from "../bot-settings/BotApiCard";
 import { PackageProvenance } from "../bot-settings/PackageProvenance";
+import { BotAccessSummary } from "../bot-settings/BotAccessSummary";
 import { DriftMark, ProfileBotBadge, useProfileBotView } from "../profiles/ProfileBotBadge";
 import { REPLY_STYLE_LABELS } from "../bot-settings/ReplyStyleField";
 import { useChoosesVisibility, visibilityLabel } from "../bot-settings/VisibilitySection";
@@ -109,6 +110,7 @@ export function SettingsPage({ bot, derived, onOpen, editingInstructions = false
     <div data-panel-settings>
       <PackageProvenance bot={bot} />
       <ProfileBotBadge bot={bot} view={profile} />
+      <BotAccessSummary bot={bot} loadedApps={apps} />
       <Card anchor="instructions">
         {soulOpen ? (
           <ColRow data-panel-row="soul">

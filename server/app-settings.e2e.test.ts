@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchVerificationServer, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
+import { readProfilesState, writeProfilesState } from "./profiles/state.ts";
 import { readRegistry, writeRegistry } from "./testing/registry.ts";
 
 const SECRET = "sk-test-123";
@@ -369,3 +370,18 @@ it("a webhook's run may read a setting but not change it", async () => {
   expect(refused).toMatchObject({ isError: true, text: expect.stringMatching(/^Settings change only in the owner's own conversation\./) });
   expect(config().rooms?.turnTimeoutMinutes).toBe(value);
 }, 60_000);
+
+it("clamps a saved Full thread and refuses an app-settings request above the area's ceiling", async () => {
+  const previous = readProfilesState(dataDir);
+  await api("PATCH", `/api/bots/${bot.id}`, { section: "Reviews", approvalMode: "full", applyToAllThreads: true });
+  writeProfilesState(dataDir, { ...previous, areas: { reviews: { section: "Reviews", hashes: {}, maxApproval: "ask" } } });
+  try {
+    await start("AREA_CEILING", [step({ action: "set", id: "bots.approvalModes", value: JSON.stringify({ botId: bot.id, mode: "full" }) }, true)]);
+    const turn = await finished("AREA_CEILING");
+    expect(turn.permissionMode).toBe("default");
+    expect(results(turn)[0]).toMatchObject({ isError: true, text: expect.stringContaining("This area allows at most Ask for approval") });
+    expect(readRegistry(dataDir).bots.find((one) => one.id === bot.id)?.approvalMode).toBe("full");
+  } finally {
+    writeProfilesState(dataDir, previous);
+  }
+}, 45_000);

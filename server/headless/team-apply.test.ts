@@ -107,6 +107,15 @@ const file = (patch: Partial<TeamFile> = {}): TeamFile => ({
 const options = (patch: Partial<ApplyOptions> = {}): ApplyOptions => ({ apply: true, prune: false, rotateSecrets: false, waitIdleMs: 0, env: {}, ...patch });
 
 describe("team apply", () => {
+  it("refuses a requested approval above a bot's area ceiling without patching it", async () => {
+    const { client, writes, state } = workspace({ sections: ["Launch Room"], bots: [
+      { id: "lead", name: lead.name, section: lead.team, approvalMode: "ask", approvalCeiling: "ask" },
+    ] });
+    await expect(reconcile(client, file({ teams: [], bots: [lead], rooms: [] }), options())).rejects.toThrow("This area allows at most Ask for approval");
+    expect(writes).toEqual([]);
+    expect(state.bots[0]?.approvalMode).toBe("ask");
+  });
+
   it("plans without writing, applies what it planned, and then has nothing left to do", async () => {
     const { client, writes, state } = workspace();
     const plan = await reconcile(client, file(), options({ apply: false }));

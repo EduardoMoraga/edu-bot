@@ -23,6 +23,7 @@ export interface AdminActionRow {
   /** `<thing>.<verb>`: config.update, people.update, bot.create, bot.update,
    * bot.delete, visibility.update, webhook.create, session.revoke, profile.apply, … */
   action: string;
+  botId?: string;
   target?: { kind: string; id?: string; name?: string };
   /** The setting paths or fields that changed. Never their secret values. */
   changed?: string[];
@@ -52,11 +53,16 @@ async function writeRow(dataDir: string, row: AdminActionRow): Promise<void> {
   }
 }
 
+export function adminActionBotId(row: Pick<AdminActionRow, "botId" | "target">): string | undefined {
+  return row.target?.kind === "bot" ? row.target.id : row.botId;
+}
+
 /** Append one row. Its values are redacted here, at the moment of writing. */
 export function appendAdminAction(dataDir: string, row: Omit<AdminActionRow, "at"> & { at?: string }): void {
   const record: AdminActionRow = {
     ...row,
     at: row.at ?? new Date().toISOString(),
+    ...(adminActionBotId(row) ? { botId: adminActionBotId(row) } : {}),
     ...(row.before ? { before: auditValues(row.before) } : {}),
     ...(row.after ? { after: auditValues(row.after) } : {}),
   };
@@ -376,6 +382,8 @@ export type ActivityEntry =
       what: DecisionRow["decision"];
       source: DecisionRow["source"];
       bot?: string;
+      botId?: string;
+      area?: string;
       tool?: string;
       summary?: string;
       summaryCode?: string;
@@ -389,23 +397,37 @@ export type ActivityEntry =
       who: string;
       what: AdminActivityCategory;
       action: string;
+      botId?: string;
+      area?: string;
       target?: AdminActionRow["target"];
       changed?: string[];
       before?: Record<string, unknown>;
       after?: Record<string, unknown>;
     };
 
+export function activityBotFilter(bot?: string, area?: string, areaOf?: (botId: string) => string | undefined) {
+  const department = area?.trim().toLowerCase();
+  return (botId?: string) => (!bot || botId === bot) &&
+    (!department || Boolean(botId && areaOf?.(botId)?.trim().toLowerCase() === department));
+}
+
 export function activityEntries(
   decisions: readonly DecisionRow[],
   actions: readonly AdminActionRow[],
-  filter: { what: ActivityWhat; who?: string },
+  filter: { what: ActivityWhat; who?: string; bot?: string; area?: string; areaOf?: (botId: string) => string | undefined },
 ): ActivityEntry[] {
   const who = filter.who?.trim().toLowerCase() ?? "";
   const entries: ActivityEntry[] = [];
+  const matchesBot = activityBotFilter(filter.bot, filter.area, filter.areaOf);
+  const attribution = (botId?: string) => {
+    if (!botId) return {};
+    const area = filter.areaOf?.(botId);
+    return { botId, ...(area ? { area } : {}) };
+  };
   const wantDecision = (row: DecisionRow) =>
     filter.what === "decisions" || ((filter.what === "all" || filter.what === "approvals") && row.source === "user");
   for (const row of decisions) {
-    if (!wantDecision(row)) continue;
+    if (!wantDecision(row) || !matchesBot(row.botId)) continue;
     const clean = redactSecrets(row) as DecisionRow;
     entries.push({
       type: "approval",
@@ -413,6 +435,7 @@ export function activityEntries(
       who: clean.actor ? actorLabel(clean.actor) : "",
       what: clean.decision,
       source: clean.source,
+      ...attribution(clean.botId),
       ...(clean.botName || clean.botId ? { bot: clean.botName || clean.botId } : {}),
       ...(clean.tool ? { tool: clean.tool } : {}),
       ...(clean.summary ? { summary: clean.summary, summaryCode: clean.summaryCode, summaryParams: clean.summaryParams } : {}),
@@ -422,13 +445,15 @@ export function activityEntries(
   }
   if (filter.what !== "approvals" && filter.what !== "decisions") {
     for (const row of actions) {
-      if (filter.what !== "all" && row.category !== filter.what) continue;
+      const botId = adminActionBotId(row);
+      if ((filter.what !== "all" && row.category !== filter.what) || !matchesBot(botId)) continue;
       entries.push({
         type: "admin",
         at: row.at,
         who: adminActorLabel(row.actor),
         what: row.category,
         action: row.action,
+        ...attribution(botId),
         ...(row.target ? { target: row.target } : {}),
         ...(row.changed ? { changed: row.changed } : {}),
         ...(row.before ? { before: row.before } : {}),

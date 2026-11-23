@@ -1,7 +1,8 @@
-import { approvalModeFor } from "../shared/approval-mode.ts";
+import { approvalModeFor, threadApproval } from "../shared/approval-mode.ts";
 import { sameModelSelection } from "../shared/thread-model.ts";
 import type { TaskOpenedBy } from "../shared/wire.ts";
 import { newId, type ModelSelection } from "./contracts.ts";
+import { effectiveApprovalMode } from "./profiles/state.ts";
 import type { BotRecord, TaskRecord } from "./store.ts";
 
 export const UNTITLED_THREAD = "New thread";
@@ -37,4 +38,22 @@ export function buildTask(bot: BotRecord, title?: string, projectId?: string, op
     activity: "idle",
     busy: false,
   };
+}
+
+export function projectTaskBot(dataDir: string, bot: BotRecord, task: TaskRecord): BotRecord {
+  const projected = {
+    ...bot,
+    threadId: task.threadId,
+    approvalGrant: bot.approvalGrant?.threadOnly && bot.approvalGrant.threadId !== task.threadId ? undefined : bot.approvalGrant,
+    modelSelection: structuredClone(task.modelSelection ?? bot.modelSelection),
+    resumeCursors: structuredClone(task.resumeCursors),
+    ...threadApproval(task, bot),
+    unread: Boolean(task.unread),
+    rewound: task.rewound,
+    pinnedMessageId: task.pinnedMessageId,
+    activity: task.activity ?? "idle",
+    busy: Boolean(task.busy),
+  };
+  const mode = effectiveApprovalMode(dataDir, projected);
+  return mode === approvalModeFor(projected) ? projected : { ...projected, approvalMode: mode, autoApprove: mode === "auto", alwaysAllow: [] };
 }

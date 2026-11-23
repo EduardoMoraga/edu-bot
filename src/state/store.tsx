@@ -17,7 +17,7 @@ import type { NotificationLogEntry } from "../../shared/notification";
 import { isNotificationFeedAction, reduceNotificationFeed, type NotificationFeedAction } from "./notification-feed";
 import { bumpThreadUpdatedAt, mergeTaskStamps, rewindThreadUpdatedAt } from "./thread-stamps";
 import { botOpensTo, closeTrayUnlessShown, closeUnpinnedTray, openBot, openThread, visibleNotificationThread, withRememberedTrayPin } from "./thread-navigation";
-import { patchGroupTask } from "./thread-edits"; import { unreadBeyondFrame, wholeBotFrame } from "./bot-thread-frame";
+import { patchGroupTask } from "./thread-edits"; import { threadApprovalModes, unreadBeyondFrame, wholeBotFrame } from "./bot-thread-frame";
 import type { EngineInstall } from "./engine-install";
 import { optimisticMessageId, optimisticUserMessage, sendArrived, sendReconciled } from "./optimistic-send";
 import { patchedGroups, roomAnswers, snapshotPatch } from "./room-frames";
@@ -274,7 +274,7 @@ export interface TaskUsage {
   context?: { tokens: number; window?: number };
 }
 
-export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" | "access" | "yourAccess" | "onlyPeopleAdded" | "profileSource"> {
+export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" | "access" | "yourAccess" | "onlyPeopleAdded" | "profileSource" | "approvalCeiling"> {
   toolScope?: ToolScope;
   waitingForTeammates?: boolean;
   id: string;
@@ -352,12 +352,7 @@ export interface BotProject {
 
 export type ProjectUpdatePatch = { name?: string; emoji?: string | null };
 
-export function threadApprovalModes(bot: Pick<Bot, "approvalMode" | "autoApprove" | "tasks">): ApprovalMode[] {
-  return (bot.tasks ?? []).map((task) => approvalModeFor({
-    approvalMode: task.approvalMode ?? (task.autoApprove === undefined ? bot.approvalMode : undefined),
-    autoApprove: task.autoApprove ?? bot.autoApprove,
-  }));
-}
+export { threadApprovalModes } from "./bot-thread-frame";
 
 export function currentTaskBot(bot: Bot, threadId = bot.threadId): Bot {
   const task = bot.tasks?.find((candidate) => candidate.threadId === threadId);
@@ -536,6 +531,7 @@ export interface AppState {
   notifications: NotificationLogEntry[];
   appSettingsOpen: boolean;
   appSettingsSection: AppSettingsSection;
+  appSettingsActivityBot?: string;
   appSettingsCloudLink: number;
   appSettingsPhonePairing: number;
   shortcutsOpen: boolean;
@@ -745,7 +741,7 @@ export type Action =
   | { type: "focusMessage"; threadId: string; messageId: string; matchText?: string }
   | { type: "focusMessageConsumed"; nonce: number }
   | { type: "unreadDividerDone"; threadId: string }
-  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection; cloudLink?: boolean; phonePairing?: boolean }
+  | { type: "toggleAppSettings"; open?: boolean; section?: AppSettingsSection; cloudLink?: boolean; phonePairing?: boolean; activityBot?: string }
   | { type: "toggleShortcuts"; open?: boolean }
   | { type: "openCloudAdd"; source: import("@/lib/cloud-plan").CloudSource; signIn?: true }
   | { type: "closeCloudAdd" }
@@ -1489,6 +1485,7 @@ function reduceApp(state: AppState, action: Action): AppState {
         appSettingsOpen: open,
         activityOpen: open ? false : state.activityOpen,
         appSettingsSection: action.section ?? (open ? "overview" : state.appSettingsSection),
+        appSettingsActivityBot: open ? action.activityBot : undefined,
         appSettingsCloudLink: action.cloudLink && open ? state.appSettingsCloudLink + 1 : 0,
         appSettingsPhonePairing: action.phonePairing && open ? state.appSettingsPhonePairing + 1 : 0,
         settingsOpen: open ? false : state.settingsOpen,

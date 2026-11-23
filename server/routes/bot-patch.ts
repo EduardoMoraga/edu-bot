@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { approvalModeFor, isApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { approvalCeiling } from "../profiles/state.ts";
+import { approvalModeFor, isApprovalMode, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { normalizeConnectorScopes, widensConnectorScopes } from "../../shared/connector-scopes.ts";
 import { isBotLiveVoice } from "../../shared/live-call.ts";
 import { normalizeOutboundPolicy } from "../../shared/outbound.ts";
@@ -19,7 +20,7 @@ import type { BrowserRuntime } from "../browser-runtime.ts";
 import type { CacheKeepWarm } from "../cache-keepwarm.ts";
 import { cloudBackendChangeError, vpsBotAliasChangeError, vpsLeftBehindNotice, VPS_BOT_ALIAS_CHANGE_ERROR, VPS_BOT_ALIAS_LIFECYCLE_ERROR, VPS_BOT_ALIAS_RESOURCES_ERROR } from "../cloud-backend.ts";
 import * as composio from "../composio.ts";
-import { isValidSshAlias, type AppConfig } from "../config.ts";
+import { DATA_DIR, isValidSshAlias, type AppConfig } from "../config.ts";
 import type { ModelSelection } from "../contracts.ts";
 import type { createApprovalModeSupport } from "../harness-capabilities.ts";
 import type { ProviderRegistry } from "../harness/registry.ts";
@@ -39,7 +40,7 @@ import { parseConnectorTools } from "../connector-tools.ts";
 import { sectionKey, type BotRecord, type GroupRecord, type Store, type TaskRecord } from "../store.ts";
 import * as vps from "../vps-computer.ts";
 import { vpsSshAliasForBot } from "../vps-hosts.ts";
-import { refusalBody, userError } from "../user-errors.ts";
+import { approvalCeilingError, refusalBody, userError } from "../user-errors.ts";
 import { pinnedClientThreadGuard } from "./pinned-client-thread.ts";
 import type { ModelSelectionCheck } from "./bots-create.ts";
 import { PASS, type RouteHandler } from "./table.ts";
@@ -522,12 +523,20 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       } else {
         requestedApprovalMode = approvalModeFor(existingBot ?? {});
       }
+      const ceilingRefusal = (bot?: BotRecord) => {
+        if (patch.approvalMode === undefined && (bot?.profileSource || !Object.hasOwn(patch, "section"))) return undefined;
+        const ceiling = approvalCeiling(deps.dataDir ?? DATA_DIR, { ...bot, ...patch });
+        const mode = patch.approvalMode === undefined ? approvalModeFor({ ...bot, approvalGrant: undefined }) : requestedApprovalMode;
+        return ceiling && !levelWithin(mode, ceiling) ? approvalCeilingError(ceiling) : undefined;
+      };
       const currentApprovalMode = approvalModeFor(existingBot ?? {});
       if (body.approvalMode !== undefined || body.autoApprove !== undefined) {
         patch.approvalMode = requestedApprovalMode;
         // Older paired apps read autoApprove as exactly Auto.
         patch.autoApprove = requestedApprovalMode === "auto";
       }
+      const initialCeilingRefusal = ceilingRefusal(existingBot ?? undefined);
+      if (initialCeilingRefusal) return json(res, 403, initialCeilingRefusal);
       const targetSelection = normalizedSelection ?? existingBot?.modelSelection;
       if (normalizedSelection && movedTask) {
         const mode = approvalModeFor(movedTask);
@@ -733,6 +742,8 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
           (freshBrowserBot.busy || browserRuntime.heldBy(currentBrowserSession(freshBrowserBot.id, freshBrowserBot.browserProfile)))) {
         return json(res, 409, { error: "Stop the bot and release browser control before changing its profile." });
       }
+      const currentCeilingRefusal = ceilingRefusal(freshBrowserBot ?? undefined);
+      if (currentCeilingRefusal) return json(res, 403, currentCeilingRefusal);
       if (Array.isArray(patch.alwaysAllow)) dropRemovedGrants(store, deps.turnBots?.values() ?? [], m[1], patch.alwaysAllow);
       if (profile.patch.soul !== undefined) {
         if (freshBrowserBot) assertTeamComputerChangeIdle(freshBrowserBot, { ...freshBrowserBot, ...patch } as BotRecord);

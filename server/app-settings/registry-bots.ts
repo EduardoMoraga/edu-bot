@@ -2,10 +2,12 @@
 // exact effect, written through PATCH /api/bots/:id so that route's checks still run.
 import { z } from "zod";
 
-import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { approvalCeilingMessage, approvalModeFor, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile.ts";
 import { TOOL_GROUP_LABELS, TOOL_GROUPS, type ToolGroup } from "../../shared/tool-groups.ts";
 import { EFFORT_LEVELS, MAUS_COLOR_NAMES } from "../../shared/wire.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
 import type { BotRecord } from "../store.ts";
 import { withoutKeys, type RegistryDeps, type SettingEntry, type WritableSpec } from "./registry.ts";
 
@@ -78,6 +80,8 @@ export function botEntries(deps: Pick<RegistryDeps, "bots" | "engines" | "patchB
       allowed: '{"botId","mode"} with mode ask (Ask for approval), edits (Auto-accept edits), auto (Approve for me) or full (Full access). Custom is chosen only in the desktop app',
       read: everyBot((one) => approvalName(approvalModeFor(one))),
       effect: (one, { mode }) => {
+        const ceiling = approvalCeiling(DATA_DIR, one);
+        if (ceiling && !levelWithin(mode, ceiling)) return { refusal: approvalCeilingMessage(ceiling) };
         if (approvalModeFor(one) === "custom") return { refusal: `${one.name} is on Custom approval, which is changed only in the desktop app, in ${one.name}'s Settings. Tell the user where.` };
         // The route takes Approve for me on this computer's own desktop only with the warning its Settings dialog shows.
         if (mode === "auto" && one.computer === "local") return { refusal: `Approve for me while ${one.name} uses this computer's own desktop needs a warning only ${one.name}'s Settings shows. Tell the user to choose it there.` };

@@ -15,6 +15,7 @@ const enc = encodeURIComponent;
 /** How apply reaches the app: its own routes, called as the person who asked for the apply. */
 export interface ProfileAppPort {
   call(method: string, path: string, body?: unknown): Promise<{ status: number; body: Rec }>;
+  saveAreas?(areas: ProfilesState["areas"]): void;
   stamp(botId: string, source: ProfileSource): void;
 }
 
@@ -85,8 +86,20 @@ async function createBot(action: BotAction, write: (method: string, path: string
 
 export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesState["areas"], port: ProfileAppPort, options: ApplyOptions): Promise<ApplyOutcome> {
   const outcome: ApplyOutcome = { applied: [], skipped: [], areas: { ...previous }, mcpServers: { ...planned.mcpServers }, servers: [], bots: [] };
-  for (const key of planned.goneAreas) delete outcome.areas[key];
   const skip = (line: ProfilePlanLine, why: string) => outcome.skipped.push({ ...line, reason: why });
+  const mayApplyCeiling = (line?: ProfilePlanLine) => {
+    if (!line) return true;
+    if (line.kind === "access" && !options.giveAccess) {
+      skip(line, "gives more access; confirm it from the desktop app or a paired admin device");
+      return false;
+    }
+    outcome.applied.push(line);
+    return true;
+  };
+  for (const key of planned.goneAreas) {
+    const line = planned.plan.lines.find((line) => line.subject.kind === "area" && line.subject.id === key && line.field === "maxApproval");
+    if (mayApplyCeiling(line)) delete outcome.areas[key];
+  }
   const write = async (method: string, path: string, body?: unknown) => {
     const result = await port.call(method, path, body);
     if (result.status >= 400) throw new Refused(reason(result));
@@ -148,8 +161,11 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
         skip(action.brief.line, (error as Error).message);
       }
     }
-    outcome.areas[action.area] = { section, hashes };
+    const maxApproval = mayApplyCeiling(action.ceilingLine) ? action.maxApproval : previous[action.area]?.maxApproval;
+    outcome.areas[action.area] = { section, hashes, ...(maxApproval ? { maxApproval } : {}) };
   }
+
+  port.saveAreas?.(outcome.areas);
 
   const chiefs: Array<{ action: BotAction; botId: string; change: BotAction["changes"][number] }> = [];
   const stamps: Array<{ botId: string; action: BotAction; hashes: Record<string, string> }> = [];

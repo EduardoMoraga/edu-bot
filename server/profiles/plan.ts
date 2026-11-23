@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { APPROVAL_MODES, approvalModeFor, levelWithin, supportsApprovalMode, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { APPROVAL_MODES, approvalCeilingMessage, approvalModeFor, levelWithin, supportsApprovalMode, withinApprovalCeiling, type ApprovalCeiling, type ApprovalMode } from "../../shared/approval-mode.ts";
 import type { EduBrainSetting } from "../../shared/edu-brain.ts";
 import { problemSentence, type McpServerProfile, type ProfileFolder, type ProfileProblem, type ResolvedBot, type SkillProfile } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine, ProfileSecretSlot } from "../../shared/profile-plan.ts";
@@ -74,6 +74,8 @@ export interface AreaAction {
   /** Hashes kept whatever happens: fields already in sync, kept or settled by a choice. */
   hashes: Record<string, string>;
   nameHash: string;
+  maxApproval?: ApprovalCeiling;
+  ceilingLine?: ProfilePlanLine;
 }
 
 export interface BotAction {
@@ -353,7 +355,12 @@ export function planProfiles(input: PlanInput): PlanOutput {
     const base = stored?.hashes ?? {};
     const hashes: Record<string, string> = { ...base };
     const nameHash = valueHash(area.name);
-    const action: AreaAction = { kind: "area", area: area.key, section: existing ?? area.name, create: !existing, hashes, nameHash };
+    const maxApproval = area.maxApproval || folder.org?.maxApproval
+      ? withinApprovalCeiling(area.maxApproval ?? "full", folder.org?.maxApproval) as ApprovalCeiling
+      : undefined;
+    const action: AreaAction = { kind: "area", area: area.key, section: existing ?? area.name, create: !existing, hashes, nameHash,
+      ...(maxApproval ? { maxApproval } : {}),
+    };
     if (!existing) {
       action.nameLine = { kind: "add", subject, file: area.file, text: `Adds area ${area.name}` };
     } else {
@@ -398,14 +405,22 @@ export function planProfiles(input: PlanInput): PlanOutput {
           text: current ? `Area ${area.name}: brief ${changedLineCount(current, brief)} changed` : `Area ${area.name}: brief set` } };
       }
     }
+    if ((existing || stored) && stored?.maxApproval !== maxApproval) {
+      const givesAccess = Boolean(stored?.maxApproval && (!maxApproval || !levelWithin(maxApproval, stored.maxApproval)));
+      action.ceilingLine = { kind: givesAccess ? "access" : "change", subject, field: "maxApproval", file: area.file,
+        text: maxApproval ? `${area.name}. ${approvalCeilingMessage(maxApproval)}.` : `Removes the approval limit for ${area.name}.` };
+      lines.push(action.ceilingLine);
+    }
     if (action.nameLine) lines.push(action.nameLine);
     if (action.brief) lines.push(action.brief.line);
     actions.push(action);
   }
   const goneAreas = Object.keys(state.areas).filter((key) => !areaNames.has(key) && !blocked.under(key));
   for (const key of goneAreas) {
-    const section = state.areas[key]!.section;
-    lines.push({ kind: "gone", subject: { kind: "area", id: key, name: section }, text: `Area ${section} is no longer in your profiles; its department is kept` });
+    const { section, maxApproval } = state.areas[key]!;
+    const subject = { kind: "area" as const, id: key, name: section };
+    if (maxApproval) lines.push({ kind: "access", subject, field: "maxApproval", text: `Removes the approval limit for ${section}.` });
+    lines.push({ kind: "gone", subject, text: `Area ${section} is no longer in your profiles; its department is kept` });
   }
   const areaOfSection = (section: string | undefined) => {
     for (const [key, name] of areaSection) if (fold(name) === fold(section) || fold(renamedFrom.get(key)) === fold(section)) return key;

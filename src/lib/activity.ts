@@ -2,7 +2,7 @@ import { t, tFromServer } from "./i18n";
 import { namesLocale } from "./clock-time";
 import { en, type LocaleKey } from "@/locales";
 
-export const ACTIVITY_WHATS = ["all", "approvals", "decisions", "config", "people", "session", "webhook", "bot-api", "mcp", "engine", "bot", "budget", "visibility"] as const;
+export const ACTIVITY_WHATS = ["all", "approvals", "decisions", "config", "people", "session", "webhook", "bot-api", "mcp", "engine", "bot", "profile", "budget", "visibility"] as const;
 export type ActivityWhat = typeof ACTIVITY_WHATS[number];
 
 export type ActivityEntry =
@@ -34,6 +34,8 @@ export type ActivityEntry =
 
 export interface ActivityFilters {
   who: string;
+  bot?: string;
+  area?: string;
   what: ActivityWhat;
   from: string;
   to: string;
@@ -43,6 +45,8 @@ export function activityQuery(filters: ActivityFilters): string {
   const params = new URLSearchParams();
   if (filters.who.trim()) params.set("who", filters.who.trim());
   if (filters.what !== "all") params.set("what", filters.what);
+  if (filters.bot) params.set("bot", filters.bot);
+  if (filters.area) params.set("area", filters.area);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
   const query = params.toString();

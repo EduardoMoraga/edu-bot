@@ -40,6 +40,16 @@ afterEach(async () => {
 const BOSS = { kind: "session" as const, sessionId: "s1", label: "Boss's laptop", email: "boss@example.test" };
 
 describe("what a row records", () => {
+  it("attributes legacy bot targets and filters decisions and admin rows against the current department", () => {
+    const target = { at: "2026-09-21T09:00:00.000Z", actor: BOSS, category: "bot" as const, action: "bot.update",
+      target: { kind: "bot", id: "b1" } };
+    const decision: DecisionRow = { at: target.at, botId: "b1", threadId: "t1", decision: "user-approved", source: "user" };
+    const filter = { what: "all" as const, bot: "b1", area: "sales", areaOf: (id: string) => id === "b1" ? "Sales" : "BI" };
+    const entries = activityEntries([decision, { ...decision, botId: "b2" }], [target, { ...target, target: { kind: "settings" } }], filter);
+    expect(entries.map((entry) => [entry.type, entry.botId, entry.area])).toEqual([["approval", "b1", "Sales"], ["admin", "b1", "Sales"]]);
+    expect(activityEntries([decision], [target], { ...filter, areaOf: () => "Marketing" })).toEqual([]);
+  });
+
   it("names the paths that changed, never a secret's value", () => {
     const before = { anthropic: { key: "sk-ant-old-secret-value-1234567890" }, features: { browser: true }, profile: { name: "A" } };
     const after = { anthropic: { key: "sk-ant-new-secret-value-0987654321" }, features: { browser: false }, profile: { name: "A" }, decisions: { retentionDays: 365 } };

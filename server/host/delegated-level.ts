@@ -1,6 +1,8 @@
 // A Chief of Staff's level flows down every hop of the work it hands out, a teammate's teammate too, in threads and in
 // rooms alike: each hand-off resolves the nearest Chief conversation up its chain (docs/approval-levels.md).
-import type { ApprovalMode } from "../../shared/approval-mode.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
+import { levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import { delegatedApprovalMode } from "../auto-approve.ts";
 import { chiefLevel } from "../chief-level.ts";
 import type { HandoffView, RoomAddress } from "../coordinator.ts";
@@ -49,7 +51,8 @@ export function createDelegatedLevel(deps: DelegatedLevelDeps) {
       senderIsChief: true, senderMode: chiefMode, sameBot: from.botId === target.id || above.chief.id === target.id,
       recipientMode: own, recipientDriverKind: deps.driverKind(target),
     });
-    return level ? { level, chief: above.chief, chiefMode } : null;
+    const ceiling = approvalCeiling(DATA_DIR, target);
+    return level && (!ceiling || levelWithin(level, ceiling)) ? { level, chief: above.chief, chiefMode } : null;
   }
 
   /** The teammate's thread switches to the level the work came down with, keeps it, and says so once. */

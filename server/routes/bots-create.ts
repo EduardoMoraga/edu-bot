@@ -1,3 +1,6 @@
+import { approvalModeFor, levelWithin } from "../../shared/approval-mode.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
 import type { BotCreateResponse, WireBot } from "../../shared/wire.ts";
 import { freshLook } from "../bot-look.ts";
 import { LINK_PREFIX } from "../bot-link/protocol.ts";
@@ -18,7 +21,7 @@ import { installOrgSkill, installSkill, parseSkillMd, setSkillEnabled } from "..
 import type { BotRecord, Store } from "../store.ts";
 import type { TeamPeople } from "../team-people.ts";
 import { writeMemoryFile, writeMemoryTopic } from "../workspace.ts";
-import { refusalBody, userError } from "../user-errors.ts";
+import { approvalCeilingError, refusalBody, userError } from "../user-errors.ts";
 import type { ServerErrorBody } from "../../shared/server-text.ts";
 import { botLimitRefusal } from "../bot-limit.ts";
 import { PASS, type RouteHandler } from "./table.ts";
@@ -180,6 +183,12 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
           return json(res, 400, { error: "section must be at most 60 characters" });
         }
       }
+      const ceilingRefusal = () => {
+        const ceiling = approvalCeiling(DATA_DIR, { section });
+        return ceiling && !levelWithin(approvalModeFor(settings), ceiling) ? approvalCeilingError(ceiling) : undefined;
+      };
+      const initialCeilingRefusal = ceilingRefusal();
+      if (initialCeilingRefusal) return json(res, 403, initialCeilingRefusal);
       const creator = auth.kind === "session" && auth.session.membershipAuthority === "team" ? auth.session.email : undefined;
       let reportsTo: string | undefined;
       if (body.reportsTo !== undefined && body.reportsTo !== null) {
@@ -207,6 +216,8 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
       if (created && !created.ok) return json(res, 400, { error: created.error });
       // Checked again beside the synchronous write: an await above let another request take the same id.
       if (kept.id && "error" in keptBotIds(kept, store)) return json(res, 409, { error: "a bot with this id already exists here" });
+      const currentCeilingRefusal = ceilingRefusal();
+      if (currentCeilingRefusal) return json(res, 403, currentCeilingRefusal);
       // A bot moved in from another computer keeps its own look; a new one named no look starts in a fresh one.
       const look = kept.id || settings.color || settings.mascotBody ? undefined : freshLook(store.bots);
       const bot = store.createBot({ ...profile.patch, soul: settings.soul, section, modelSelection: selection,

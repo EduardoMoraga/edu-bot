@@ -42,7 +42,7 @@ import { appsFromCreator } from "./inherited-apps.ts"; import { newBotOwner, sha
 import { ThreadCache, type ThreadState } from "./thread-cache.ts";
 import { lastMessageId, messagesBefore } from "./thread-history.ts";
 import { titleFromMessage, UNTITLED_TASK } from "./thread-title.ts";
-import { buildTask, threadTitleFrom, UNTITLED_THREAD } from "./task-record.ts";
+import { buildTask, projectTaskBot, threadTitleFrom, UNTITLED_THREAD } from "./task-record.ts";
 import { createBotFork, createGroupFork } from "./store-forks.ts";
 import { createThreadBotIndex } from "./thread-bot-index.ts";
 import { activeGroupTask, groupTaskByThread, groupTasks, migrateGroupTaskRead, mirrorActiveGroupTask, refreshGroupUnread, setGroupTaskRead, syncGroupReadPatch } from "./group-task-state.ts";
@@ -1998,19 +1998,7 @@ export class Store {
     const bot = this.own(botId);
     const task = this.taskByThread(botId, threadId);
     if (!bot || !task) return null;
-    return {
-      ...bot,
-      threadId: task.threadId,
-      approvalGrant: bot.approvalGrant?.threadOnly && bot.approvalGrant.threadId !== threadId ? undefined : bot.approvalGrant,
-      modelSelection: structuredClone(task.modelSelection ?? bot.modelSelection),
-      resumeCursors: structuredClone(task.resumeCursors),
-      ...threadApproval(task, bot),
-      unread: Boolean(task.unread),
-      rewound: task.rewound,
-      pinnedMessageId: task.pinnedMessageId,
-      activity: task.activity ?? "idle",
-      busy: Boolean(task.busy),
-    };
+    return projectTaskBot(DATA_DIR, bot, task);
   }
 
   patchTask(botId: string, threadId: string, patch: TaskPatch, options: { turnEnd?: true } = {}): TaskRecord | null {

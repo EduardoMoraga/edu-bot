@@ -1,9 +1,12 @@
 import { z } from "zod";
 
+import { approvalModeFor, levelWithin } from "../../shared/approval-mode.ts";
+import { DATA_DIR } from "../config.ts";
+import { approvalCeiling } from "../profiles/state.ts";
 import type { WireBot } from "../../shared/wire.ts";
 import type { BotRecord, Store } from "../store.ts";
 import type { TeamComputers } from "../team-computers.ts";
-import { USER_ERROR, userError, type UserErrorKey } from "../user-errors.ts";
+import { approvalCeilingError, USER_ERROR, userError, type UserErrorKey } from "../user-errors.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 const STORE_REFUSALS: readonly UserErrorKey[] = ["serverError.department.notFound", "serverError.department.nameRule",
@@ -31,6 +34,13 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
     name: z.string(),
     botIds: z.array(z.string().regex(/^[\w-]+$/)).max(MAX_WORKSPACE_BOTS).default([]),
   }).strict();
+
+  const moveRefusal = (bot: BotRecord, section?: string) => {
+    if (bot.section === section || bot.profileSource) return undefined;
+    const ceiling = approvalCeiling(DATA_DIR, { section });
+    const mode = approvalModeFor({ ...bot, approvalGrant: undefined });
+    return ceiling && !levelWithin(mode, ceiling) ? approvalCeilingError(ceiling) : undefined;
+  };
 
   return async ({ req, res, url, path, method, json, readBody }) => {
     if (path === "/api/sidebar-sections" && method === "GET") {
@@ -60,7 +70,10 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
       for (const [botIds, destination] of [[parsed.data.addBotIds, section], [parsed.data.removeBotIds, undefined]] as const) {
         for (const id of botIds) {
           const bot = store.bot(id);
-          if (bot) assertTeamComputerChangeIdle(bot, { ...bot, section: destination });
+          if (!bot) continue;
+          const refusal = moveRefusal(bot, destination);
+          if (refusal) return json(res, 403, refusal);
+          assertTeamComputerChangeIdle(bot, { ...bot, section: destination });
         }
       }
       const result = store.updateTeamMembers(section, parsed.data.addBotIds, parsed.data.removeBotIds);
@@ -82,7 +95,10 @@ export function createSidebarSectionRoutes(deps: SidebarSectionRouteDeps): Route
       if (!name && !botIds.length) return json(res, 400, { error: "Department name is required" });
       for (const botId of botIds) {
         const bot = store.bot(botId);
-        if (bot) assertTeamComputerChangeIdle(bot, { ...bot, section: name || undefined });
+        if (!bot) continue;
+        const refusal = moveRefusal(bot, name || undefined);
+        if (refusal) return json(res, 403, refusal);
+        assertTeamComputerChangeIdle(bot, { ...bot, section: name || undefined });
       }
       const result = store.setBotsSection(botIds, name);
       if (!result.ok) {

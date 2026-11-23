@@ -5,7 +5,7 @@ import { basename, dirname, join, posix, resolve } from "node:path";
 
 import { stringify as stringifyYaml } from "yaml";
 
-import { approvalModeFor } from "../../shared/approval-mode.ts";
+import { approvalCeilingMessage, approvalModeFor, levelWithin } from "../../shared/approval-mode.ts";
 import { assertToolScopeSupported } from "../../shared/tool-scope-support.ts";
 import { mask, redactSecretsInText } from "../../shared/redact.ts";
 import { APPROVAL_LABEL, botPatch, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
@@ -138,8 +138,11 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
   }
   let workspaceDefault: string | undefined;
   for (const desired of file.bots) {
-    if (!desired.tools) continue;
     const existing = existingFor(desired);
+    if (desired.approval && existing?.approvalCeiling && !levelWithin(desired.approval, existing.approvalCeiling)) {
+      throw new HeadlessError(approvalCeilingMessage(existing.approvalCeiling), EXIT.failed);
+    }
+    if (!desired.tools) continue;
     if (!desired.model && !existing) workspaceDefault ??= (await client.json<Rec>("/api/bot-defaults")).modelSelection?.instanceId;
     const instanceId = desired.model?.instanceId ?? existing?.modelSelection?.instanceId ?? workspaceDefault;
     const driverKind = instances.find((instance) => instance.instanceId === instanceId)?.driverKind;
@@ -159,7 +162,8 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
       created.add(key(desired.name));
       if (!options.apply) continue;
       const made = await write("/api/bots", { method: "POST", body: JSON.stringify({
-        useDefaults: false, name: desired.name, ...(desired.title !== undefined ? { title: desired.title } : {}),
+        useDefaults: false, ...(desired.approval ? { settings: { approvalMode: desired.approval === "edits" ? "ask" : desired.approval } } : {}),
+        name: desired.name, ...(desired.title !== undefined ? { title: desired.title } : {}),
         ...(desired.description !== undefined ? { description: desired.description } : {}), ...(teamOf(desired) ? { section: teamOf(desired) } : {}),
         ...(desired.model ? { modelSelection: { ...desired.model, ...(desired.effort ? { effort: desired.effort } : {}) }, requireAvailableModel: true } : {}),
       }) });

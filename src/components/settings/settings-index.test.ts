@@ -175,9 +175,9 @@ describe("search", () => {
   it("puts All bots on You and your bots", () => expect(first("all bots")?.page).toBe("bots"));
   it.each(["kimi", "hidden providers", "unhide"])("puts AI › Providers first for “%s”", (query) => expect(first(query)?.id).toBe("providers"));
   it("finds AI › Providers for “cursor” beside importing from Cursor", () => expect(find("cursor").map((hit) => hit.entry.id)).toEqual(expect.arrayContaining(["providers", "ai-apps"])));
-  it("finds Activity in Data where it exists: a browser, for an admin", () => {
+  it("finds Activity in Data for an admin in the browser or desktop", () => {
     expect(first("activity", PEOPLE["a team admin"])?.anchor).toBe("activity");
-    expect(find("activity", fullContext()).some((hit) => hit.entry.anchor === "activity")).toBe(false);
+    expect(first("activity", fullContext())?.anchor).toBe("activity");
   });
 
   describe.each([["Simple", false], ["Advanced", true]] as const)("Import & export in %s", (_mode, advanced) => {

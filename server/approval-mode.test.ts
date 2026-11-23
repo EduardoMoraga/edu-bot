@@ -11,11 +11,19 @@ import {
   isEmergencyApprovalDowngrade,
   isApprovalMode,
   levelWithin,
+  withinApprovalCeiling,
 } from "../shared/approval-mode.ts";
 import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
 import { createApprovalModeSupport } from "./harness-capabilities.ts";
 
 describe("approval modes", () => {
+  it("lowers modes above a ceiling and uses Ask for an incomparable Custom grant", () => {
+    expect(withinApprovalCeiling("full", "edits")).toBe("edits");
+    expect(withinApprovalCeiling("ask", "auto")).toBe("ask");
+    expect(withinApprovalCeiling("custom", "full")).toBe("ask");
+    expect(withinApprovalCeiling("custom")).toBe("custom");
+  });
+
   it("carries Full silently to any engine that runs it; Custom never crosses engines", () => {
     for (const driver of ["codex", "claudeAgent", "grokAgent", "antigravityAgent", "piAgent", "customAcp"]) {
       expect(modelSwitchNeedsAsk("ask", "codex", driver)).toBe(false);

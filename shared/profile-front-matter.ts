@@ -1,5 +1,6 @@
 import { isAlias, isMap, isPair, isScalar, isSeq, LineCounter, parseDocument, visit, type Document, type Node } from "yaml";
 
+import type { ApprovalCeiling } from "./approval-mode.ts";
 import { findInvisibles } from "./profile-leaks.ts";
 
 export const PROFILE_MAX_PROBLEMS = 200;
@@ -9,6 +10,7 @@ export interface ProfileProblem {
   file: string;
   line?: number;
   field?: string;
+  approvalCeiling?: ApprovalCeiling;
   message: string;
 }
 
