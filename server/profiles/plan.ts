@@ -652,15 +652,37 @@ export function planProfiles(input: PlanInput): PlanOutput {
   };
 }
 
-/** Binds a plan to exactly what applying it writes: every file's bytes, the commit, the lines, every action's payload with
- * its hashes, the areas it forgets, the choices and prune. Security: any change between plan and apply gives a 409. */
+/** Binds a plan to exactly what applying it writes: every file's bytes, the commit, what each line is about, every action's
+ * payload with its hashes, the areas it forgets, the choices and prune. Words are left out, so a plan made in one language
+ * applies in another. Security: any change between plan and apply gives a 409. */
 function planDigest(input: { folder: PlanInput["folder"]; commit: string | undefined; lines: readonly ProfilePlanLine[]; actions: readonly ProfileAction[];
   goneAreas: readonly string[]; mcpServers: ProfilesState["mcpServers"]; choices: Record<string, ProfileChoice>; prune: boolean }): string {
-  const mutations = input.actions.map((action) => (action.kind === "bot" ? { ...action, echo: action.echo.id ?? null } : action));
   return createHash("sha256").update(JSON.stringify({
-    folder: input.folder.root, contents: input.folder.contentHash, problems: input.folder.problems, commit: input.commit ?? null, lines: input.lines,
-    mutations, goneAreas: input.goneAreas, mcpServers: input.mcpServers, choices: Object.entries(input.choices).sort(([a], [b]) => a.localeCompare(b)), prune: input.prune,
+    folder: input.folder.root, contents: input.folder.contentHash, problems: input.folder.problems, commit: input.commit ?? null,
+    lines: input.lines.map(lineIdentity), mutations: input.actions.map(actionIdentity), goneAreas: input.goneAreas, mcpServers: input.mcpServers,
+    choices: Object.entries(input.choices).sort(([a], [b]) => a.localeCompare(b)), prune: input.prune,
   })).digest("hex").slice(0, 32);
+}
+
+function lineIdentity(line: ProfilePlanLine) {
+  return { kind: line.kind, subject: { kind: line.subject.kind, id: line.subject.id, botId: line.subject.botId ?? null }, field: line.field ?? null,
+    file: line.file ?? null, choice: line.conflict?.choice ?? null };
+}
+
+const optionalLine = (line: ProfilePlanLine | undefined) => (line ? lineIdentity(line) : null);
+
+function actionIdentity(action: ProfileAction) {
+  switch (action.kind) {
+    case "area":
+      return { ...action, brief: action.brief ? { text: action.brief.text, hash: action.brief.hash, line: lineIdentity(action.brief.line) } : null,
+        nameLine: optionalLine(action.nameLine), ceilingLine: optionalLine(action.ceilingLine) };
+    case "bot":
+      return { ...action, echo: action.echo.id ?? null, createLine: optionalLine(action.createLine),
+        changes: action.changes.map((change) => ({ ...change, line: lineIdentity(change.line) })) };
+    case "remove":
+    case "mcp-server":
+      return { ...action, line: lineIdentity(action.line) };
+  }
 }
 
 /** A conflict with a choice becomes "take" (the file) or "mine". */

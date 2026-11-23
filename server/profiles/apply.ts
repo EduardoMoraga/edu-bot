@@ -90,7 +90,11 @@ async function createBot(action: BotAction, write: (method: string, path: string
 export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesState["areas"], port: ProfileAppPort, options: ApplyOptions): Promise<ApplyOutcome> {
   const say = options.say ?? ENGLISH_PLAN;
   const outcome: ApplyOutcome = { applied: [], skipped: [], areas: { ...previous }, mcpServers: { ...planned.mcpServers }, servers: [], bots: [] };
-  const skip = (line: ProfilePlanLine, why: string) => outcome.skipped.push({ ...line, reason: why });
+  const skippedLines = new Set<ProfilePlanLine>();
+  const skip = (line: ProfilePlanLine, why: string) => {
+    skippedLines.add(line);
+    outcome.skipped.push({ ...line, reason: why });
+  };
   const mayApplyCeiling = (line?: ProfilePlanLine) => {
     if (!line) return true;
     if (line.kind === "access" && !options.giveAccess) {
@@ -216,9 +220,9 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
       } catch {
         return false;
       }
-      const skipped = new Set(outcome.skipped.map((entry) => entry.text));
+      const skipped = new Set(skippedLines);
       skip(action.createLine!, `${why}, so ${action.name} was not made: it would have had more access than its file gives`);
-      for (const other of taking) if (other !== change && !skipped.has(other.line.text)) skip(other.line, "the bot could not be made");
+      for (const other of taking) if (other !== change && !skipped.has(other.line)) skip(other.line, "the bot could not be made");
       skip(change.line, why);
       return true;
     };

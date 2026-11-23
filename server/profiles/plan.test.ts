@@ -384,6 +384,19 @@ describe("planProfiles", () => {
     expect(kinds(plan().plan.lines, "add")).toContain("Adds area BI");
   });
 
+  it("gives a plan the same digest in every language, and still a new one when a file changes", async () => {
+    addServerLinePacks({ es });
+    const { plan, apply } = fakeApp();
+    const spanish = plan(undefined, { language: "es" }).plan;
+    expect(spanish.lines.map((line) => line.text)).not.toEqual(plan().plan.lines.map((line) => line.text));
+    expect(spanish.digest).toBe(plan().plan.digest);
+
+    await apply();
+    const edited = folder({ "areas/bi/bots/analyst.md": withField("title", "Analyst") });
+    expect(plan(edited, { language: "es" }).plan.digest).toBe(plan(edited).plan.digest);
+    expect(plan(edited, { language: "es" }).plan.digest).not.toBe(plan(undefined, { language: "es" }).plan.digest);
+  });
+
   it("renames an area's department when the file renames it, unless the department was renamed here", async () => {
     const { app, port, plan, apply } = fakeApp();
     await apply();
