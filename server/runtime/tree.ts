@@ -2,9 +2,9 @@
 import type { RuntimeStore } from "./store.ts";
 import { terminal, type Assignee, type Assignment, type Mode, type Owner, type TurnEvidence } from "./types.ts";
 
-export const CUT_TWICE = "Interrupted by another OpenMausBot restart after resuming once; not resumed again. Some of its steps may already have taken effect.";
+export const CUT_TWICE = "Interrupted by another Edu Bot restart after resuming once; not resumed again. Some of its steps may already have taken effect.";
 
-export const INTERRUPTED_OUTWARD = "Interrupted by an OpenMausBot restart after it already";
+export const INTERRUPTED_OUTWARD = "Interrupted by an Edu Bot restart after it already";
 
 const OUTWARD_SHOWN = 4;
 const OUTWARD_LABEL_MAX = 48;

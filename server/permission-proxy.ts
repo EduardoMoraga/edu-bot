@@ -30,9 +30,9 @@ interface AllowPermissionResult {
 /** What the bot is told when the person cannot be asked at all: what to do instead, so it never just skips. */
 const UNREACHABLE_NOTE: Record<AskKind, string> = {
   question:
-    "OpenMausBot could not show this question to the person: its question service did not answer. Do not retry this tool. Ask in your reply instead: end it with the exact question and stop there until they answer.",
+    "Edu Bot could not show this question to the person: its question service did not answer. Do not retry this tool. Ask in your reply instead: end it with the exact question and stop there until they answer.",
   permission:
-    "OpenMausBot could not ask the person to approve this step: its approval service did not answer. Skip this step, and say in your reply what you wanted to do and why, so the person can decide.",
+    "Edu Bot could not ask the person to approve this step: its approval service did not answer. Skip this step, and say in your reply what you wanted to do and why, so the person can decide.",
 };
 const unreachable = (kind: AskKind): BrokerAnswer => ({ behavior: "deny", message: UNREACHABLE_NOTE[kind], source: "system" });
 
@@ -140,7 +140,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
   }
   const answer = await askBroker({ t: "ask", id: randomUUID(), kind: "question", tool: ASK_USER_QUESTION, input: { questions } }, "question");
   if (answer.behavior === "deny") {
-    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from OpenMausBot" });
+    return JSON.stringify({ behavior: "deny", message: answer.message || "Denied from Edu Bot" });
   }
   // Only the person's own answer fills `answers`: the broker's notes (a timeout's sentence) would read as their choice.
   const answers =
@@ -234,7 +234,7 @@ async function handle(msg: any) {
         if (answer.always && suggestions) result.updatedPermissions = suggestions;
         text = JSON.stringify(result);
       } else {
-        text = JSON.stringify({ behavior: "deny", message: (answer.message || "Denied from OpenMausBot") + (answer.source === "user" ? REFUSED_NEXT_STEP : "") });
+        text = JSON.stringify({ behavior: "deny", message: (answer.message || "Denied from Edu Bot") + (answer.source === "user" ? REFUSED_NEXT_STEP : "") });
       }
     }
     return reply(text, isQuestion && answer.behavior === "deny");

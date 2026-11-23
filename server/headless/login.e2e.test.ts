@@ -82,7 +82,7 @@ describe("edubot login, then status, bots, stop and threads against the desktop 
     await approving;
     expect(login.code).toBe(0);
     expect(login.err).toContain(shown);
-    expect(login.err).toContain("MausBot is asking you to allow this terminal");
+    expect(login.err).toContain("Edu Bot is asking you to allow this terminal");
     const signedIn = JSON.parse(login.out);
     expect(signedIn).toMatchObject({ ok: true, storedIn: "keychain", session: { scopes: ["admin", "client"] } });
     expect(login.out).not.toMatch(/omb_sess_/);
