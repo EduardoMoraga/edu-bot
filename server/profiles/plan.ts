@@ -1,16 +1,17 @@
 import { createHash } from "node:crypto";
 
-import { APPROVAL_MODES, approvalCeilingMessage, approvalModeFor, levelWithin, supportsApprovalMode, withinApprovalCeiling, type ApprovalCeiling, type ApprovalMode } from "../../shared/approval-mode.ts";
+import { APPROVAL_MODES, approvalModeFor, levelWithin, supportsApprovalMode, withinApprovalCeiling, type ApprovalCeiling, type ApprovalMode } from "../../shared/approval-mode.ts";
 import type { EduBrainSetting } from "../../shared/edu-brain.ts";
 import { problemSentence, type McpServerProfile, type ProfileFolder, type ProfileProblem, type ResolvedBot, type SkillProfile } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlan, ProfilePlanCounts, ProfilePlanLine, ProfileSecretSlot } from "../../shared/profile-plan.ts";
 import { toolScopeWidens, type ToolScope } from "../../shared/tool-scope.ts";
 import type { ConnectorToolGrant } from "../../shared/wire.ts";
 import { dataGrantWidens } from "../../shared/data-connections.ts";
-import { APPROVAL_LABEL, canonicalBrain, canonicalData, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
+import { canonicalBrain, canonicalData, canonicalGrants, canonicalScope, changedLines, everyTool, type DesiredBot } from "../desired-bot.ts";
 import { eduBrainWidens } from "../edu-brain.ts";
 import { SECTION_CONTEXT_MAX_BYTES } from "../section-context.ts";
 import { planMcpServers, type McpServerAction } from "./mcp-plan.ts";
+import { ENGLISH_PLAN, planSay, sayApproval, sayApprovalPhrase, sayCeiling, sayLines, type PlanSay } from "./plan-words.ts";
 import type { ProfilesState } from "./state.ts";
 
 type Rec = Record<string, any>;
@@ -40,6 +41,8 @@ export interface PlanInput {
   state: ProfilesState;
   choices?: Record<string, ProfileChoice>;
   prune?: boolean;
+  /** The language of the person who asked; undefined reads as English. */
+  language?: string;
 }
 
 export interface SkillOp {
@@ -149,7 +152,6 @@ export function approvalFloor(wanted: ApprovalMode, driverKind: string | undefin
   return [...APPROVAL_MODES].reverse().find((mode) => levelWithin(mode, wanted) && supportsApprovalMode(driverKind, mode)) ?? "ask";
 }
 
-export const approvalPhrase = (mode: ApprovalMode) => (mode === "ask" ? "Ask for approval" : APPROVAL_LABEL[mode]!);
 
 const short = (text: string, max = 60) => {
   const line = text.split("\n")[0]!.trim();
@@ -166,13 +168,13 @@ export function decide(base: string | undefined, file: string, app: string): "sa
 
 interface FieldSpec {
   field: string;
-  label: string;
+  label: Parameters<PlanSay>[0];
   /** The file's value; undefined leaves the field to the app. */
   file(bot: ResolvedBot): unknown;
   app(echo: Rec): unknown;
   /** Comparable form; the hash is taken of it. */
   canon?(value: unknown): unknown;
-  show(value: unknown): string;
+  show(value: unknown, say: PlanSay): string;
   widens?(app: unknown, file: unknown, echo: Rec): boolean;
   set(value: unknown): Partial<DesiredBot>;
 }
@@ -190,10 +192,11 @@ const connectorsWiden = (app: unknown, file: unknown, echo: Rec): boolean => {
   });
 };
 
-const brainMode = (setting: EduBrainSetting) => setting.mode === "folder" ? `folder ${setting.path}`
-  : setting.mode === "area" ? `the shared brain of area ${setting.area}${setting.personalBrain === false ? ", without the person's own brain" : ""}`
-    : setting.mode === "cloud" ? `edu-cloud at ${setting.url}, token from ${"secret" in setting.token ? `secret ${setting.token.secret}` : `environment variable ${setting.token.env}`}`
-      : setting.mode;
+const brainMode = (setting: EduBrainSetting, say: PlanSay) => setting.mode === "folder" ? say("server.profiles.brain.folder", { path: setting.path })
+  : setting.mode === "area" ? say(setting.personalBrain === false ? "server.profiles.brain.areaNoPersonal" : "server.profiles.brain.area", { area: setting.area })
+    : setting.mode === "cloud" ? "secret" in setting.token ? say("server.profiles.brain.cloudSecret", { url: setting.url, name: setting.token.secret })
+      : say("server.profiles.brain.cloudEnv", { url: setting.url, name: setting.token.env })
+      : say(setting.mode === "own" ? "server.profiles.brain.own" : "server.profiles.brain.off");
 
 /** The bot setting a profile's Edu brain gives: an area brain is its own area's; a cloud token kept in a key file is not
  * one this app reads, so that brain is left to the app. */
@@ -206,46 +209,46 @@ export function profileEduBrain(bot: Pick<ResolvedBot, "eduBrain" | "area" | "pe
 }
 
 const FIELDS: FieldSpec[] = [
-  { field: "name", label: "name", file: (bot) => bot.name, app: (echo) => echo.name ?? "", show: (v) => `"${v}"`, set: (v) => ({ name: v as string }) },
-  { field: "title", label: "title", file: (bot) => bot.title, app: (echo) => echo.title ?? "", show: (v) => `"${short(v as string)}"`, set: (v) => ({ title: v as string }) },
-  { field: "description", label: "description", file: (bot) => bot.description, app: (echo) => echo.description ?? "", show: (v) => `"${short(v as string)}"`,
+  { field: "name", label: "server.profiles.label.name", file: (bot) => bot.name, app: (echo) => echo.name ?? "", show: (v) => `"${v}"`, set: (v) => ({ name: v as string }) },
+  { field: "title", label: "server.profiles.label.title", file: (bot) => bot.title, app: (echo) => echo.title ?? "", show: (v) => `"${short(v as string)}"`, set: (v) => ({ title: v as string }) },
+  { field: "description", label: "server.profiles.label.description", file: (bot) => bot.description, app: (echo) => echo.description ?? "", show: (v) => `"${short(v as string)}"`,
     set: (v) => ({ description: v as string }) },
-  { field: "soul", label: "instructions", file: (bot) => bot.soul.trimEnd(), app: (echo) => String(echo.soul ?? "").trimEnd(),
-    show: (v) => (v as string) ? `"${short(v as string)}"` : "empty", set: (v) => ({ soul: v as string }) },
-  { field: "model", label: "model", file: (bot) => bot.model, app: (echo) => echo.modelSelection ? `${echo.modelSelection.instanceId}/${echo.modelSelection.model}` : "",
-    show: (v) => String(v || "none"), set: (v) => {
+  { field: "soul", label: "server.profiles.label.instructions", file: (bot) => bot.soul.trimEnd(), app: (echo) => String(echo.soul ?? "").trimEnd(),
+    show: (v, say) => (v as string) ? `"${short(v as string)}"` : say("server.profiles.value.empty"), set: (v) => ({ soul: v as string }) },
+  { field: "model", label: "server.profiles.label.model", file: (bot) => bot.model, app: (echo) => echo.modelSelection ? `${echo.modelSelection.instanceId}/${echo.modelSelection.model}` : "",
+    show: (v, say) => String(v || say("server.profiles.value.none")), set: (v) => {
       const [instanceId, ...model] = String(v).split("/");
       return { model: { instanceId: instanceId!, model: model.join("/") } };
     } },
-  { field: "effort", label: "effort", file: (bot) => bot.effort, app: (echo) => echo.modelSelection?.effort ?? "", show: (v) => String(v || "the model's default"),
+  { field: "effort", label: "server.profiles.label.effort", file: (bot) => bot.effort, app: (echo) => echo.modelSelection?.effort ?? "", show: (v, say) => String(v || say("server.profiles.value.modelDefault")),
     set: (v) => ({ effort: v as string }) },
-  { field: "approval", label: "approval", file: (bot) => bot.approval, app: (echo) => approvalModeFor(echo), show: (v) => APPROVAL_LABEL[v as string] ?? String(v),
+  { field: "approval", label: "server.profiles.label.approval", file: (bot) => bot.approval, app: (echo) => approvalModeFor(echo), show: (v, say) => sayApproval(say, String(v)),
     widens: (app, file) => !levelWithin(file as ApprovalMode, app as ApprovalMode), set: (v) => ({ approval: v as DesiredBot["approval"] }) },
-  { field: "tools", label: "tool selection", file: (bot) => bot.tools, app: (echo) => echo.toolScope ?? null, canon: (v) => canonicalScope(v as Rec | null),
-    show: (v) => everyTool(v as Rec | null) ? "every tool" : "a selection", widens: (app, file) => toolScopeWidens(app ?? undefined, file),
+  { field: "tools", label: "server.profiles.label.tools", file: (bot) => bot.tools, app: (echo) => echo.toolScope ?? null, canon: (v) => canonicalScope(v as Rec | null),
+    show: (v, say) => say(everyTool(v as Rec | null) ? "server.profiles.value.everyTool" : "server.profiles.value.someTools"), widens: (app, file) => toolScopeWidens(app ?? undefined, file),
     set: (v) => ({ tools: everyTool(v as ToolScope) ? null : v as ToolScope }) },
-  { field: "toolsOff", label: "tool groups off", file: (bot) => bot.toolsOff && sorted(bot.toolsOff), app: (echo) => sorted(echo.toolsOff),
-    show: (v) => (v as string[]).length ? (v as string[]).join(", ") : "none", widens: (app, file) => (app as string[]).some((group) => !(file as string[]).includes(group)),
+  { field: "toolsOff", label: "server.profiles.label.toolsOff", file: (bot) => bot.toolsOff && sorted(bot.toolsOff), app: (echo) => sorted(echo.toolsOff),
+    show: (v, say) => (v as string[]).length ? (v as string[]).join(", ") : say("server.profiles.value.none"), widens: (app, file) => (app as string[]).some((group) => !(file as string[]).includes(group)),
     set: (v) => ({ toolsOff: v as DesiredBot["toolsOff"] }) },
-  { field: "mcpServers", label: "MCP servers", file: (bot) => bot.mcpServers.length ? sorted(bot.mcpServers) : undefined,
+  { field: "mcpServers", label: "server.profiles.label.mcpServers", file: (bot) => bot.mcpServers.length ? sorted(bot.mcpServers) : undefined,
     app: (echo) => Array.isArray(echo.mcpServers) ? sorted(echo.mcpServers) : null, canon: (v) => v ?? "every server",
-    show: (v) => v === null ? "every server" : (v as string[]).length ? (v as string[]).join(", ") : "none",
+    show: (v, say) => v === null ? say("server.profiles.value.everyServer") : (v as string[]).length ? (v as string[]).join(", ") : say("server.profiles.value.none"),
     widens: (app, file) => app !== null && (file as string[]).some((name) => !(app as string[]).includes(name)), set: (v) => ({ mcpServers: v as string[] }) },
-  { field: "data", label: "data connections", file: (bot) => bot.data, app: (echo) => echo.dataConnections ?? {},
-    canon: (v) => canonicalData(v as DesiredBot["data"]), show: (v) => Object.keys((v ?? {}) as Rec).sort().join(", ") || "none",
+  { field: "data", label: "server.profiles.label.data", file: (bot) => bot.data, app: (echo) => echo.dataConnections ?? {},
+    canon: (v) => canonicalData(v as DesiredBot["data"]), show: (v, say) => Object.keys((v ?? {}) as Rec).sort().join(", ") || say("server.profiles.value.none"),
     widens: (app, file) => dataGrantWidens(app as DesiredBot["data"], file as DesiredBot["data"]), set: (v) => ({ data: (v ?? {}) as DesiredBot["data"] }) },
-  { field: "connectors", label: "connected apps", file: (bot) => bot.connectors, app: (echo) => echo.connectorTools ?? null,
+  { field: "connectors", label: "server.profiles.label.connectors", file: (bot) => bot.connectors, app: (echo) => echo.connectorTools ?? null,
     canon: (v) => canonicalGrants(v as Record<string, ConnectorToolGrant> | null),
-    show: (v) => v === null ? "every app" : Object.keys(v as Rec).sort().join(", ") || "none", widens: connectorsWiden,
+    show: (v, say) => v === null ? say("server.profiles.value.everyApp") : Object.keys(v as Rec).sort().join(", ") || say("server.profiles.value.none"), widens: connectorsWiden,
     set: (v) => ({ connectorTools: v as Record<string, ConnectorToolGrant> }) },
-  { field: "eduBrain", label: "Edu brain", file: profileEduBrain,
-    app: (echo) => echo.eduBrain ?? { mode: "own" }, canon: (v) => canonicalBrain(v as EduBrainSetting), show: (v) => brainMode(v as EduBrainSetting),
+  { field: "eduBrain", label: "server.profiles.label.eduBrain", file: profileEduBrain,
+    app: (echo) => echo.eduBrain ?? { mode: "own" }, canon: (v) => canonicalBrain(v as EduBrainSetting), show: (v, say) => brainMode(v as EduBrainSetting, say),
     widens: (app, file) => eduBrainWidens(app as EduBrainSetting, file as EduBrainSetting), set: (v) => ({ eduBrain: v as EduBrainSetting }) },
-  { field: "eduCrew", label: "Edu crew", file: (bot) => bot.eduCrew, app: (echo) => echo.eduCrew === true, show: (v) => (v ? "on" : "off"),
+  { field: "eduCrew", label: "server.profiles.label.eduCrew", file: (bot) => bot.eduCrew, app: (echo) => echo.eduCrew === true, show: (v, say) => say(v ? "server.profiles.value.on" : "server.profiles.value.off"),
     widens: (app, file) => file === true && app !== true, set: (v) => ({ eduCrew: v as boolean }) },
-  { field: "memory.enabled", label: "memory", file: (bot) => bot.memory?.enabled, app: (echo) => echo.memoryEnabled !== false, show: (v) => (v ? "on" : "off"),
+  { field: "memory.enabled", label: "server.profiles.label.memory", file: (bot) => bot.memory?.enabled, app: (echo) => echo.memoryEnabled !== false, show: (v, say) => say(v ? "server.profiles.value.on" : "server.profiles.value.off"),
     set: (v) => ({ memoryEnabled: v as boolean }) },
-  { field: "memory.upkeep", label: "memory upkeep", file: (bot) => bot.memory?.upkeep, app: (echo) => echo.memoryUpkeep !== false, show: (v) => (v ? "on" : "off"),
+  { field: "memory.upkeep", label: "server.profiles.label.memoryUpkeep", file: (bot) => bot.memory?.upkeep, app: (echo) => echo.memoryUpkeep !== false, show: (v, say) => say(v ? "server.profiles.value.on" : "server.profiles.value.off"),
     set: (v) => ({ memoryUpkeep: v as boolean }) },
 ];
 
@@ -321,6 +324,7 @@ const sentence = (problem: ProfileProblem) => ({ ...problem, sentence: problemSe
 /** Compares a profile folder with this app and says, line by line, what applying it would do. Nothing here writes. */
 export function planProfiles(input: PlanInput): PlanOutput {
   const { folder, app, state } = input;
+  const say = input.language === undefined ? ENGLISH_PLAN : planSay(input.language);
   const choices = input.choices ?? {};
   const lines: ProfilePlanLine[] = [];
   const actions: ProfileAction[] = [];
@@ -328,14 +332,14 @@ export function planProfiles(input: PlanInput): PlanOutput {
   let settled = 0;
   const kept = (line: Omit<ProfilePlanLine, "kind" | "text">, what: string) => {
     settled += 1;
-    lines.push({ ...line, kind: "note", text: `${what}: you keep yours; the file's value is recorded, so this is no longer a conflict` });
+    lines.push({ ...line, kind: "note", text: say("server.profiles.labelled", { what, text: say("server.profiles.kept") }) });
   };
   const sectionNamed = (name: string) => app.sections.find((section) => fold(section) === fold(name));
 
   if (blocked.all) {
     const file = folder.problems.some((problem) => problem.file === "org.md") ? "org.md" : blocked.everything!;
-    lines.push({ kind: "blocked", subject: { kind: "organization", id: ".", name: folder.org?.name ?? "Profiles" }, file,
-      text: `${file === "." || file === "areas" ? "The folder" : file} has problems that every bot depends on, so nothing is applied until they are fixed` });
+    lines.push({ kind: "blocked", subject: { kind: "organization", id: ".", name: folder.org?.name ?? say("server.profiles.organization") }, file,
+      text: say("server.profiles.blockedAll", { file: file === "." || file === "areas" ? say("server.profiles.theFolder") : file }) });
   }
 
   const areaSection = new Map<string, string>();
@@ -349,7 +353,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
     if (blocked.area(area.key)) {
       if (existing) areaSection.set(area.key, existing);
       const file = blocked.file(area.key) ?? area.file;
-      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: `${file} has problems, so area ${area.name} and its bots are left as they are` });
+      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: say("server.profiles.blockedArea", { file, area: area.name }) });
       continue;
     }
     const base = stored?.hashes ?? {};
@@ -362,53 +366,53 @@ export function planProfiles(input: PlanInput): PlanOutput {
       ...(maxApproval ? { maxApproval } : {}),
     };
     if (!existing) {
-      action.nameLine = { kind: "add", subject, file: area.file, text: `Adds area ${area.name}` };
+      action.nameLine = { kind: "add", subject, file: area.file, text: say("server.profiles.addsArea", { area: area.name }) };
     } else {
       const choice = `area:${area.key}:name`;
       const outcome = settle(decide(base.name, nameHash, valueHash(existing)), choices[choice]);
-      if (outcome === "mine") kept({ subject, field: "name", file: area.file }, `Area ${area.name}: its name`);
+      if (outcome === "mine") kept({ subject, field: "name", file: area.file }, say("server.profiles.area.name", { area: area.name }));
       if (outcome === "same" || outcome === "mine") hashes.name = nameHash;
       else if (outcome === "here") {
-        lines.push({ kind: "changed-here", subject, field: "name", file: area.file, text: `Area ${area.name}: its department was renamed here to ${existing}, so that name is kept` });
+        lines.push({ kind: "changed-here", subject, field: "name", file: area.file, text: say("server.profiles.area.renamedHere", { area: area.name, name: existing }) });
       } else if (outcome === "conflict") {
-        lines.push({ kind: "conflict", subject, field: "name", file: area.file, text: `Area ${area.name}: the file names it ${area.name}, you named it ${existing}`,
+        lines.push({ kind: "conflict", subject, field: "name", file: area.file, text: say("server.profiles.area.nameConflict", { area: area.name, name: existing }),
           conflict: { choice, file: area.name, mine: existing } });
       } else if (sectionNamed(area.name) && fold(sectionNamed(area.name)) !== fold(existing)) {
         hashes.name = base.name ?? valueHash(existing);
-        lines.push({ kind: "note", subject, field: "name", file: area.file, text: `Area ${area.name}: a department named ${area.name} already exists, so ${existing} is not renamed` });
+        lines.push({ kind: "note", subject, field: "name", file: area.file, text: say("server.profiles.area.nameTaken", { area: area.name, name: existing }) });
       } else {
         action.section = area.name;
         action.renameFrom = existing;
         renamedFrom.set(area.key, existing);
-        action.nameLine = { kind: "change", subject, field: "name", file: area.file, text: `Area ${existing} is renamed ${area.name}` };
+        action.nameLine = { kind: "change", subject, field: "name", file: area.file, text: say("server.profiles.area.renamed", { area: area.name, name: existing }) };
       }
     }
     areaSection.set(area.key, action.section);
     const brief = [orgBrief, area.brief.trim()].filter(Boolean).join("\n\n");
     if (Buffer.byteLength(brief, "utf8") > SECTION_CONTEXT_MAX_BYTES) {
       lines.push({ kind: "note", subject, field: "brief", file: area.file,
-        text: `Area ${area.name}: its brief and the organization's are over ${SECTION_CONTEXT_MAX_BYTES} bytes together, so the brief is left as it is` });
+        text: say("server.profiles.area.briefTooLong", { area: area.name, bytes: SECTION_CONTEXT_MAX_BYTES }) });
     } else {
       const current = existing ? (app.briefs[existing] ?? "").trimEnd() : "";
       const choice = `area:${area.key}:brief`;
       const fileHash = valueHash(brief);
       const outcome = settle(decide(base.brief, fileHash, valueHash(current)), choices[choice]);
-      if (outcome === "mine") kept({ subject, field: "brief", file: area.file }, `Area ${area.name}: its brief`);
+      if (outcome === "mine") kept({ subject, field: "brief", file: area.file }, say("server.profiles.area.brief", { area: area.name }));
       if (outcome === "same" || outcome === "mine") hashes.brief = fileHash;
       else if (outcome === "here") {
-        lines.push({ kind: "changed-here", subject, field: "brief", file: area.file, text: `Area ${area.name}: its brief changed in this app; that change stays` });
+        lines.push({ kind: "changed-here", subject, field: "brief", file: area.file, text: say("server.profiles.area.briefHere", { area: area.name }) });
       } else if (outcome === "conflict") {
-        lines.push({ kind: "conflict", subject, field: "brief", file: area.file, text: `Area ${area.name}: the file and this app both changed its brief`,
+        lines.push({ kind: "conflict", subject, field: "brief", file: area.file, text: say("server.profiles.area.briefConflict", { area: area.name }),
           conflict: { choice, file: short(brief), mine: short(current) } });
       } else {
         action.brief = { text: brief, hash: fileHash, line: { kind: existing ? "change" : "add", subject, field: "brief", file: area.file,
-          text: current ? `Area ${area.name}: brief ${changedLineCount(current, brief)} changed` : `Area ${area.name}: brief set` } };
+          text: current ? say("server.profiles.area.briefChanged", { area: area.name, lines: sayLines(say, changedLines(current, brief)) }) : say("server.profiles.area.briefSet", { area: area.name }) } };
       }
     }
     if ((existing || stored) && stored?.maxApproval !== maxApproval) {
       const givesAccess = Boolean(stored?.maxApproval && (!maxApproval || !levelWithin(maxApproval, stored.maxApproval)));
       action.ceilingLine = { kind: givesAccess ? "access" : "change", subject, field: "maxApproval", file: area.file,
-        text: maxApproval ? `${area.name}. ${approvalCeilingMessage(maxApproval)}.` : `Removes the approval limit for ${area.name}.` };
+        text: maxApproval ? say("server.profiles.area.ceiling", { area: area.name, level: sayCeiling(say, maxApproval) }) : say("server.profiles.area.noCeiling", { area: area.name }) };
       lines.push(action.ceilingLine);
     }
     if (action.nameLine) lines.push(action.nameLine);
@@ -419,8 +423,8 @@ export function planProfiles(input: PlanInput): PlanOutput {
   for (const key of goneAreas) {
     const { section, maxApproval } = state.areas[key]!;
     const subject = { kind: "area" as const, id: key, name: section };
-    if (maxApproval) lines.push({ kind: "access", subject, field: "maxApproval", text: `Removes the approval limit for ${section}.` });
-    lines.push({ kind: "gone", subject, text: `Area ${section} is no longer in your profiles; its department is kept` });
+    if (maxApproval) lines.push({ kind: "access", subject, field: "maxApproval", text: say("server.profiles.area.noCeiling", { area: section }) });
+    lines.push({ kind: "gone", subject, text: say("server.profiles.area.gone", { area: section }) });
   }
   const areaOfSection = (section: string | undefined) => {
     for (const [key, name] of areaSection) if (fold(name) === fold(section) || fold(renamedFrom.get(key)) === fold(section)) return key;
@@ -437,7 +441,7 @@ export function planProfiles(input: PlanInput): PlanOutput {
     const echo = matches[0];
     const subject = { kind: "bot" as const, id: bot.id, name: bot.name, ...(echo ? { botId: echo.id as string } : {}) };
     if (matches.length > 1) {
-      lines.push({ kind: "note", subject, file: bot.file, text: `${bot.name}: ${matches.length} bots here came from ${bot.file}; only ${echo!.name} is updated` });
+      lines.push({ kind: "note", subject, file: bot.file, text: say("server.profiles.bot.duplicates", { bot: bot.name, count: matches.length, file: bot.file, name: echo!.name }) });
     }
     if (echo) claimed.add(echo.id);
     const section = areaSection.get(bot.area) ?? areaNames.get(bot.area) ?? bot.area;
@@ -446,10 +450,10 @@ export function planProfiles(input: PlanInput): PlanOutput {
     const base: Record<string, string> = echo?.profileSource?.hashes ?? {};
     const note = (text: string, field?: string) => lines.push({ kind: "note", subject, file: bot.file, text, ...(field ? { field } : {}) });
     if (bot.eduBrain?.mode === "cloud" && "file" in bot.eduBrain.token) {
-      note(`${bot.name}: keeps ${echo ? "its current Edu brain" : "an Edu brain of its own"}; this app reads an edu-cloud token from a secret slot ({ secret: NAME }) or an environment variable, not from a key file`, "eduBrain");
+      note(say(echo ? "server.profiles.bot.brainKeyFileKept" : "server.profiles.bot.brainKeyFileOwn", { bot: bot.name }), "eduBrain");
     }
     for (const name of bot.mcpServers.filter((server) => !Object.hasOwn(app.mcpServers, server) && !folder.mcpServers.some((defined) => defined.key === server))) {
-      note(`${bot.name}: this app has no MCP server named ${name} yet, so the bot cannot use it until one is added`, "mcpServers");
+      note(say("server.profiles.bot.noMcpServer", { bot: bot.name, name }), "mcpServers");
     }
     let modelSkipped = false;
     if (bot.model) {
@@ -458,37 +462,37 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const model = rest.join("/");
       if (!instance) {
         modelSkipped = true;
-        note(`${bot.name}: this app has no ${instanceId} engine, so the bot uses ${echo ? "its current model" : "this app's default model"}`, "model");
+        note(say("server.profiles.bot.noEngine", { bot: bot.name, engine: instanceId!, model: say(echo ? "server.profiles.bot.currentModel" : "server.profiles.bot.defaultModel") }), "model");
       } else if (!instance.models.includes(model)) {
         modelSkipped = true;
-        note(`${bot.name}: ${instanceId} here offers no model ${model}, so the bot uses ${echo ? "its current model" : "this app's default model"}`, "model");
+        note(say("server.profiles.bot.noModel", { bot: bot.name, engine: instanceId!, name: model, model: say(echo ? "server.profiles.bot.currentModel" : "server.profiles.bot.defaultModel") }), "model");
       }
     }
     const fieldLine = (kind: ProfilePlanLine["kind"], field: string, text: string, extra: Partial<ProfilePlanLine> = {}): ProfilePlanLine =>
-      ({ kind, subject, field, file: bot.file, text: `${bot.name}: ${text}`, ...extra });
+      ({ kind, subject, field, file: bot.file, text: say("server.profiles.labelled", { what: bot.name, text }), ...extra });
 
     const consider = (field: string, label: string, fileValue: unknown, fileCanon: unknown, appValue: unknown, appCanon: unknown, show: (value: unknown) => string,
       widens: boolean, apply: Omit<FieldChange, "field" | "line" | "hash" | "access">,
-      changedHere: (value: unknown) => string = (value) => `${label} changed in this app to ${show(value)}`, storedHash?: string) => {
+      changedHere: (value: unknown) => string = (value) => say("server.profiles.field.changedHere", { label, value: show(value) }), storedHash?: string) => {
       const fileHash = storedHash ?? valueHash(fileCanon);
       const choice = `${bot.id}:${field}`;
       const outcome = echo ? settle(decide(storedValueHash(field, base[field]), valueHash(fileCanon), valueHash(appCanon)), choices[choice]) : "take";
-      if (outcome === "mine") kept({ subject, field, file: bot.file }, `${bot.name}: ${label}`);
+      if (outcome === "mine") kept({ subject, field, file: bot.file }, say("server.profiles.labelled", { what: bot.name, text: label }));
       if (outcome === "same" || outcome === "mine") { action.hashes[field] = fileHash; return outcome; }
       if (outcome === "here") {
         action.hashes[field] = base[field]!;
-        lines.push(fieldLine("changed-here", field, `${changedHere(appValue)}; that change stays`));
+        lines.push(fieldLine("changed-here", field, say("server.profiles.then", { text: changedHere(appValue), more: say("server.profiles.changeStays") })));
         return outcome;
       }
       if (outcome === "conflict") {
         action.hashes[field] = base[field]!;
-        lines.push(fieldLine("conflict", field, `${label}: the file says ${show(fileValue)}, you have ${show(appValue)}`,
+        lines.push(fieldLine("conflict", field, say("server.profiles.field.conflict", { label, file: show(fileValue), mine: show(appValue) }),
           { conflict: { choice, file: show(fileValue), mine: show(appValue) } }));
         return outcome;
       }
       if (base[field] !== undefined) action.hashes[field] = base[field]!;
-      const text = field === "soul" && appValue ? `instructions ${changedLineCount(appValue as string, fileValue as string)} changed`
-        : echo ? `${label} ${show(appValue)} → ${show(fileValue)}` : `${label} ${show(fileValue)}`;
+      const text = field === "soul" && appValue ? say("server.profiles.field.instructionsChanged", { lines: sayLines(say, changedLines(appValue as string, fileValue as string)) })
+        : echo ? say("server.profiles.field.change", { label, from: show(appValue), to: show(fileValue) }) : say("server.profiles.field.set", { label, value: show(fileValue) });
       const line = fieldLine(widens ? "access" : echo ? "change" : "add", field, text);
       action.changes.push({ field, line, hash: fileHash, access: widens, ...apply });
       return outcome;
@@ -504,12 +508,12 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const target = held ?? floor;
       approvalShown = target;
       const outcome = !echo && target === appValue ? (action.hashes.approval = valueHash(target), "same" as const)
-        : consider(spec.field, spec.label, target, target, appValue, appValue, spec.show, spec.widens!(appValue, target, action.echo), { set: spec.set(target) },
+        : consider(spec.field, say(spec.label), target, target, appValue, appValue, (value) => spec.show(value, say), spec.widens!(appValue, target, action.echo), { set: spec.set(target) },
           undefined, held ? base.approval : undefined);
       if (target === wanted || outcome === "here" || outcome === "conflict" || outcome === "mine") return;
-      const how = !echo ? "starts at" : outcome === "take" ? "goes to" : "stays at";
-      note(held ? `${bot.name}: this app refused ${APPROVAL_LABEL[wanted]} for it, so it stays at ${approvalPhrase(target)}`
-        : `${bot.name}: ${APPROVAL_LABEL[wanted]} isn't available for its AI here, so it ${how} ${approvalPhrase(target)}`, "approval");
+      const how = !echo ? "server.profiles.bot.approvalStartsAt" : outcome === "take" ? "server.profiles.bot.approvalGoesTo" : "server.profiles.bot.approvalStaysAt";
+      const words = { bot: bot.name, wanted: sayApproval(say, wanted), level: sayApprovalPhrase(say, target) };
+      note(say(held ? "server.profiles.bot.approvalRefused" : how, words), "approval");
     };
 
     for (const spec of FIELDS) {
@@ -529,19 +533,19 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const fileCanon = canonOf(spec, fileValue);
       const appCanon = canonOf(spec, appValue);
       if (!echo && JSON.stringify(fileCanon) === JSON.stringify(appCanon)) { action.hashes[spec.field] = valueHash(fileCanon); continue; }
-      consider(spec.field, spec.label, fileValue, fileCanon, appValue, appCanon, spec.show, spec.widens?.(appValue, fileValue, action.echo) === true, { set: spec.set(fileValue) });
+      consider(spec.field, say(spec.label), fileValue, fileCanon, appValue, appCanon, (value) => spec.show(value, say), spec.widens?.(appValue, fileValue, action.echo) === true, { set: spec.set(fileValue) });
     }
     const appArea = echo ? areaOfSection(echo.section) : "";
     const areaShow = (value: unknown) => {
       const key = String(value);
-      return key.startsWith("section:") ? key.slice("section:".length) : key ? areaSection.get(key) ?? areaNames.get(key) ?? key : "no department";
+      return key.startsWith("section:") ? key.slice("section:".length) : key ? areaSection.get(key) ?? areaNames.get(key) ?? key : say("server.profiles.value.noDepartment");
     };
-    if (echo) consider("area", "area", bot.area, bot.area, appArea, appArea, areaShow, false, { section });
+    if (echo) consider("area", say("server.profiles.label.area"), bot.area, bot.area, appArea, appArea, areaShow, false, { section });
     else action.hashes.area = valueHash(bot.area);
     if (echo || bot.chief) {
       const chief = echo ? CHIEF.app(echo) : false;
-      consider(CHIEF.field, "Chief of Staff", bot.chief, bot.chief, chief, chief, (v) => (v ? "yes" : "no"), false, { chief: bot.chief },
-        (v) => (v ? "made Chief of Staff in this app" : "taken off Chief of Staff in this app"));
+      consider(CHIEF.field, say("server.profiles.label.chief"), bot.chief, bot.chief, chief, chief, (v) => say(v ? "server.profiles.value.yes" : "server.profiles.value.no"), false, { chief: bot.chief },
+        (v) => say(v ? "server.profiles.value.madeChief" : "server.profiles.value.unmadeChief"));
     }
 
     const installed = new Map((echo ? app.skills[echo.id] ?? [] : []).map((skill) => [skill.name, skill]));
@@ -555,36 +559,36 @@ export function planProfiles(input: PlanInput): PlanOutput {
       const fileValue = wanted ? { sha256: sha256(source!.text), enabled: wanted.enabled } : null;
       const appValue = has ? { sha256: has.sha256, enabled: has.enabled } : null;
       if (!fileValue && !appValue) continue;
-      const show = (value: unknown) => value === null ? "not installed" : (value as Rec).enabled ? "on" : "off";
+      const show = (value: unknown) => say(value === null ? "server.profiles.value.notInstalled" : (value as Rec).enabled ? "server.profiles.value.on" : "server.profiles.value.off");
       const op: SkillOp = !fileValue ? { op: "remove", name, enabled: false }
         : !appValue ? { op: "add", name, enabled: fileValue.enabled, text: source!.text, description: source!.description, file: source!.file }
           : appValue.sha256 !== fileValue.sha256 ? { op: "replace", name, enabled: fileValue.enabled, text: source!.text, description: source!.description, file: source!.file }
             : { op: "toggle", name, enabled: fileValue.enabled };
-      const label = `skill ${name}`;
+      const label = say("server.profiles.label.skill", { name });
       const fileHash = valueHash(fileValue);
       const choice = `${bot.id}:${field}`;
       const outcome = echo ? settle(decide(base[field], fileHash, valueHash(appValue)), choices[choice]) : "take";
-      if (outcome === "mine") kept({ subject, field, file: bot.file }, `${bot.name}: ${label}`);
+      if (outcome === "mine") kept({ subject, field, file: bot.file }, say("server.profiles.labelled", { what: bot.name, text: label }));
       if (outcome === "same" || outcome === "mine") { if (fileValue) action.hashes[field] = fileHash; continue; }
       if (outcome === "here") {
         if (fileValue) action.hashes[field] = base[field]!;
-        lines.push(fieldLine("changed-here", field, `${label} changed in this app; that change stays`));
+        lines.push(fieldLine("changed-here", field, say("server.profiles.then", { text: say("server.profiles.field.changedHereOnly", { label }), more: say("server.profiles.changeStays") })));
         continue;
       }
       if (outcome === "conflict") {
         action.hashes[field] = base[field]!;
-        lines.push(fieldLine("conflict", field, `${label}: the file and this app both changed it`, { conflict: { choice, file: show(fileValue), mine: show(appValue) } }));
+        lines.push(fieldLine("conflict", field, say("server.profiles.field.bothChanged", { label }), { conflict: { choice, file: show(fileValue), mine: show(appValue) } }));
         continue;
       }
       if (base[field] !== undefined) action.hashes[field] = base[field]!;
-      const text = op.op === "add" ? `${label} added${fileValue!.enabled ? "" : " (off)"}` : op.op === "replace" ? `${label} updated from ${op.file}`
-        : op.op === "remove" ? `${label} removed (no longer in the profile)` : `${label} turned ${op.enabled ? "on" : "off"}`;
+      const text = op.op === "add" ? say(fileValue!.enabled ? "server.profiles.skill.added" : "server.profiles.skill.addedOff", { label }) : op.op === "replace" ? say("server.profiles.skill.updated", { label, file: op.file! })
+        : op.op === "remove" ? say("server.profiles.skill.removed", { label }) : say(op.enabled ? "server.profiles.skill.on" : "server.profiles.skill.off", { label });
       action.changes.push({ field, line: fieldLine(echo ? "change" : "add", field, text), hash: fileValue ? fileHash : null, access: false, skill: op });
     }
 
     if (!echo) {
-      const describe = [bot.title, bot.chief ? `Chief of ${section}` : "", bot.model && !modelSkipped ? bot.model : "", approvalShown ? APPROVAL_LABEL[approvalShown] : ""].filter(Boolean).join(" · ");
-      action.createLine = { kind: "add", subject, file: bot.file, text: `Adds ${bot.name} to area ${section}${describe ? ` (${describe})` : ""}` };
+      const details = [bot.title, bot.chief ? say("server.profiles.bot.chiefOf", { area: section }) : "", bot.model && !modelSkipped ? bot.model : "", approvalShown ? sayApproval(say, approvalShown) : ""].filter(Boolean).join(" · ");
+      action.createLine = { kind: "add", subject, file: bot.file, text: say(details ? "server.profiles.bot.addsDescribed" : "server.profiles.bot.adds", { bot: bot.name, area: section, details }) };
       const approvalChange = action.changes.find((change) => change.field === "approval");
       const createdAt = approvalChange && !approvalChange.access && CREATE_APPROVALS.has(approvalChange.set!.approval!) ? approvalChange.set!.approval! : approvalChange ? "ask" : undefined;
       if (approvalChange && createdAt === approvalChange.set!.approval) {
@@ -610,21 +614,21 @@ export function planProfiles(input: PlanInput): PlanOutput {
     const subject = { kind: "bot" as const, id, name: echo.name, botId: echo.id };
     if (blocked.bot(id)) {
       const file = blocked.file(id) ?? echo.profileSource.file;
-      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: `${file} has problems, so ${echo.name} is left as it is` });
+      if (!blocked.all) lines.push({ kind: "blocked", subject, file, text: say("server.profiles.blockedOne", { file, name: echo.name }) });
       continue;
     }
     if (folder.bots.some((bot) => bot.id === id)) continue;
     if (input.prune) {
-      const line: ProfilePlanLine = { kind: "remove", subject, file: echo.profileSource.file, text: `Deletes ${echo.name}, which is no longer in your profiles` };
+      const line: ProfilePlanLine = { kind: "remove", subject, file: echo.profileSource.file, text: say("server.profiles.bot.deletes", { name: echo.name }) };
       lines.push(line);
       actions.push({ kind: "remove", botId: echo.id, line });
     } else {
-      lines.push({ kind: "gone", subject, file: echo.profileSource.file, text: `${echo.name} is no longer in your profiles; it stays in this app as it is` });
+      lines.push({ kind: "gone", subject, file: echo.profileSource.file, text: say("server.profiles.bot.gone", { name: echo.name }) });
     }
   }
 
   const mcp = planMcpServers({ servers: folder.mcpServers, problems: folder.problems, blockedAll: blocked.all, app: app.mcpServers, vault: app.vaultSecrets,
-    state: state.mcpServers, choices, prune: input.prune === true });
+    state: state.mcpServers, choices, prune: input.prune === true, say });
   lines.push(...mcp.lines);
   actions.push(...mcp.actions);
   settled += mcp.settled;
@@ -663,11 +667,6 @@ function planDigest(input: { folder: PlanInput["folder"]; commit: string | undef
 function settle(outcome: ReturnType<typeof decide>, choice: ProfileChoice | undefined): ReturnType<typeof decide> | "mine" {
   if (outcome !== "conflict" || !choice) return outcome;
   return choice === "file" ? "take" : "mine";
-}
-
-function changedLineCount(before: string, after: string): string {
-  const n = changedLines(before, after);
-  return `${n} line${n === 1 ? "" : "s"}`;
 }
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");

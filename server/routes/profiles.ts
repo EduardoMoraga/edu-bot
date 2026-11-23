@@ -11,6 +11,7 @@ import { applyProfilePlan } from "../profiles/apply.ts";
 import { gitCommitOf } from "../profiles/git-commit.ts";
 import { loadProfileFolder, ProfileFolderError, type LoadedProfileFolder } from "../profiles/load.ts";
 import { botSecretSlots, changedHereFields, planProfiles, type AppView, type PlanOutput } from "../profiles/plan.ts";
+import { planSay } from "../profiles/plan-words.ts";
 import { readProfilesState, writeProfilesState, type ProfilesState } from "../profiles/state.ts";
 import { isInside, resolveThroughLinks } from "../sentinel/paths.ts";
 import { callRoutes } from "./in-process.ts";
@@ -30,6 +31,8 @@ export interface ProfilesRouteDeps {
    * owns every Vault item, so a profile never points a server at a member's own secret. */
   vaultSecretIds(names: readonly string[]): Record<string, string>;
   stamp(botId: string, source: ProfileSource): void;
+  /** The language the plan's lines are written in for whoever asked; undefined reads as English. */
+  language?(auth: RequestAuth): string | undefined;
   audit(row: { action: string; target: { kind: string; name: string; id?: string }; changed: string[]; after: Record<string, unknown> }, auth: RequestAuth, req: IncomingMessage): void;
 }
 
@@ -135,7 +138,8 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     const commit = gitCommitOf(folder.root);
     const call = (method: string, path: string, payload?: unknown) => callRoutes(deps.routes(), req, auth, method, path, payload);
     const app = await view(call, folder, state);
-    const planned = planProfiles({ folder, ...(commit ? { commit } : {}), app, state, choices: body.choices ?? {}, prune: body.prune === true });
+    const language = deps.language?.(auth);
+    const planned = planProfiles({ folder, ...(commit ? { commit } : {}), app, state, choices: body.choices ?? {}, prune: body.prune === true, ...(language ? { language } : {}) });
     return { planned, folder, state };
   };
 
@@ -212,7 +216,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     const outcome = await applyProfilePlan(planned, state.areas, { call, stamp: deps.stamp,
       saveAreas: (areas) => writeProfilesState(deps.dataDir, { ...readProfilesState(deps.dataDir), areas }),
     },
-      { giveAccess: body.giveAccess === true, ...(commit ? { commit } : {}), now, folderName: basename(folder.root) });
+      { giveAccess: body.giveAccess === true, ...(commit ? { commit } : {}), now, folderName: basename(folder.root), say: planSay(deps.language?.(auth)) });
     writeProfilesState(deps.dataDir, {
       ...readProfilesState(deps.dataDir), folder: folder.root, mcpServers: outcome.mcpServers,
       applied: { at: now, ...(commit ? { commit } : {}), digest: planned.plan.digest, folder: folder.root },

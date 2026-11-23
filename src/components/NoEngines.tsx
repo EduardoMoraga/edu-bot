@@ -9,6 +9,7 @@ import { splitEngineRail } from "@/lib/engine-rail";
 import { t } from "@/lib/i18n";
 import { productName } from "../lib/brand";
 import { openKeySettings } from "./keys/key-focus";
+import { engineDisplayName } from "@/lib/engine-name";
 
 export function NoEngines() {
   const { state, dispatch, refreshInstances } = useStore();
@@ -64,7 +65,7 @@ export function NoEngines() {
               <div key={instance.instanceId} className="rounded-xl border border-hairline/40 bg-card p-3.5">
                 <div className="flex items-center gap-2 text-[14px] font-medium text-ink">
                   <InstanceProviderMark instance={instance} size={16} />
-                  {instance.displayName}
+                  {engineDisplayName(instance)}
                 </div>
                 <EngineSetup
                   instance={instance}

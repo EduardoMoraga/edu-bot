@@ -46,6 +46,7 @@ const EN_ALLOWED: Record<string, string> = {
   "boatOffer.title": "Boat's credit offer names Boat, whose credit and plan it is",
   "boatOffer.body": "Boat's credit offer names Boat, whose credit and plan it is",
   "boatOffer.get": "Boat's credit offer names Boat, whose credit and plan it is",
+  "secretCard.target.boxToken.description": "the card asking for a person's own Boat key names the provider whose key it is",
 };
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));

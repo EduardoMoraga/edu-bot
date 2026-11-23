@@ -23,6 +23,7 @@ import { eduProposalFields, eduProposalOutcome, eduProposalSummary, eduProposalT
 import { eduCrewGateDetail, eduCrewGateOutcome, eduCrewGateSummary, eduCrewGateTitle } from "@/lib/edu-crew-words";
 import { TriggerCard } from "./TriggerCard";
 import { CardHint } from "./CardHint";
+import { appSettingLabel } from "@/lib/server-labels";
 
 interface ToolLabels {
   [tool: string]: LocaleKey;
@@ -171,7 +172,7 @@ function plainWhen(schedule: RoutineRequestSchedule): string {
 
 export function appliedChange(card: OptionCardData, name: string): { line: string; canUndo: boolean; cancels?: boolean } | undefined {
   const setting = card.appSettingRequest;
-  if (setting) return { line: t("approval.applied.appSetting", { name, title: `${setting.label}: ${approvalDetailText(card)}` }), canUndo: true };
+  if (setting) return { line: t("approval.applied.appSetting", { name, title: `${appSettingLabel(setting.settingId, setting.label)}: ${approvalDetailText(card)}` }), canUndo: true };
   const routine = card.routineRequest;
   if (routine) {
     const operation = routine.operation;

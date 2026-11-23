@@ -4,9 +4,10 @@
 import { APPROVAL_MODES, approvalModeFor, approvalModeWidens, levelWithin, type ApprovalMode } from "../../shared/approval-mode.ts";
 import type { ProfilePlanLine } from "../../shared/profile-plan.ts";
 import type { ProfileSource } from "../../shared/wire.ts";
-import { APPROVAL_LABEL, botPatch, type DesiredBot } from "../desired-bot.ts";
+import { botPatch, type DesiredBot } from "../desired-bot.ts";
 import type { McpServerAction } from "./mcp-plan.ts";
-import { appHashes, approvalHash, approvalPhrase, type AreaAction, type BotAction, type PlanOutput } from "./plan.ts";
+import { appHashes, approvalHash, type AreaAction, type BotAction, type PlanOutput } from "./plan.ts";
+import { ENGLISH_PLAN, sayApproval, sayApprovalPhrase, type PlanSay } from "./plan-words.ts";
 import type { ProfilesState } from "./state.ts";
 
 type Rec = Record<string, any>;
@@ -25,6 +26,8 @@ export interface ApplyOptions {
   now: number;
   /** Names the skills' source: `profile <folder name>: <file>`. */
   folderName: string;
+  /** The words of the lines apply writes; English when absent. */
+  say?: PlanSay;
 }
 
 export interface ApplyOutcome {
@@ -85,6 +88,7 @@ async function createBot(action: BotAction, write: (method: string, path: string
 }
 
 export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesState["areas"], port: ProfileAppPort, options: ApplyOptions): Promise<ApplyOutcome> {
+  const say = options.say ?? ENGLISH_PLAN;
   const outcome: ApplyOutcome = { applied: [], skipped: [], areas: { ...previous }, mcpServers: { ...planned.mcpServers }, servers: [], bots: [] };
   const skip = (line: ProfilePlanLine, why: string) => outcome.skipped.push({ ...line, reason: why });
   const mayApplyCeiling = (line?: ProfilePlanLine) => {
@@ -132,7 +136,7 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
     try {
       await write("PATCH", route, { enabled: true });
     } catch (error) {
-      skip({ ...action.line, kind: "note", text: `MCP server ${action.key} was added, but this app did not turn it on; turn it on in Apps → MCP servers` }, (error as Error).message);
+      skip({ ...action.line, kind: "note", text: say("server.profiles.mcp.addedOff", { key: action.key }) }, (error as Error).message);
     }
   }
 
@@ -195,7 +199,7 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
         if (created.refused) {
           hashes.approval = approvalHash(action.approval ?? created.refused.level, "ask");
           madeLines.push({ ...action.createLine!, field: "approval",
-            text: `${action.name}: this app refused ${APPROVAL_LABEL[created.refused.level]} for it (${created.refused.why}), so it starts at Ask for approval` });
+            text: say("server.profiles.bot.refusedStartsAt", { bot: action.name, wanted: sayApproval(say, created.refused.level), why: created.refused.why, level: sayApprovalPhrase(say, "ask") }) });
         }
       } catch (error) {
         skip(action.createLine!, (error as Error).message);
@@ -247,8 +251,8 @@ export async function applyProfilePlan(planned: PlanOutput, previous: ProfilesSt
         return "done";
       }
       record(change, approvalHash(action.approval ?? target, at));
-      const how = made ? "starts at" : at === current ? "stays at" : "goes to";
-      const line = { ...change.line, kind: "change" as const, text: `${action.name}: this app refused ${APPROVAL_LABEL[target]} for it (${why}), so it ${how} ${approvalPhrase(at)}` };
+      const how = made ? "server.profiles.bot.refusedStartsAt" : at === current ? "server.profiles.bot.refusedStaysAt" : "server.profiles.bot.refusedGoesTo";
+      const line = { ...change.line, kind: "change" as const, text: say(how, { bot: action.name, wanted: sayApproval(say, target), why: why ?? "", level: sayApprovalPhrase(say, at) }) };
       (made ? madeLines : outcome.applied).push(line);
       return "done";
     };

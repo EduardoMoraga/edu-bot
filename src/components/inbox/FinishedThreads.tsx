@@ -8,6 +8,7 @@ import { t } from "@/lib/i18n";
 import { roomThreadSpeakerId, roomThreadWorking } from "@/lib/room-threads";
 import { attentionOwnerName, isOpenThread, openThreadRow, type AttentionThread, type OpenThread } from "../SidebarBotActivity";
 import { formatUpdatedAt, threadRecency, threadUpdatedLabel } from "../SidebarThreadRow";
+import { localizedTaskTitle } from "@/lib/task-title";
 
 export const FINISHED_LIMIT = 10;
 
@@ -72,7 +73,7 @@ export function FinishedThreads({ rows, now, current, onOpen }: {
       {rows.map((row) => {
         const name = attentionOwnerName(row);
         const at = threadRecency(row.task);
-        const label = t("attention.item", { title: row.task.title, name, status: t("inbox.settled.read") });
+        const label = t("attention.item", { title: localizedTaskTitle(row.task.title), name, status: t("inbox.settled.read") });
         const open = isOpenThread(row, current);
         return (
           <button key={`${row.kind}-${row.kind === "bot" ? row.botId : row.groupId}-${row.task.threadId}`} type="button" aria-label={label} title={label}
@@ -80,7 +81,7 @@ export function FinishedThreads({ rows, now, current, onOpen }: {
             className={cn("flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-ink hover:bg-menu-hover", open && openThreadRow)}>
             <CheckCircle2 size={16} aria-hidden="true" className="shrink-0 text-ink-tertiary" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate">{row.task.title}</span>
+              <span className="block truncate">{localizedTaskTitle(row.task.title)}</span>
               <span className="block truncate text-[11px] text-ink-secondary">
                 {name} · {t("inbox.settled.read")} · <time data-finished-when dateTime={new Date(at).toISOString()} title={formatUpdatedAt(at)}>{threadUpdatedLabel(at, now)}</time>
               </span>

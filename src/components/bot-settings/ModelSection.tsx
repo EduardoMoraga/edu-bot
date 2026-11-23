@@ -9,6 +9,7 @@ import { t } from "@/lib/i18n";
 import { Select } from "../Select";
 import { backupNote } from "@/lib/engine-rail";
 import { sameFields, useStoreDispatch, useStoreSelector } from "@/state/store-select";
+import { engineDisplayName } from "@/lib/engine-name";
 
 export function ModelSection({ bot }: { bot: Bot }) {
   const state = useStoreSelector((s) => ({ config: s.config, instances: s.instances }), sameFields), dispatch = useStoreDispatch();
@@ -91,11 +92,14 @@ export function FallbackChain({ bot, onChange }: { bot: Bot; onChange: (fallback
     .find((model) => model.trim() && !taken(instance.instanceId, model));
   const available = state.instances.filter((instance) =>
     instance.snapshot.state === "available" && Boolean(instance.models.default.trim()) && freeModel(instance) !== undefined);
-  const nameOf = (instanceId: string) => state.instances.find((instance) => instance.instanceId === instanceId)?.displayName ?? instanceId;
+  const nameOf = (instanceId: string) => {
+    const instance = state.instances.find((candidate) => candidate.instanceId === instanceId);
+    return instance ? engineDisplayName(instance) : instanceId;
+  };
   const main = state.instances.find((instance) => instance.instanceId === bot.modelSelection.instanceId);
   const backupLabel = (instance: InstanceInfo) => {
     const note = backupNote(main, instance);
-    return note ? `${instance.displayName} · ${note}` : instance.displayName;
+    return note ? `${engineDisplayName(instance)} · ${note}` : engineDisplayName(instance);
   };
   const modelsOf = (entry: NonNullable<Bot["fallback"]>[number], index: number) => {
     const offered = offeredBy(state.instances.find((candidate) => candidate.instanceId === entry.instanceId))

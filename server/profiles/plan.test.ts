@@ -3,9 +3,12 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import es from "../../src/locales/es.json" with { type: "json" };
+
 import { checkProfileFiles } from "../../shared/profile-format.ts";
 import type { ProfileChoice, ProfilePlanLine } from "../../shared/profile-plan.ts";
 import type { ProfileSource } from "../../shared/wire.ts";
+import { addServerLinePacks } from "../server-lines.ts";
 import { applyProfilePlan } from "./apply.ts";
 import { profileFilesHash } from "./load.ts";
 import { approvalFloor, botSecretSlots, changedHereFields, decide, planProfiles, type AppView } from "./plan.ts";
@@ -118,7 +121,7 @@ function fakeApp(seed: { bots?: Rec[]; sections?: string[]; mcpServers?: string[
       ...(seed.codex ? [{ instanceId: "codex", driverKind: "codex", models: ["gpt-5.5"] }] : [])],
     mcpServers: app.mcp, vaultSecrets: app.vault,
   });
-  const plan = (profiles = folder(), options: { choices?: Record<string, ProfileChoice>; prune?: boolean } = {}) =>
+  const plan = (profiles = folder(), options: { choices?: Record<string, ProfileChoice>; prune?: boolean; language?: string } = {}) =>
     planProfiles({ folder: profiles, app: view(), state: app.state, ...options });
   const apply = async (profiles = folder(), options: { choices?: Record<string, ProfileChoice>; prune?: boolean; giveAccess?: boolean } = {}) => {
     const planned = plan(profiles, options);
@@ -369,6 +372,16 @@ describe("planProfiles", () => {
     await apply();
     expect(bot("sales/closer").modelSelection).toEqual({ instanceId: "claude", model: "claude-sonnet-5-5" });
     expect(bot("sales/closer").profileSource.hashes.model).toBeUndefined();
+  });
+
+  it("writes its lines in the language of whoever asked", () => {
+    addServerLinePacks({ es });
+    const { plan } = fakeApp();
+    const lines = plan(undefined, { language: "es" }).plan.lines;
+    expect(kinds(lines, "add")).toContain("Añade a Reporter al área BI (Weekly report writer · claude/claude-sonnet-5-5 · Preguntar)");
+    expect(kinds(lines, "note")).toContain("Closer: esta app no tiene el motor codex, así que el bot usa el modelo predeterminado de esta app");
+    expect(lines.find((line) => line.subject.kind === "mcp-server")?.subject.name).toBe("Servidor MCP notion");
+    expect(kinds(plan().plan.lines, "add")).toContain("Adds area BI");
   });
 
   it("renames an area's department when the file renames it, unless the department was renamed here", async () => {

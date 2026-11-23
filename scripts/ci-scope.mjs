@@ -191,6 +191,7 @@ export const VITEST_SUBSETS = {
       "server/memory-move.test.ts",
       "server/outside-lineage.e2e.test.ts",
       "server/same-name-mentions.e2e.test.ts",
+      "server/profiles/plan.test.ts",
       "server/skill-switch.test.ts",
     ],
     shards: 2,

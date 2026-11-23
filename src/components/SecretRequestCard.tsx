@@ -12,6 +12,7 @@ import type { EmailConnectRequest, EmailOutgoingFields } from "../../shared/emai
 import { productName } from "@/lib/brand";
 import { VaultChoices } from "./VaultChoices";
 import { desktopStore } from "./keys/key-save";
+import { credentialDescription, credentialLabel, credentialPlaceholder } from "@/lib/server-labels";
 
 // Security: the value goes straight to the host's settings, never into the chat.
 
@@ -34,12 +35,12 @@ export function SecretRequestCard({
   const greenference = localize && secret.target === "greenferenceApiKey";
   const modelgo = localize && secret.target === "modelgoApiKey";
   const gemini = localize && secret.target === "geminiTtsKey";
-  const label = greenference ? t("keys.greenference.label") : modelgo ? t("keys.modelgo.label") : gemini ? t("keys.label.geminiTts") : secret.label;
-  const placeholder = greenference ? t("keys.greenference.placeholder") : modelgo ? t("keys.modelgo.placeholder") : gemini ? t("voice.gemini.keyPlaceholder") : secret.placeholder;
+  const label = greenference ? t("keys.greenference.label") : modelgo ? t("keys.modelgo.label") : gemini ? t("keys.label.geminiTts") : credentialLabel(secret.target, secret.label);
+  const placeholder = greenference ? t("keys.greenference.placeholder") : modelgo ? t("keys.modelgo.placeholder") : gemini ? t("voice.gemini.keyPlaceholder") : credentialPlaceholder(secret.target, secret.label, secret.placeholder);
   const parts = secret.descriptionParts;
   const suppliedDescription = localize && parts
     ? [t(parts.baseCode), parts.reason, t("server.connect.secretNeverRead", { bot: parts.bot })].filter(Boolean).join(" ")
-    : secret.description;
+    : credentialDescription(secret.target, secret.description);
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedLocally, setSavedLocally] = useState(false);

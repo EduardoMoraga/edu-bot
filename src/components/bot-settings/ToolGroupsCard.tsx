@@ -1,4 +1,4 @@
-import { t } from "@/lib/i18n";
+import { t, intlLocale } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { type Bot } from "@/state/store";
 import { TOOL_GROUP_TOKENS, TOOL_GROUPS, type ToolGroup } from "../../../shared/tool-groups";
@@ -36,7 +36,7 @@ export function ToolGroupsCard({ bot, patch }: { bot: Bot; patch: (patch: { tool
               <div className="min-w-0">
                 <div className="text-[13px] font-medium text-ink">{t(label)}</div>
                 <div className="text-[12px] text-ink-tertiary">
-                  {t(hint)} · <span className="tabular-nums">{t("botAccess.toolGroups.size", { tokens: TOOL_GROUP_TOKENS[group].toLocaleString() })}</span>
+                  {t(hint)} · <span className="tabular-nums">{t("botAccess.toolGroups.size", { tokens: TOOL_GROUP_TOKENS[group].toLocaleString(intlLocale()) })}</span>
                 </div>
               </div>
               <Switch checked={!off.includes(group)} aria-label={t(label)} onClick={() => toggle(group)} />
