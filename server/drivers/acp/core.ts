@@ -1022,15 +1022,15 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         let launchedThisTurn = false;
         // The folder and the tool selection ride session/new, so threads differing only there can share a process (in the bot box, only one bot's); never two audiences of a Team Cloud, whose engine homes differ.
         const hostKey = support.shareProcess && inheritedScopeFingerprint === null ? JSON.stringify([...processContract, launchModel ?? null, engineHomes.scope(), sharedBoxScope(cwd)]) : null;
-        const launchSession = async () => {
-          let ready = launch;
-          if (!sharedHost(hostKey, threadId, cwd) && launch.beforeSpawn) {
-            const prepared = await launch.beforeSpawn();
-            requireRunning();
-            const busy = active.get(threadId);
-            if (busy && busy.turnId !== turnId) throw new Error("a turn is already running on this thread");
-            ready = { ...launch, command: prepared.command, args: prepared.args ?? launch.args };
-          }
+        const prepareLaunch = async (): Promise<AcpLaunch> => {
+          if (sharedHost(hostKey, threadId, cwd) || !launch.beforeSpawn) return launch;
+          const { command, args } = await launch.beforeSpawn();
+          return { ...launch, command, args: args ?? launch.args };
+        };
+        const launchPrepared = (ready: AcpLaunch): AcpSession => {
+          requireRunning();
+          const busy = active.get(threadId);
+          if (busy && busy.turnId !== turnId) throw new Error("a turn is already running on this thread");
           const opened = openSession(threadId, ready, [...(ready.args ?? []), ...spawnArgs], launchEnv, cwd, contractKey, hostKey);
           opened.launchModel = launchModel;
           launchedThisTurn = true;
@@ -1058,7 +1058,9 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
           await turn.engineAdmission?.(joining ? "session" : "process", joining?.child.pid);
           requireRunning();
           if (active.has(threadId)) throw new Error("a turn is already running on this thread");
-          try { session = await launchSession(); } catch (error) { if (active.has(threadId)) throw error; return failSetup(error); }
+          let ready = launch;
+          try { if (launch.beforeSpawn && !sharedHost(hostKey, threadId, cwd)) ready = await prepareLaunch(); } catch (error) { if (active.has(threadId)) throw error; return failSetup(error); }
+          session = launchPrepared(ready);
           sessions.set(threadId, session);
         }
       // `session` rebinds when the establishment retry respawns the child: never capture its connection.
@@ -1244,7 +1246,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
               if (cursor && liveSessionId === cursor) {
                 session.current = null;
                 closeSession(threadId, "reestablish");
-                try { session = await launchSession(); } catch (error) { session.current = current; throw error; }
+                try { session = launchPrepared(await prepareLaunch()); } catch (error) { session.current = current; throw error; }
                 sessions.set(threadId, session);
                 session.current = current;
                 runtimeAcceptsImages = await handshake();

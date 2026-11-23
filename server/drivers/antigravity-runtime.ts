@@ -286,6 +286,21 @@ function runCliProbe(executablePath: string, args: string[], env: NodeJS.Process
   });
 }
 
+function sameCliBinaryIdentity(
+  before: AntigravityCliVerification,
+  after: AntigravityCliVerification,
+): boolean {
+  return (
+    before.launchPath === after.launchPath &&
+    before.realpath === after.realpath &&
+    before.isShim === after.isShim &&
+    before.dev === after.dev &&
+    before.ino === after.ino &&
+    before.size === after.size &&
+    before.sha256 === after.sha256
+  );
+}
+
 async function probeAntigravityCli(
   executablePath: string,
   env: NodeJS.ProcessEnv,
@@ -295,6 +310,8 @@ async function probeAntigravityCli(
   if (!verification) return null;
   const help = await runCliProbe(verification.launchPath, ["acp", "--help"], env);
   if (!help.ok || !ACP_HELP_PATTERN.test(help.output)) return null;
+  const afterHelp = await cliBinaryIdentity(executablePath, env);
+  if (!afterHelp || !sameCliBinaryIdentity(verification, afterHelp)) return null;
   const ver = await runCliProbe(verification.launchPath, ["--version"], env);
   const version = ver.ok ? CLI_VERSION_PATTERN.exec(ver.output)?.[0] ?? null : null;
   if (!version || !isSupportedAntigravityCliVersion(version)) return null;
