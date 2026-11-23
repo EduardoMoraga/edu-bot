@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
-  ALL_OS, AREA_CHECKS, ciOutputs, FULL_LANE_EVENTS, FULL_SCOPE, laneOf, LINUX_OS, MAIN_SCOPE, moveLinuxIntoStatic, QUEUED_SCOPE, SELECTABLE_JOBS,
+  ALL_OS, AREA_CHECKS, ciOutputs, FULL_LANE_EVENTS, FULL_SCOPE, laneOf, LINUX_OS, MAC_OS, MAIN_SCOPE, moveLinuxIntoStatic, PR_HOST_OS, QUEUED_SCOPE, SELECTABLE_JOBS,
   selectCiScope,
   selectPushScope, SRC_OUTSIDE_RENDERER, versionOnlyPackageJson, VITEST_SUBSETS, vitestMatrix, WINDOWS_LABEL, WINDOWS_OS, windowsReason,
 } from "./ci-scope.mjs";
@@ -19,6 +19,8 @@ const script = fileURLToPath(new URL("./ci-scope.mjs", import.meta.url));
 const ALL = ["macos-latest", "ubuntu-latest", "windows-latest"];
 const PR = ["ubuntu-latest", "windows-latest"];
 const LINUX = ["ubuntu-latest"];
+const MAC = ["ubuntu-latest", "macos-latest"];
+const PR_HOST = ["ubuntu-latest", "macos-latest", "windows-latest"];
 const MAIN = ["ubuntu-latest", "windows-latest"];
 const SERVER_JOBS = ["build", "vitest", "behavior-evals", "packaged-server", "electron-smokes", "foss", "ui-smoke", "browser-identity", "package-linux", "browser-driver"];
 const temporaryDirectories: string[] = [];
@@ -381,6 +383,8 @@ describe("CI outputs", () => {
     expect(ciOutputs(FULL_SCOPE, WINDOWS_OS).jobs).toContain("windows-cua");
     expect(LINUX_OS).toEqual(LINUX);
     expect(WINDOWS_OS).toEqual(PR);
+    expect(MAC_OS).toEqual(MAC);
+    expect(PR_HOST_OS).toEqual(PR_HOST);
   });
 
   it("runs only the broker's control-plane checks for a commit the merge queue already tested", () => {
@@ -638,7 +642,8 @@ describe("CI scope CLI", () => {
       pull_request: { base: { sha: base }, head: { sha: git("rev-parse", "HEAD") } },
     });
     // A server change that cannot break Windows first: its Windows jobs wait for main.
-    expect(output).toEqual({ jobs: SERVER_JOBS, vitest_os: LINUX, packaged_server_os: LINUX, vitest_matrix: vitestMatrix(LINUX) });
+    // macOS vitest shards still run, so a macOS-only failure cannot hide until the full lane.
+    expect(output).toEqual({ jobs: SERVER_JOBS, vitest_os: MAC, packaged_server_os: LINUX, vitest_matrix: vitestMatrix(MAC) });
     expect(stderr).toBe("");
   });
 
@@ -916,12 +921,17 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
     return { output: outputs(readFileSync(outputPath, "utf8")), stdout, stderr };
   }
 
-  const serverJobs = (oses: string[]) => ({ jobs: SERVER_JOBS, vitest_os: oses, packaged_server_os: oses, vitest_matrix: vitestMatrix(oses) });
+  const serverJobs = (oses: string[]) => ({
+    jobs: SERVER_JOBS,
+    vitest_os: oses,
+    packaged_server_os: oses.filter((os) => os !== "macos-latest"),
+    vitest_matrix: vitestMatrix(oses),
+  });
 
   it("runs the Windows jobs for a changed line that names Windows, and says why", async () => {
     const { directory, payload } = serverChange('if (process.platform === "win32") quote();\n');
     const { output, stdout, stderr } = await runPullRequest(directory, payload);
-    expect(output).toEqual(serverJobs(PR));
+    expect(output).toEqual(serverJobs(PR_HOST));
     expect(stdout).toContain('Windows runs for the changed line "+if (process.platform === \\"win32\\") quote();"');
     expect(stderr).toBe("");
   });
@@ -929,14 +939,15 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
   it("leaves the Windows jobs to main for a change that cannot break Windows first, and says how to run them", async () => {
     const { directory, payload } = serverChange("export const greeting = \"hello\";\n");
     const { output, stdout, stderr } = await runPullRequest(directory, payload);
-    expect(output).toEqual(serverJobs(LINUX));
+    expect(output).toEqual(serverJobs(MAC));
+    expect(output.vitest_matrix.include.filter((entry: { os: string }) => entry.os === "macos-latest")).toHaveLength(5);
     expect(stdout).toContain('label the PR "windows" and re-run');
     expect(stderr).toBe("");
   });
 
   it("runs the Windows jobs for the desktop app", async () => {
     const { directory, payload } = serverChange("app\n", "electron/main.mjs");
-    expect((await runPullRequest(directory, payload)).output).toEqual(serverJobs(PR));
+    expect((await runPullRequest(directory, payload)).output).toEqual(serverJobs(PR_HOST));
   });
 
   it("runs the Windows jobs for the label the pull request has now, so a re-run after labelling runs them", async () => {
@@ -944,7 +955,7 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
     const api = await fakeLabelsApi(["bug", "windows"]);
     try {
       const { output, stderr } = await runPullRequest(directory, payload, api.env);
-      expect(output).toEqual(serverJobs(PR));
+      expect(output).toEqual(serverJobs(PR_HOST));
       expect(stderr).toBe("");
       expect(api.requests).toEqual(["GET /repos/o/r/issues/7/labels?per_page=100 Bearer t"]);
     } finally {
@@ -958,7 +969,7 @@ describe("CI scope CLI on a pull request's Windows jobs", () => {
     try {
       const labelled = { pull_request: { ...payload.pull_request, labels: [{ name: "windows" }] } };
       const { output, stderr } = await runPullRequest(directory, labelled, api.env);
-      expect(output).toEqual(serverJobs(PR));
+      expect(output).toEqual(serverJobs(PR_HOST));
       expect(stderr).toContain("reading the pull request's labels from its event (HTTP 502");
     } finally {
       await api.close();

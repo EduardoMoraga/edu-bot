@@ -5,8 +5,9 @@ import { fileURLToPath } from "node:url";
 
 // The ci.yml jobs a pull request runs only when its change can affect them;
 // `static` and the `CI` gate always run. Besides these job ids a scope's checks
-// name the vitest job's parts: "linux-tests", "host-tests" (Windows, and macOS
-// where the event runs it), and the subsets in VITEST_SUBSETS.
+// name the vitest job's parts: "linux-tests", "host-tests" (macOS on a pull
+// request, Windows when windowsReason says so, and both on the full lane),
+// and the subsets in VITEST_SUBSETS.
 export const SELECTABLE_JOBS = [
   "build", "vitest", "behavior-evals", "packaged-server", "windows-cua", "electron-smokes", "cloudflared-linux-arm64",
   "foss", "control-plane", "ui-smoke", "browser-identity", "package-linux", "browser-driver", "relay",
@@ -336,14 +337,18 @@ export function selectPushScope(files, show) {
   return { runtime: true };
 }
 
-// macOS runners are the scarce ones (five at a time for the whole account),
-// and only a couple of test blocks are macOS-only, so a PR runs the suite on
-// Linux, and on Windows only when its change can break Windows (windowsReason);
-// a push to main and a merge group run Linux and Windows. The full lane adds
-// macOS. A PR that can affect the macOS smokes still runs them.
+// macOS runners are the scarce ones (five at a time for the whole account).
+// A pull request runs the suite on Linux, and on macOS whenever the change
+// runs the host suite, in the same shards as Windows (the vitest matrix:
+// five shards, one file at a time, host e2e). Windows is added only when the
+// change can break Windows (windowsReason). A push to main and a merge group
+// run Linux and Windows. The full lane runs every platform. A PR that can
+// affect the macOS smokes still runs them.
 export const ALL_OS = ["macos-latest", "ubuntu-latest", "windows-latest"];
 export const LINUX_OS = ["ubuntu-latest"];
 export const WINDOWS_OS = ["ubuntu-latest", "windows-latest"];
+export const MAC_OS = ["ubuntu-latest", "macos-latest"];
+export const PR_HOST_OS = ["ubuntu-latest", "macos-latest", "windows-latest"];
 
 /** Events whose runs test every platform: the nightly run, manual runs and the release lane (a manual run). */
 export const FULL_LANE_EVENTS = ["schedule", "workflow_dispatch"];
@@ -511,7 +516,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
           hostE2e: Object.keys((await import("./testing/host-e2e.ts")).HOST_E2E),
           lines: () => changedCodeLines(`${base}...${head}`),
         });
-        if (why) vitestOs = WINDOWS_OS;
+        vitestOs = why ? PR_HOST_OS : MAC_OS;
         console.log(why ? `CI scope: Windows runs for ${why}`
           : `CI scope: nothing here can break Windows first, so its jobs wait for main (label the PR "${WINDOWS_LABEL}" and re-run to run them)`);
       }

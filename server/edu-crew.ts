@@ -218,7 +218,7 @@ export function reviewPathRefusal(folder: string, path: string): string | null {
   if (path.includes("\0") || isAbsolute(path) || /^[A-Za-z]:/.test(path) || path.split(/[\\/]/).includes("..")) {
     return `paths must be relative to the working folder, with no "..": ${JSON.stringify(path)}`;
   }
-  return isInside(resolveThroughLinks(join(folder, path)), folder) ? null : `${JSON.stringify(path)} leads outside the working folder.`;
+  return isInside(resolveThroughLinks(join(folder, path)), resolveThroughLinks(folder)) ? null : `${JSON.stringify(path)} leads outside the working folder.`;
 }
 
 function nodeRun(args: string[], { env, timeoutMs, cwd }: { env: NodeJS.ProcessEnv; timeoutMs: number; cwd?: string }) {
