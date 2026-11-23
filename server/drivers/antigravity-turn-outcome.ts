@@ -74,12 +74,6 @@ async function managedPath(
   return (await realpath(current).catch(() => undefined)) === current ? { path: current, info } : undefined;
 }
 
-/** Linux can reuse an inode number after unlink. Creation time stays put when the same file grows. */
-function sameOpenLog(before: Stats, after: Stats): boolean {
-  if (after.dev !== before.dev || after.ino !== before.ino) return false;
-  return !(before.birthtimeMs > 0 && after.birthtimeMs > 0 && after.birthtimeMs !== before.birthtimeMs);
-}
-
 function readSteps<A>(file: string, read: (database: DatabaseSync) => A): A | undefined {
   const database = new DatabaseSync(file, { readOnly: true });
   try {
@@ -205,7 +199,7 @@ export async function watchAntigravityPromptOutcome(
     // The same file as before the prompt, or one this prompt created, still unlinked.
     const after = await managedPath(before.root, segments, "file").catch(() => undefined);
     const sameFile = after !== undefined
-      && (before.identity === undefined || sameOpenLog(before.identity, after.info));
+      && (before.identity === undefined || (after.info.dev === before.identity.dev && after.info.ino === before.identity.ino));
     let step: LastStep | undefined;
     if (sameFile && after.info.size <= MAX_LOG_BYTES) {
       try {
