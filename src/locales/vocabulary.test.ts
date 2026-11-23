@@ -38,7 +38,7 @@ function retiredIn(text: string, boat: RegExp = BOAT): string[] {
 }
 
 const PENDING_KEY_PREFIXES: string[] = [];
-const CHECKED_PACKS = ["pt-br"];
+const CHECKED_PACKS = ["es", "pt-br"];
 const EN_ALLOWED: Record<string, string> = {
   "botAccess.cloud.boat": "the own-key provider picker names its two providers, Boat and a VPS",
   "botAccess.cloud.hostedBackendDescription": "the own-key provider picker names its two providers, Boat and a VPS",
