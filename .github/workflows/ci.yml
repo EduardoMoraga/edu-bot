@@ -208,7 +208,9 @@ jobs:
     # boxed and the real-box *.linux tests run for the first time; on 24.04
     # the box does not start, so they run unboxed or skip, as they always
     # have here. Move to 26.04 once those suites pass with a real box.
-    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os }}
+    # GitHub's free macOS arm64 pool often cannot take a job ("not acquired by
+    # Runner of type hosted", Nov 2026); the macOS shards run on Intel runners.
+    runs-on: ${{ matrix.os == 'ubuntu-latest' && 'ubuntu-24.04' || matrix.os == 'macos-latest' && 'macos-15-intel' || matrix.os }}
     # scripts/testing/duration-sequencer.ts splits each platform's files by
     # their recorded seconds on that platform, about 6 minutes a Linux shard
     # (four files at once); a Windows shard runs two files at once. The cap
