@@ -198,7 +198,7 @@ export const VITEST_SUBSETS = {
   },
   "docs-tests": {
     part: "docs tests",
-    files: ["server/model-providers-docs.test.ts", "src/locales/vocabulary.test.ts"],
+    files: ["scripts/edu-release.test.ts", "server/model-providers-docs.test.ts", "src/locales/vocabulary.test.ts"],
     shards: 1,
     nodeTests: false,
   },
