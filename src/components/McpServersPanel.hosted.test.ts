@@ -68,7 +68,7 @@ beforeEach(() => {
     const body = init?.body ? JSON.parse(init.body as string) : undefined;
     if (path === "/api/mcp/servers" && !init?.method) return Promise.resolve({ servers: structuredClone(servers) });
     // Like the real server, every answer is a fresh copy, and a listing names its headers without their values.
-    const saved = ({ headers, ...entry }: { headers?: Record<string, string> } & Record<string, unknown>) => ({ ...entry, headerKeys: Object.keys(headers ?? {}).sort() });
+    const saved = ({ headers, vaultHeaders, ...entry }: { headers?: Record<string, string>; vaultHeaders?: Record<string, unknown> } & Record<string, unknown>) => ({ ...entry, headerKeys: Object.keys({ ...headers, ...vaultHeaders }).sort() });
     if (path === "/api/mcp/servers" && init?.method === "POST") {
       servers.push({ auth: "needs-sign-in", ...saved(body) } as Listing);
       return Promise.resolve({ servers: structuredClone(servers) });
@@ -253,10 +253,10 @@ describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("The $label key car
     expect((button(app, "Connect") as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it("saves the key in a header on a server left off, never in its address, and switches it on once its tools load", async () => {
+  it("sends the key for the Vault with a server left off, never in its address or as a plain header, and switches it on once its tools load", async () => {
     await mount();
     await connectWith(" sk-live ");
-    expect(added()).toEqual([{ name: app.id, type: "http", url: app.url, headers: { Authorization: "Bearer sk-live" }, enabled: false }]);
+    expect(added()).toEqual([{ name: app.id, type: "http", url: app.url, vaultHeaders: { Authorization: { scheme: "Bearer", value: "sk-live" } }, enabled: false }]);
     expect(fixture.runMcpSignIn).not.toHaveBeenCalled();
     expect(calls("PATCH")).toEqual([]);
     await act(async () => testRequest!.resolve({ ok: true, tools: [{ name: "any" }] }));
@@ -290,7 +290,7 @@ describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("The $label key car
     await mount();
     await connectWith("sk-new");
     expect(added()).toEqual([]);
-    expect(calls("PUT")).toEqual([["/api/mcp/servers/calls", { type: "http", url: app.url, headers: { Authorization: "Bearer sk-new" }, enabled: false }]]);
+    expect(calls("PUT")).toEqual([["/api/mcp/servers/calls", { type: "http", url: app.url, vaultHeaders: { Authorization: { scheme: "Bearer", value: "sk-new" } }, enabled: false }]]);
   });
 
   it("deletes the server, and with it the key, on Disconnect", async () => {

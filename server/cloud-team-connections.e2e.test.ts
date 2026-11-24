@@ -11,6 +11,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { CLOUD_HOST, launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { personKey } from "./person-key.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
+import { sentThroughBroker } from "./testing/brokered-mcp.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
 import { startFakeOAuth, type FakeOAuth } from "./testing/fake-oauth-server.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
@@ -106,7 +107,8 @@ it("keeps every connection the team's until an admin says otherwise", async () =
   expect(seen.servers).toContain("composio");
   expect(seen.servers).not.toContain("own_apps");
   // The team's mail server with the team's key, in a member's chat as everywhere.
-  expect(seen.config).toContain(TEAM_KEY);
+  expect(seen.config).not.toContain(TEAM_KEY);
+  expect((await sentThroughBroker(seen.mcpConfig.mcpServers.mail, mail)).authorization).toBe(`Bearer ${TEAM_KEY}`);
   expect(gmailCallsBy(teamUser)).toBe(before + 1);
   const read = await team.signed("GET", "/api/cloud/team/admin");
   expect(read.status).toBe(200);
@@ -170,8 +172,8 @@ it("gives Ada's own Gmail and mail to her private chat, for her own request, and
   const before = gmailCallsBy(adaUser), teamBefore = gmailCallsBy(teamUser);
   const seen = await turn(ada, adaThread, "Summarize my inbox.", { calls: [gmailCall("own_apps")] });
   expect(seen.servers).toEqual(expect.arrayContaining(["composio", "own_apps", "mail"]));
-  expect(seen.config).toContain(ADA_KEY);
-  expect(seen.config, "a person's server never carries the team's key").not.toContain(TEAM_KEY);
+  expect(seen.config).not.toContain(ADA_KEY);
+  expect((await sentThroughBroker(seen.mcpConfig.mcpServers.mail, mail)).authorization, "a person's server never carries the team's key").toBe(`Bearer ${ADA_KEY}`);
   expect(seen.systemPrompt).toContain("Gmail is ada@acme.test's own: use it through the own_apps tools");
   expect(gmailCallsBy(adaUser)).toBe(before + 1);
   expect(gmailCallsBy(teamUser)).toBe(teamBefore);
@@ -362,8 +364,9 @@ it("signs Cleo in to a notes server of her own, and only her chat gets her token
   expect(page).toBe("200 Signed in. You can close this tab and return to Edu Bot.");
   expect((await team.as(cleo, "GET", "/api/team/my-connections")).body.mcp).toEqual(expect.arrayContaining([expect.objectContaining({ name: "notes", connected: true, how: "sign-in" })]));
   const cleos = await turn(cleo, cleoThread, "Read my notes.");
-  const token = /Bearer ([\w.-]+)/.exec(JSON.stringify((cleos.mcpConfig.mcpServers as Record<string, unknown>).notes))?.[1];
+  const token = /^Bearer ([\w.-]+)$/.exec((await sentThroughBroker(cleos.mcpConfig.mcpServers.notes, notes)).authorization ?? "")?.[1];
   expect(oauth.isValid(`Bearer ${token}`)).toBe(true);
+  expect(cleos.config).not.toContain(token!);
   const adas = await turn(ada, adaThread, "Read the notes.");
   expect(adas.servers).not.toContain("notes");
   expect(adas.config).not.toContain(token!);
@@ -380,7 +383,7 @@ it("disconnects her own, and switching back to the team gives every turn the tea
   const teamBefore = gmailCallsBy(teamUser);
   const back = await turn(cleo, cleoThread, "Check the inbox.", { calls: [gmailCall("composio")] });
   expect(back.servers).not.toContain("own_apps");
-  expect(back.config).toContain(TEAM_KEY);
+  expect((await sentThroughBroker(back.mcpConfig.mcpServers.mail, mail)).authorization).toBe(`Bearer ${TEAM_KEY}`);
   expect(gmailCallsBy(teamUser)).toBe(teamBefore + 1);
 }, hostTimeout(120_000));
 

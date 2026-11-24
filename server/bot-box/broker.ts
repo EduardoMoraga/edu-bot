@@ -3,6 +3,10 @@
 // conversation and an expiry), strips whatever credential header the client sent, adds the real one, and forwards to a
 // FIXED upstream the box cannot choose. A model call, an MCP server with a secret header and a plain API key all ride
 // the same shape. Tokens die with the process they were minted for, or when their conversation's turn ends, or at TTL.
+// Where turns are not boxed the broker listens on a loopback port of its own instead of a socket, so an engine that runs
+// beside the server still holds a token and never a server's headers.
+// Security: on that port the token in the path is the only thing that admits a request. It is 192 random bits, the
+// listener is bound to 127.0.0.1, and a token reaches only the fixed upstreams it was minted for.
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -86,7 +90,18 @@ export function upstreamUrl(upstream: string, path: string, query: string): URL 
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest();
 
+/** The broker for engines that run unboxed: the same grants and tokens, reached at a loopback port of its own. */
+export type LoopbackCredentialBroker = Omit<CredentialBroker, "socketPath"> & { port: number };
+
 export function openCredentialBroker(options: CredentialBrokerOptions): Promise<CredentialBroker> {
+  return listen(options, options.socketPath).then((broker) => ({ ...broker, socketPath: options.socketPath }));
+}
+
+export function openLoopbackCredentialBroker(options: Omit<CredentialBrokerOptions, "socketPath"> = {}): Promise<LoopbackCredentialBroker> {
+  return listen(options, null);
+}
+
+function listen(options: Omit<CredentialBrokerOptions, "socketPath">, socketPath: string | null): Promise<LoopbackCredentialBroker> {
   const now = options.now ?? Date.now;
   const tokens = new Map<string, Stored>();
   const stats = { tokens: 0, forwarded: 0, refused: 0 };
@@ -166,11 +181,12 @@ export function openCredentialBroker(options: CredentialBrokerOptions): Promise<
 
   return new Promise((done, fail) => {
     server.once("error", fail);
-    server.listen(options.socketPath, () => {
+    const listening = () => {
       server.off("error", fail);
       server.on("error", () => {});
+      const address = server.address();
       done({
-        socketPath: options.socketPath,
+        port: address && typeof address === "object" ? address.port : 0,
         mintForProcess: (input) => { const minted = mint("process", input); stats.tokens = tokens.size; return minted; },
         mintForThread: (input) => { const minted = mint("thread", input); stats.tokens = tokens.size; return minted; },
         touchThread(threadId) {
@@ -186,6 +202,8 @@ export function openCredentialBroker(options: CredentialBrokerOptions): Promise<
         stats: () => { sweep(); stats.tokens = tokens.size; return { ...stats }; },
         close: () => new Promise<void>((closed) => { for (const socket of sockets) socket.destroy(); server.close(() => closed()); }),
       });
-    });
+    };
+    if (socketPath === null) server.listen(0, "127.0.0.1", listening);
+    else server.listen(socketPath, listening);
   });
 }

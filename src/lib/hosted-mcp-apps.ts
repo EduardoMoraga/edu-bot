@@ -1,4 +1,4 @@
-import { Clapperboard, CreditCard, Mail, PhoneCall, RadioTower, Smartphone, type LucideIcon } from "lucide-react";
+import { Clapperboard, CreditCard, GitPullRequest, Mail, NotebookText, PhoneCall, RadioTower, Smartphone, SquareKanban, Ticket, type LucideIcon } from "lucide-react";
 
 import whopLogo from "@/assets/whop/logo.png";
 import type { LocaleKey } from "@/locales";
@@ -21,11 +21,56 @@ export interface HostedMcpApp {
   readonly notice: LocaleKey;
   /** Search words besides the label and the description. */
   readonly keywords: string;
+  /** Leads the Apps page while no Composio key is saved. */
+  readonly featured?: true;
 }
 
 /** The hosted MCP apps with a one-click card in Plugins. Adding one is adding a row: its card, Connect, Disconnect and
  * Bot access, its row in the MCP list, search, the Connected filter and the count all derive from this table. */
 export const HOSTED_MCP_APPS = [
+  // None of these four publishes a logo licence we have checked, so neutral glyphs stand in.
+  {
+    id: "notion",
+    label: "Notion",
+    url: "https://mcp.notion.com/mcp",
+    icon: { glyph: NotebookText },
+    description: "notionMcp.description",
+    notice: "notionMcp.notice",
+    keywords: "notion notes pages wiki docs database",
+    featured: true,
+  },
+  {
+    id: "github",
+    label: "GitHub",
+    url: "https://api.githubcopilot.com/mcp/",
+    // GitHub's authorization server registers no clients by itself (no registration_endpoint), so the card takes a token.
+    key: { url: "https://github.com/settings/personal-access-tokens/new" },
+    icon: { glyph: GitPullRequest },
+    description: "githubMcp.description",
+    notice: "githubMcp.notice",
+    keywords: "github git code repository repo issues pull requests",
+    featured: true,
+  },
+  {
+    id: "linear",
+    label: "Linear",
+    url: "https://mcp.linear.app/mcp",
+    icon: { glyph: SquareKanban },
+    description: "linearMcp.description",
+    notice: "linearMcp.notice",
+    keywords: "linear issues tasks projects tickets",
+    featured: true,
+  },
+  {
+    id: "atlassian",
+    label: "Atlassian",
+    url: "https://mcp.atlassian.com/v1/mcp",
+    icon: { glyph: Ticket },
+    description: "atlassianMcp.description",
+    notice: "atlassianMcp.notice",
+    keywords: "atlassian jira confluence tickets issues wiki",
+    featured: true,
+  },
   {
     id: "whop",
     label: "Whop",

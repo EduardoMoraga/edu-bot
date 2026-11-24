@@ -11,6 +11,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { readMcpPaste } from "../src/lib/mcp-paste.ts";
+import { sentThroughBroker } from "./testing/brokered-mcp.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 
@@ -116,7 +117,8 @@ it("lets a member's turn list and call the gateway's tool, with both values sent
 
   expect(gateway.calls.slice(calledBefore)).toEqual([{ name: "lookup_order", arguments: { id: "1042" } }]);
   expect(gateway.toolsLists).toBeGreaterThan(0);
-  expect(engine.mcpConfig.mcpServers.orders).toEqual({ type: "http", url: gateway.url, headers: { "CF-Access-Client-Id": CLIENT_ID, "CF-Access-Client-Secret": CLIENT_SECRET } });
+  expect(await sentThroughBroker(engine.mcpConfig.mcpServers.orders, gateway)).toMatchObject({ "cf-access-client-id": CLIENT_ID, "cf-access-client-secret": CLIENT_SECRET });
+  expect(JSON.stringify(engine.mcpConfig), "the engine's MCP settings").not.toContain(CLIENT_SECRET);
 
   for (const secret of [CLIENT_ID, CLIENT_SECRET]) {
     expect(JSON.stringify(engine.env), "the engine's environment").not.toContain(secret);
@@ -214,7 +216,8 @@ it("keeps a one-key server Only for me: the admin's own chat gets it with their 
     expect(saved().mcpServers.mail.headers).toEqual({ Authorization: "" });
 
     const bens = await turn(admin, "Check my inbox.", [{ name: "read_inbox", server: "mail", input: {} }], "remote execution recorded");
-    expect(bens.mcpConfig.mcpServers.mail).toMatchObject({ url: mail.url, headers: { Authorization: own } });
+    expect(JSON.stringify(bens.mcpConfig)).not.toContain(own);
+    expect((await sentThroughBroker(bens.mcpConfig.mcpServers.mail, mail)).authorization).toBe(own);
     expect(mail.calls).toHaveLength(1);
     const adas = await turn(ada, "Check the inbox.", [{ name: "read_inbox", server: "mail", input: {} }], "no mail MCP server was launched for this turn");
     expect(Object.keys(adas.mcpConfig.mcpServers)).not.toContain("mail");

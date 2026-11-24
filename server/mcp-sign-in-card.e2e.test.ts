@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { askThroughBroker } from "./testing/brokered-mcp.ts";
 import { startFakePostiz, type FakePostiz } from "./testing/fake-postiz.ts";
 
 /** A real server with the fake Claude engine held mid-turn until the gate opens, a stand-in OAuth provider, and Iris's
@@ -56,7 +57,7 @@ async function onSignInCard(run: (f: {
   }
 }
 
-it("a bot adds an OAuth server and asks the person to sign in; they sign in on the provider's page and the bot carries on by itself with the server's tools", () => onSignInCard(async ({ api, dump, provider, url, serverUrl, iris, messages, card, endTurn }) => {
+it("a bot adds an OAuth server and asks the person to sign in; they sign in on the provider's page and the bot carries on by itself with the server's tools", () => onSignInCard(async ({ api, dump, provider, url, iris, messages, card, endTurn }) => {
   await endTurn();
   const shown = await card();
   expect(shown.connector).toMatchObject({ slug: "postiz", label: "Postiz", status: "required" });
@@ -78,7 +79,8 @@ it("a bot adds an OAuth server and asks the person to sign in; they sign in on t
 
   let resumed: any;
   await expect.poll(() => { resumed = dump(); return JSON.stringify(resumed?.prompt ?? "").includes("the person signed in to postiz"); }, { timeout: 20_000 }).toBe(true);
-  expect(resumed.mcpConfig.mcpServers.postiz, "the resumed turn has the server, signed in").toMatchObject({ url: serverUrl, headers: { Authorization: `Bearer ${provider.issued[0]}` } });
+  expect(JSON.stringify(resumed.mcpConfig), "the engine never holds the sign-in token").not.toContain(provider.issued[0]);
+  expect((await askThroughBroker(resumed.mcpConfig.mcpServers.postiz)).status, "the resumed turn has the server, signed in").toBe(200);
   await expect.poll(async () => (await messages()).find((message) => message.id === shown.id)?.connector, { timeout: 20_000 })
     .toMatchObject({ status: "connected", resumed: true });
   const transcript = JSON.stringify(await messages());

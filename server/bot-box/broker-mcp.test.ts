@@ -8,7 +8,7 @@ import type { RemoteMcpSpec } from "../contracts.ts";
 import { RemoteMcpClient } from "../mcp-http.ts";
 import { probeMcpServer, SIGN_IN_CHECK_TOOL } from "../mcp-probe.ts";
 import { startFakeHttpMcp } from "../testing/fake-http-mcp-server.ts";
-import { BOX_BROKER_PORT, type BoxBroker } from "./box.ts";
+import { BotBox, BOX_BROKER_PORT, type BoxBroker } from "./box.ts";
 import { brokerRemoteMcp, forgetBrokeredMcp, mcpGrantName, mcpReconnectLine, retryBrokeredMcp } from "./broker-mcp.ts";
 import { openCredentialBroker, type CredentialBroker } from "./broker.ts";
 
@@ -99,6 +99,29 @@ describe("remote MCP servers through the broker", () => {
   it("says which servers didn't connect, and that they connect again on the next message", () => {
     expect(mcpReconnectLine(["notion"])).toBe("The MCP server notion didn't connect, so its tools weren't available this time. It connects again on your next message.");
     expect(mcpReconnectLine(["notion", "hq", "mail"])).toBe("The MCP servers notion, hq, and mail didn't connect, so their tools weren't available this time. They connect again on your next message.");
+  });
+
+  it("with the box off, as on a desktop install, sends a server's sign-in token from the broker's own loopback port", async () => {
+    const secret = "Bearer oauth-access-0f9e8d7c";
+    const hosted = await startFakeHttpMcp({ tools: [{ name: "search" }], requireHeader: { name: "Authorization", value: secret } });
+    dir = mkdtempSync(join(tmpdir(), "omb-bmcp-"));
+    const box = new BotBox();
+    try {
+      expect((await box.start({ dataDir: dir, home: dir, port: 8799, denyEnv: new Set(), env: {}, log: () => {} })).box).toBe("off");
+      const custom = { notion: { type: "http" as const, url: hosted.url, headers: { Authorization: secret } } };
+      const out = brokerRemoteMcp(custom, { botId: "b1", threadId: "t1" }, box.broker());
+      const notion = out.notion as RemoteMcpSpec;
+      expect(notion.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/b\/omb_t0_[a-f0-9]{48}\/mcp-notion$/);
+      expect(notion.headers).toEqual({});
+      expect(JSON.stringify(out)).not.toContain("oauth-access");
+      expect(await probeMcpServer({ ...notion, enabled: true })).toMatchObject({ ok: true, tools: [{ name: "search" }] });
+      expect(hosted.seenHeaders.some((headers) => headers.authorization === secret)).toBe(true);
+      const stolen = notion.url.replace(/omb_t0_[a-f0-9]{48}/, `omb_t0_${"0".repeat(48)}`);
+      expect((await fetch(stolen, { method: "POST", body: "{}" })).status).toBe(401);
+    } finally {
+      await box.stop();
+      await hosted.close();
+    }
   });
 
   withBroker("takes a gateway's two service-token headers to it, while the engine's server list holds neither", async () => {

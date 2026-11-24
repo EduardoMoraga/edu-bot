@@ -16,6 +16,9 @@ import { listMcpServers } from "../mcp-registry.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "../testing/fake-http-mcp-server.ts";
 import { startFakeOAuth } from "../testing/fake-oauth-server.ts";
 import { createMcpConfig } from "../host/mcp-config.ts";
+import { TEAM_READER, VaultStore } from "../vault-store.ts";
+import { createMcpHeaderKeys, type McpHeaderKeys } from "../vault/mcp-header-keys.ts";
+import { createMcpKeys } from "../vault/mcp-keys.ts";
 import { forgetToolBudgets, noteToolBudget } from "../tool-budgets.ts";
 import { createMcpServerRoutes } from "./mcp-servers.ts";
 import { dispatchRoutes } from "./table.ts";
@@ -29,7 +32,7 @@ afterEach(async () => {
 
 type Bot = { id: string; mcpServers?: string[] };
 
-async function serve(options: { ownsVault?: boolean; keys?: Parameters<typeof createMcpConfig>[0]["keys"]; botsPath?: () => BrokerPath | null; bots?: Bot[]; listed?: Record<string, Record<string, unknown>>; probeAs?: (server: { bot?: string }) => { id?: string; cwd?: string } } = {}) {
+async function serve(options: { ownsVault?: boolean; headerKeys?: McpHeaderKeys; keys?: Parameters<typeof createMcpConfig>[0]["keys"]; botsPath?: () => BrokerPath | null; bots?: Bot[]; listed?: Record<string, Record<string, unknown>>; probeAs?: (server: { bot?: string }) => { id?: string; cwd?: string } } = {}) {
   const cfg: Pick<AppConfig, "mcpServers"> = { mcpServers: {} };
   const changes: string[] = [];
   let busy = false;
@@ -56,6 +59,7 @@ async function serve(options: { ownsVault?: boolean; keys?: Parameters<typeof cr
     cfg, bot: (id) => options.bots?.find((bot) => bot.id === id) ?? null, sessions, mcpOAuth, teamConnections,
     cloudHome: null,
     ownsVault: () => options.ownsVault ?? true,
+    ...(options.headerKeys ? { headerKeys: options.headerKeys } : {}),
     fallbackPublicUrl: null,
     mcpServerResponse,
     savedCustomDomain: () => null,
@@ -328,5 +332,77 @@ describe("a bot's tool budget and a command server's Test", () => {
     expect(await (await post("/api/mcp/servers/notes/test", {})).json()).toMatchObject({ ok: true, tools: [{ name: "read_notes" }] });
     expect(await (await post("/api/mcp/servers/own/test", {})).json()).toMatchObject({ ok: true });
     expect(seen).toEqual(["any bot", "ada"]);
+  });
+});
+
+describe("a key typed on a hosted server's card", () => {
+  const TOKEN = "ghp_typedTokenValue0123456789", NEXT = "ghp_secondTokenValue9876543210";
+  const github = (value: string) => ({ type: "http", url: "https://api.githubcopilot.com/mcp/", vaultHeaders: { Authorization: { scheme: "Bearer", value } }, enabled: false });
+  let vaultDir: string | undefined;
+  afterEach(() => { if (vaultDir) rmSync(vaultDir, { recursive: true, force: true }); vaultDir = undefined; });
+  const vault = () => {
+    vaultDir = mkdtempSync(join(tmpdir(), "omb-mcp-typed-key-"));
+    const store = new VaultStore({ dataDir: vaultDir });
+    const keys = createMcpKeys({ store, linked: { fresh: async () => {}, byId: () => null } });
+    return { store, keys, headerKeys: createMcpHeaderKeys(store) };
+  };
+  const put = (base: string, name: string, body: unknown) => fetch(`${base}/api/mcp/servers/${name}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const stored = (cfg: Pick<AppConfig, "mcpServers">, name: string) => (cfg.mcpServers as Record<string, { type: "http"; url: string; headers: Record<string, string> }>)[name]!;
+
+  it("goes to the Vault: config.json and the answer hold only its pointer, and the server reads the key through it", async () => {
+    const { store, keys, headerKeys } = vault();
+    const { cfg, post } = await serve({ keys, headerKeys });
+    const added = await post("/api/mcp/servers", { name: "github", ...github(TOKEN) });
+    expect(added.status, await added.clone().text()).toBe(201);
+    expect(await added.text()).not.toContain(TOKEN);
+    const pointer = /^Bearer vault:([0-9a-f-]{36})$/.exec(stored(cfg, "github").headers.Authorization!);
+    expect(pointer).not.toBeNull();
+    expect(JSON.stringify(cfg)).not.toContain(TOKEN);
+    expect(store.secret(pointer![1]!)).toMatchObject({ value: TOKEN, bots: "all", refOnly: true, source: "settings" });
+    expect(store.mcpServerKeys("github")).toEqual([pointer![1]]);
+    expect(keys.resolve("github", stored(cfg, "github"), "bot-1")).toMatchObject({ ok: true, server: { headers: { Authorization: `Bearer ${TOKEN}` } } });
+    expect(keys.resolve("other", stored(cfg, "github"), "bot-1")).toMatchObject({ ok: false, reason: "removed" });
+  });
+
+  it("typed again replaces the same Vault item, and removing the server removes it", async () => {
+    const { store, keys, headerKeys } = vault();
+    const { cfg, post, base, remove } = await serve({ keys, headerKeys });
+    expect((await post("/api/mcp/servers", { name: "github", ...github(TOKEN) })).status).toBe(201);
+    const first = stored(cfg, "github").headers.Authorization;
+    const replaced = await put(base, "github", github(NEXT));
+    expect(replaced.status, await replaced.clone().text()).toBe(200);
+    expect(stored(cfg, "github").headers.Authorization).toBe(first);
+    expect(JSON.stringify(cfg)).not.toContain(NEXT);
+    expect(keys.resolve("github", stored(cfg, "github"))).toMatchObject({ ok: true, server: { headers: { Authorization: `Bearer ${NEXT}` } } });
+    const mine = store.saveSecret({ name: "my own key", value: "kept", source: "settings", bots: "all" });
+    expect((await remove("github")).status).toBe(200);
+    expect(store.secret(first!.slice("Bearer vault:".length))).toBeNull();
+    expect(store.secret(mine.id)).not.toBeNull();
+  });
+
+  it("is not saved for a server that is refused, and leaves a server of the same name with its key", async () => {
+    const { store, keys, headerKeys } = vault();
+    const { cfg, post } = await serve({ keys, headerKeys });
+    expect((await post("/api/mcp/servers", { name: "github", ...github(TOKEN) })).status).toBe(201);
+    expect((await post("/api/mcp/servers", { name: "github", ...github(NEXT) })).status).toBe(409);
+    expect(keys.resolve("github", stored(cfg, "github"))).toMatchObject({ ok: true, server: { headers: { Authorization: `Bearer ${TOKEN}` } } });
+    for (const body of [
+      { name: "bad name!", ...github(NEXT) },
+      { name: "plain", command: "npx", args: ["x"], vaultHeaders: { Authorization: { value: NEXT } } },
+      { name: "empty", ...github("  ") },
+      { name: "lines", ...github("a\nb") },
+      { name: "scheme", type: "http", url: "https://x.example/mcp", vaultHeaders: { Authorization: { scheme: "Bearer x", value: NEXT } } },
+    ]) expect((await post("/api/mcp/servers", body)).status, body.name).toBe(400);
+    expect(store.listSecrets(TEAM_READER)).toHaveLength(1);
+    expect(Object.keys(cfg.mcpServers ?? {})).toEqual(["github"]);
+    expect(store.mcpServerKeys("github")).toHaveLength(1);
+  });
+
+  it("stays a plain header where whoever changes servers does not own the Vault", async () => {
+    const { store, keys, headerKeys } = vault();
+    const { cfg, post } = await serve({ ownsVault: false, keys, headerKeys });
+    expect((await post("/api/mcp/servers", { name: "github", ...github(TOKEN) })).status).toBe(201);
+    expect(stored(cfg, "github").headers).toEqual({ Authorization: `Bearer ${TOKEN}` });
+    expect(store.listSecrets(TEAM_READER)).toEqual([]);
   });
 });

@@ -2,6 +2,8 @@
 // boxes reach through unix sockets (egress-gate.ts, harness-gate.ts), and wraps each bot spawn (server/procs.ts spawnCli
 // with owner "bot") in bubblewrap by the plan (plan.ts). Nothing here changes a spawn when the box is off: the command,
 // its arguments and its environment go through untouched, so every host that is not a Cloud home behaves as before.
+// The credential broker runs either way, on a loopback port when the box is off, so a URL MCP server's secret headers
+// never reach an engine (broker-mcp.ts).
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
@@ -11,7 +13,7 @@ import { homeProgramDirs, resetPathCache } from "../env-path.ts";
 import { SERVER_ROOT, resolveProxy } from "../proxy-paths.ts";
 import { bridgedCommand, type BridgeTools } from "./bridge.ts";
 import { brokerRewrite } from "./broker-env.ts";
-import { openCredentialBroker, type BrokerGrant, type CredentialBroker } from "./broker.ts";
+import { openCredentialBroker, openLoopbackCredentialBroker, type BrokerGrant, type CredentialBroker, type LoopbackCredentialBroker } from "./broker.ts";
 import { detectBox, type BoxDetection, type BoxKind } from "./detect.ts";
 import { openBoxEgressGate, type BoxEgressGate } from "./egress-gate.ts";
 import { boxEnvironment } from "./env.ts";
@@ -236,7 +238,7 @@ export class BotBox {
   private runner: BoxRunner | null = null;
   private egress: BoxEgressGate | null = null;
   private harness: HarnessGate | null = null;
-  private credentials: CredentialBroker | null = null;
+  private credentials: CredentialBroker | LoopbackCredentialBroker | null = null;
   private seccompFile: string | null = null;
   private checks: BoxChecks | null = null;
   private boxed = 0;
@@ -252,6 +254,11 @@ export class BotBox {
     const log = options.log ?? ((line: string) => console.log(line));
     if (this.detection.box !== "bwrap" || !this.detection.tools) {
       log(`bot box: off (${this.detection.reason})`);
+      try {
+        this.credentials = await openLoopbackCredentialBroker();
+      } catch (error) {
+        log(`credential broker: could not start, so URL MCP servers keep their headers in the engine's settings (${error instanceof Error ? error.message : String(error)})`);
+      }
       return this.detection;
     }
     const dir = join(options.dataDir, "box");
@@ -260,7 +267,8 @@ export class BotBox {
     for (const socket of [egressSocket, harnessSocket, brokerSocket]) rmSync(socket, { force: true });
     this.egress = await openBoxEgressGate({ socketPath: egressSocket });
     this.harness = await openHarnessGate({ socketPath: harnessSocket, port: options.port });
-    this.credentials = await openCredentialBroker({ socketPath: brokerSocket });
+    const credentials = await openCredentialBroker({ socketPath: brokerSocket });
+    this.credentials = credentials;
     this.seccompFile = writeSeccompFile(dir);
     const bridges: BoxBridge[] = [
       { name: "egress", port: BOX_EGRESS_PORT, socket: egressSocket },
@@ -272,7 +280,7 @@ export class BotBox {
       bridge: { socat: this.detection.tools.socat, bridgeScript: BOX_BRIDGE_SCRIPT, node: process.execPath },
       setup: { dataDir: options.dataDir, home: options.home, codeRoots: options.codeRoots ?? defaultCodeRoots(), engineRoots: options.engineRoots ?? engineInstallRoots(options.dataDir), bridges },
       denyEnv: options.denyEnv, seccompFile: this.seccompFile,
-      broker: { port: BOX_BROKER_PORT, mintForProcess: this.credentials.mintForProcess, revoke: this.credentials.revoke },
+      broker: { port: BOX_BROKER_PORT, mintForProcess: credentials.mintForProcess, revoke: credentials.revoke },
     });
     this.runner.scopeAudiences(this.audiences);
     distrustHomePrograms(options.home, [options.dataDir], ["workspaces", "task-workspaces", "engine-homes", "team-files"].map((name) => join(options.dataDir, name)));
@@ -281,14 +289,15 @@ export class BotBox {
     return this.detection;
   }
 
-  /** The broker for callers that mint conversation-bound grants, or null when the box (and so the broker) is off. */
+  /** The broker for callers that mint conversation-bound grants, at the port a turn's engine reaches it on: the box's
+   * bridged port, or the broker's own loopback port when turns are not boxed. Null before `start`. */
   broker(): BoxBroker | null {
     const credentials = this.credentials;
-    return credentials ? { port: BOX_BROKER_PORT, mintForThread: credentials.mintForThread, touchThread: credentials.touchThread, revokeThread: credentials.revokeThread, lookup: credentials.lookup } : null;
+    return credentials ? { port: "socketPath" in credentials ? BOX_BROKER_PORT : credentials.port, mintForThread: credentials.mintForThread, touchThread: credentials.touchThread, revokeThread: credentials.revokeThread, lookup: credentials.lookup } : null;
   }
 
   /** The broker's socket, for a self-check that bridges it. */
-  brokerSocket(): string | null { return this.credentials?.socketPath ?? null; }
+  brokerSocket(): string | null { return this.credentials && "socketPath" in this.credentials ? this.credentials.socketPath : null; }
 
   /** The filter file each box gets, for a self-check. */
   seccomp(): string | null { return this.seccompFile; }

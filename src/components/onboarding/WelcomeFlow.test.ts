@@ -59,7 +59,7 @@ const show = async (extra: Record<string, unknown> = {}) => {
   await act(async () => { root.render([createElement(Watch, { key: "w" }), createElement(WelcomeFlow, { key: "f", onDone: f.onDone, ...extra })]); });
 };
 /** Next, the first screen's 100 ms fade, and the Chief dialog's input guard. */
-const toChief = async (label = "Next") => {
+const toChief = async (label = "Start with your first bot") => {
   await press(label);
   await tick(100);
   await tick(CHIEF_GUARD_MS);
@@ -99,14 +99,15 @@ afterEach(async () => {
 });
 
 describe("a new install's first run", () => {
-  it("is two screens with an AI already working: Next, then Create, and it lands in the Chief's chat", async () => {
+  it("is two screens with an AI already working: Start, then Create, and it lands in the Chief's chat", async () => {
     await show();
-    expect(host.querySelector("h1")?.textContent).toBe("Meet Edu Bot");
-    expect(host.querySelector("[data-demo-composer]")?.textContent, "reduced motion shows the whole sentence").toContain("Hand off any task to your team of bots");
+    expect(host.querySelector("h1")?.textContent).toBe("Welcome to Edu Bot");
+    expect([...host.querySelectorAll("[data-welcome-lines] li")].map((line) => line.textContent), "what the app does, in three short lines")
+      .toEqual(["Your own team of AI bots.", "They work with your AI account and your tools.", "They ask you before anything important."]);
     for (const gone of ["Step 1", "Back", "Skip", "Your name", "Connect an AI", "Set up later"]) expect(text()).not.toContain(gone);
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
 
-    await press("Next");
+    await press("Start with your first bot");
     expect(host.querySelector("[data-welcome]")?.getAttribute("data-welcome"), "the first screen fades out first").toBe("meet");
     await tick(100);
     expect(host.querySelector("[role=dialog]")?.textContent).toContain("Introducing your Chief of Staff");
@@ -128,7 +129,7 @@ describe("a new install's first run", () => {
   it("counts an AI once it answered one tiny test message, and never before", async () => {
     await show();
     expect(f.checks).toEqual(["/api/instances/claude/check"]);
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
     expect(host.querySelector("[data-sign-in]")).toBeNull();
   });
 
@@ -142,7 +143,7 @@ describe("a new install's first run", () => {
 describe("the Chief step", () => {
   const finishesAtNext = async () => {
     await show();
-    await press("Next");
+    await press("Start with your first bot");
     await tick(100);
     expect(text()).not.toContain("Introducing your Chief of Staff");
     expect(f.onDone).toHaveBeenCalledExactlyOnceWith(null);
@@ -184,8 +185,8 @@ describe("with no AI working yet", () => {
   it("keeps the screen's shape: the pill signs in, and the line under it offers other ways or later", async () => {
     f.state = { ...f.state, instances: [signIn()] };
     await show();
-    expect(host.querySelector("h1")?.textContent).toBe("Meet Edu Bot");
-    expect(button("Next")).toBeUndefined();
+    expect(host.querySelector("h1")?.textContent).toBe("Welcome to Edu Bot");
+    expect(button("Start with your first bot")).toBeUndefined();
     expect(button("Sign in with Claude")).toBeDefined();
     expect(button("Other ways to connect")).toBeDefined();
     expect(host.querySelector("[data-engine-setup]"), "no setup card on the screen itself").toBeNull();
@@ -230,24 +231,24 @@ describe("with no AI working yet", () => {
     f.state = { ...f.state, instances: [signIn(), { ...freeOpenCode, snapshot: { state: "available", authenticated: true }, models: { default: "", options: [] }, aiTest: undefined }] };
     await show();
     expect(button("Waiting for OpenCode…")).toBeDefined();
-    expect(button("Next")).toBeUndefined();
+    expect(button("Start with your first bot")).toBeUndefined();
     expect(f.checks).toEqual([]);
     f.state = { ...f.state, instances: [signIn(), { ...freeOpenCode, aiTest: undefined }] };
     await show();
     await act(async () => {});
     expect(f.checks).toEqual(["/api/instances/opencodeGo/check"]);
     expect(text()).toContain("Connected to OpenCode");
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
   });
 
   it("uses an OpenCode that already works once its pill is pressed, and not before", async () => {
     f.state = { ...f.state, instances: [freeOpenCode, claude(false)] };
     await show();
-    expect(button("Next")).toBeUndefined();
+    expect(button("Start with your first bot")).toBeUndefined();
     await press("Connect OpenCode");
     await act(async () => {});
     expect(text()).toContain("Connected to OpenCode");
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
   });
 
   it("opens every other way in the Connect an AI dialog, where OpenCode's free model is only a backup", async () => {
@@ -262,7 +263,7 @@ describe("with no AI working yet", () => {
     expect(dialog.querySelector('[data-engine-setup="claude"]')).not.toBeNull();
     await act(async () => { dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     expect(host.querySelector("[data-connect-ai]")).toBeNull();
-    expect(text(), "Escape closed the dialog only").toContain("Meet Edu Bot");
+    expect(text(), "Escape closed the dialog only").toContain("Welcome to Edu Bot");
   });
 
   it("says why an AI didn't answer its test, under the pill and in the dialog with Check again", async () => {
@@ -276,14 +277,14 @@ describe("with no AI working yet", () => {
   it("leaves the AI out for one that answered the server's own test", async () => {
     f.state = { ...f.state, instances: [freeOpenCode, claude(true, "passed")] };
     await show();
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
     expect(f.checks).toEqual([]);
   });
 
   it("doesn't count an AI that offers no model yet, such as OpenCode still listing its models", async () => {
     f.state = { ...f.state, instances: [{ ...freeOpenCode, snapshot: { state: "available", authenticated: true }, models: { default: "", options: [] }, aiTest: undefined }, claude(false)] };
     await show();
-    expect(button("Next")).toBeUndefined();
+    expect(button("Start with your first bot")).toBeUndefined();
     expect(f.checks).toEqual([]);
   });
 
@@ -294,7 +295,7 @@ describe("with no AI working yet", () => {
     await show();
     await act(async () => {});
     expect(text()).toContain("Connected to Claude");
-    expect(button("Next")!.disabled).toBe(false);
+    expect(button("Start with your first bot")!.disabled).toBe(false);
     expect(button("Set up later")).toBeUndefined();
   });
 
@@ -303,7 +304,7 @@ describe("with no AI working yet", () => {
     await show();
     await key("Enter");
     expect(host.querySelector("[data-connect-ai]"), "Enter pressed Connect Claude").not.toBeNull();
-    expect(text()).toContain("Meet Edu Bot");
+    expect(text()).toContain("Welcome to Edu Bot");
     await act(async () => { host.querySelector("[data-connect-ai]")!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
     await key("Escape");
     await tick(100);
@@ -315,7 +316,7 @@ describe("other first runs", () => {
   it("gives a hosted place's admin the first screen only, then the chat", async () => {
     await show({ hosted: true });
     expect(text()).toContain("This is your team's shared Edu Bot");
-    await press("Next");
+    await press("Start with your first bot");
     expect(text()).not.toContain("Introducing your Chief of Staff");
     expect(f.onDone).toHaveBeenCalledExactlyOnceWith(null);
   });

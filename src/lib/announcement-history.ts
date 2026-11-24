@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 import type { CloudSource } from "@/lib/cloud-plan";
 import type { OnboardingStatus } from "@/lib/onboarding";
-import { CLOUD_INTRO, dismissNotice, GROK_MOVE_NOTICE, noticeSeen } from "@/lib/notices";
+import { CLOUD_INTRO, dismissNotice, noticeSeen } from "@/lib/notices";
 import type { LocaleKey } from "@/locales";
 import type { ConfigStatus } from "@/state/config-status";
 import { api } from "@/state/store";
@@ -27,9 +27,7 @@ export interface HistoryFacts {
   canSave: boolean;
 }
 
-export type HistoryMark = "cloud" | "grok";
-/** A popup the Announcements page opens again. */
-export type HistoryModal = "grok-move";
+export type HistoryMark = "cloud";
 export type HistoryAction = { open_url: string } | { email: string } | { cloud_add: CloudSource } | { cloud_how_to: true };
 export interface HistoryButton { label: LocaleKey; action: HistoryAction }
 
@@ -42,8 +40,8 @@ export interface BuiltInAnnouncement {
   body: LocaleKey;
   mark: HistoryMark;
   for(facts: HistoryFacts): boolean;
-  /** A popup opens again; a card shows its buttons, the first one primary. */
-  open: { modal: HistoryModal } | { buttons: readonly HistoryButton[] };
+  /** Its buttons, the first one primary. */
+  open: { buttons: readonly HistoryButton[] };
   /** An offer's end (epoch ms): after it, Ended in place of its buttons. */
   until?: number | null;
 }
@@ -51,8 +49,6 @@ export interface BuiltInAnnouncement {
 const everywhere = (facts: HistoryFacts) => !facts.branded && facts.organization === false;
 
 export const BUILT_IN_ANNOUNCEMENTS: readonly BuiltInAnnouncement[] = [
-  { id: GROK_MOVE_NOTICE, date: "2026-11-04", title: "settings.import.grokTitle", body: "grokMove.popup.body", mark: "grok",
-    for: facts => everywhere(facts) && !facts.remote && facts.canSave && !facts.team, open: { modal: "grok-move" } },
   { id: CLOUD_INTRO, date: "2026-10-09", title: "cloudIntro.title", body: "cloudIntro.body", mark: "cloud", for: facts => everywhere(facts) && facts.cloudSale,
     open: { buttons: [{ label: "cloudIntro.start", action: { cloud_add: "app_card" } }, { label: "cloudIntro.howTo", action: { cloud_how_to: true } }] } },
 ];

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/state/store", () => ({ api: vi.fn() }));
 import { api } from "@/state/store";
 import { EMPTY_ONBOARDING, type OnboardingStatus } from "@/lib/onboarding";
-import { CLOUD_INTRO, GROK_MOVE_NOTICE, TEAMS_NOTICE } from "@/lib/notices";
+import { CLOUD_INTRO, TEAMS_NOTICE, WHATS_NEW_NOTICE } from "@/lib/notices";
 import { announcementHistory, announcementsReadAt, announcementsUnread, BUILT_IN_ANNOUNCEMENTS, markAnnouncementsRead, READ_BASELINE, readMark, rememberNoticeSeen,
   type HistoryFacts, type PersonRecord } from "./announcement-history";
 import { announcementsReadAt as readMarkOf, newestReadMarkOnly, personalHints, teamPersonalHint } from "../../shared/cloud-hints";
@@ -26,7 +26,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("the built-in announcements", () => {
   it("are one registry, each with its notice id, a date and its words, newest first", () => {
-    expect(ids(desktopHere)).toEqual([GROK_MOVE_NOTICE, CLOUD_INTRO]);
+    expect(ids(desktopHere)).toEqual([CLOUD_INTRO]);
     for (const entry of BUILT_IN_ANNOUNCEMENTS) expect(Number.isFinite(Date.parse(entry.date)), entry.id).toBe(true);
     expect(BUILT_IN_ANNOUNCEMENTS.find(entry => entry.id === TEAMS_NOTICE)).toBeUndefined();
   });
@@ -37,7 +37,7 @@ describe("the built-in announcements", () => {
       .toEqual([]);
     expect(ids({ ...desktopHere, organization: null }), "while that is read, nothing else").toEqual([]);
     const browser: HistoryFacts = { ...desktopHere, cloudSale: false };
-    expect(ids(browser), "a browser: no Cloud sales").toEqual([GROK_MOVE_NOTICE]);
+    expect(ids(browser), "a browser: no Cloud sales").toEqual([]);
     const member: HistoryFacts = { ...browser, team: true, canSave: false };
     expect(ids(member), "a Team Cloud's member").toEqual([]);
     expect(ids({ ...member, canSave: true }), "its admin").toEqual([]);
@@ -46,7 +46,7 @@ describe("the built-in announcements", () => {
   it("a card from the file sits by its starts, else by when the file changed, among them", () => {
     const cards = [card("later", { starts: "2026-11-20T00:00:00Z" }), card("undated"), card("old", { starts: "2026-10-20T00:00:00Z" })];
     expect(ids(desktopHere, cards, Date.parse("2026-11-12T00:00:00Z")))
-      .toEqual(["later", "undated", GROK_MOVE_NOTICE, "old", CLOUD_INTRO]);
+      .toEqual(["later", "undated", "old", CLOUD_INTRO]);
   });
 });
 
@@ -114,7 +114,7 @@ describe("a Team Cloud's personal record", () => {
     expect(teamPersonalHint(TEAMS_NOTICE)).toBe(true);
     expect(teamPersonalHint(readMark(NOW))).toBe(true);
     expect(teamPersonalHint("announcements-read-x")).toBe(false);
-    expect(teamPersonalHint(GROK_MOVE_NOTICE), "other notices stay the team's").toBe(false);
+    expect(teamPersonalHint(WHATS_NEW_NOTICE), "other notices stay the team's").toBe(false);
     expect(newestReadMarkOnly(["a", readMark(5), readMark(9), "b", readMark(7)])).toEqual(["a", readMark(9), "b"]);
     expect(readMarkOf(["a"])).toBeNull();
     const own = [TEAMS_NOTICE, readMark(9)], team = ["tour-finished", TEAMS_NOTICE, readMark(3)];

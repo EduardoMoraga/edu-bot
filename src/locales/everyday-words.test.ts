@@ -10,7 +10,6 @@ const EVERYDAY_PREFIXES: Record<string, readonly string[]> = {
   ],
   "notifications and alerts": ["attention.", "notifications.", "error.", "readyBots.", "app.loading."],
   "the sidebar and the switcher": ["sidebar."],
-  "moving from Grok Bot": ["grokMove."],
   "the rail of Clouds and its ＋": ["rail."],
   "a place's color, in Settings": ["placeLook."],
   "the bot panel": [
@@ -86,7 +85,6 @@ const PENDING_WORDS: readonly Word[] = [
 const OWN_COMPOSIO_KEY = "the own-key path: the person makes a Composio project and pastes its key in the field named Composio project key";
 
 const ALLOWED: Record<string, string> = {
-  "grokMove.connect.where": "names the Server URL field of Grok Bot's own form, where the link is pasted",
   "sidebar.servers": "the switcher's own Servers list, renamed with the one-workspace switcher",
   "sidebar.switchServer": "the switcher's own Servers list, renamed with the one-workspace switcher",
   "sidebar.switchServerError": "points at the app menu's Server menu",
@@ -100,8 +98,10 @@ const ALLOWED: Record<string, string> = {
   "connectors.setupNeededRemote": OWN_COMPOSIO_KEY,
   "connectors.notConfigured": OWN_COMPOSIO_KEY,
   "connectors.setup.step1": OWN_COMPOSIO_KEY,
+  "connectors.setup.wrongKey": OWN_COMPOSIO_KEY,
+  "apps.start.needsKey": OWN_COMPOSIO_KEY,
+  "apps.start.moreHelp": OWN_COMPOSIO_KEY,
   "connectors.setup.openComposio": OWN_COMPOSIO_KEY,
-  "connectors.setup.step2": OWN_COMPOSIO_KEY,
   "connectors.selfHostOnlyReason": OWN_COMPOSIO_KEY,
   "connectors.tile.needsKey": OWN_COMPOSIO_KEY,
   "connectors.empty.noKeyDesc": OWN_COMPOSIO_KEY,

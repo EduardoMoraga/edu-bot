@@ -11,7 +11,7 @@ import { buyOfferAllowed, cloudNoticeKind, cloudPlanView, cloudTrialNotice, clou
 import { jobRoutine, useCloudIntent } from "@/lib/cloud-intent";
 import { CLOUD_INTENT_GIVEN, cloudSetupStage } from "@/lib/cloud-setup";
 import { cornerPopupWaits, firstChatQuiet, firstReplyPending } from "@/lib/corner-popup";
-import { ANNOUNCEMENT_NOTICE, BOAT_OFFER_NOTICE, MODELGO_OFFER_NOTICE, PRODUCT_HUNT_NOTICE, WHATS_NEW_NOTICE, CLOUD_INTRO, CLOUD_NOTICE, CLOUD_TRIAL_NOTICE, dismissNotice, dismissNotices, GROK_MOVE_NOTICE, introShown, introStage, launchNotice, markLaunchNotice, nextNotice, noticeSeen, PHONE_UPDATE_NOTICE, phoneUpdateHint, SIMPLE_MODE_NOTICE, STAR_NOTICE, TEAMS_NOTICE, TWO_PLACES_NOTICE, UPDATES_CONSENT_NOTICE, usedBefore } from "@/lib/notices";
+import { ANNOUNCEMENT_NOTICE, BOAT_OFFER_NOTICE, MODELGO_OFFER_NOTICE, PRODUCT_HUNT_NOTICE, WHATS_NEW_NOTICE, CLOUD_INTRO, CLOUD_NOTICE, CLOUD_TRIAL_NOTICE, dismissNotice, dismissNotices, introShown, introStage, launchNotice, markLaunchNotice, nextNotice, noticeSeen, PHONE_UPDATE_NOTICE, phoneUpdateHint, SIMPLE_MODE_NOTICE, STAR_NOTICE, TEAMS_NOTICE, TWO_PLACES_NOTICE, UPDATES_CONSENT_NOTICE, usedBefore } from "@/lib/notices";
 import { useTwoPlaces } from "@/lib/two-places";
 import { SIMPLE_ONLY } from "@/lib/simple-only";
 import { useAdvancedBackDue, useNewLookDue } from "@/lib/new-look";
@@ -28,8 +28,6 @@ import { CLOUD_NOTICE_CARD, cloudNoticeStep, CloudNoticeCard } from "./CloudNoti
 import { CloudTrialIntroCard } from "./CloudTrialIntro";
 import { useMoveQuiet } from "./CloudSendStrip";
 import { CloudTrialNoticeCard, useCloudPlanSnapshot } from "./CloudTrialNotice";
-import { GrokMovePopup, type GrokMovePopupAction } from "./GrokMovePopup";
-import { GrokMoveDialog } from "./lazy-screens";
 import { LinkButton, NoticeCard, NoticeToast, NotNowButton } from "./NoticeCard";
 import { useDesktopNotices, useOtherDialogOpen } from "./notice-dialogs";
 import { localDesktopPage } from "./onboarding/WelcomeGate";
@@ -51,8 +49,6 @@ function StarCard({ onDismiss }: { onDismiss: () => void }) {
 }
 
 const trialKey = (trial: { state: string; endsAt: number }) => `${trial.state}:${trial.endsAt}`;
-/** A first run lands in its Chief's chat, whose first messages arrive one at a time; the Grok Bot popup follows them. */
-const FIRST_MESSAGES_MS = 6_000;
 
 export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { quiet?: boolean; viewer?: WelcomeViewer | null; now?: () => number }) {
   const { state, dispatch } = useStore();
@@ -74,8 +70,6 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [announcementShown, setAnnouncementShown] = useState<string | null>(null);
-  const [grokOpen, setGrokOpen] = useState(false);
-  const [grokLanded, setGrokLanded] = useState(false);
   const consentHere = (local || viewer?.cloudHome === true) && brandStatus().source !== "file";
   const consent = useUpdatesConsent(consentHere ? updatesConsentBridge() : undefined);
   const [consentDone, setConsentDone] = useState(false);
@@ -155,19 +149,6 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
   const consentWaits = welcomeFinishedThisLaunch() || firstChat;
   const mausBotFirst = mausBot.due;
   const consentNow = consentWaits === true || consentFact === false ? false : consentWaits === null || mausBotFirst ? null : consentFact;
-  // The Grok Bot popup: once for everyone who can add a bot, the one thing a first chat may be interrupted by. Nothing reads
-  // this computer for it: GrokMoveDialog does that, once opened.
-  const grokDue = !remote && viewer?.canSave !== false && !state.config?.team && brandStatus().source !== "file" && organization !== true && moving !== true
-    && launchDialogShown() !== "mausbot" && !noticeSeen(record, GROK_MOVE_NOTICE) && !desktopState?.seen.includes(GROK_MOVE_NOTICE);
-  const grokBlocked = useOtherDialogOpen(grokDue) || Boolean(state.liveCall && state.liveCall.status !== "ended");
-  const grokLanding = welcomeFinishedThisLaunch() && !grokLanded;
-  useEffect(() => {
-    if (!grokDue || !grokLanding || waits) return;
-    const timer = setTimeout(() => setGrokLanded(true), FIRST_MESSAGES_MS);
-    return () => clearTimeout(timer);
-  }, [grokDue, grokLanding, waits]);
-  const grokNow = !grokDue ? false
-    : !viewer || (desktop && !desktopState) || organization === null || firstChat === null || mausBotFirst || moving === null || grokLanding || grokBlocked ? null : true;
   const branded = brandStatus().source === "file", team = Boolean(state.config?.team);
   const remoteCards = useAnnouncementCards(!branded);
   const surface = announcementSurface(local, Boolean(state.config?.cloudHome || viewer?.cloudHome));
@@ -188,14 +169,13 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     : retiredPhones === undefined || !viewer || mausBotFirst || (state.liveCall && state.liveCall.status !== "ended") ? null : true;
   const launch = launchNotice();
   const notice = waits ? null
-    : firstChatQuiet(state) ? (grokNow === true && (launch === null || launch === GROK_MOVE_NOTICE) ? GROK_MOVE_NOTICE : null)
-    : cards || consentHere || simpleDue || announcementNow !== false || twoFact !== false || grokNow !== false || phoneNow !== false ? nextNotice({
+    : firstChatQuiet(state) ? null
+    : cards || consentHere || simpleDue || announcementNow !== false || twoFact !== false || phoneNow !== false ? nextNotice({
     [TEAMS_NOTICE]: false,
     [WHATS_NEW_NOTICE]: false,
     [PRODUCT_HUNT_NOTICE]: false,
     [BOAT_OFFER_NOTICE]: false,
     [MODELGO_OFFER_NOTICE]: false,
-    [GROK_MOVE_NOTICE]: grokNow,
     [PHONE_UPDATE_NOTICE]: phoneNow,
     [SIMPLE_MODE_NOTICE]: !simpleDue || afterWelcome === true ? false : afterWelcome === null || mausBotFirst || simpleBlocked ? null : true,
     [UPDATES_CONSENT_NOTICE]: consentNow,
@@ -214,7 +194,7 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     if (!shownKey || !notice) return;
     markLaunchNotice(notice);
     // The popups and the question own this launch: MausBot's first-launch card waits for a later one.
-    if (shownKey === GROK_MOVE_NOTICE || shownKey === SIMPLE_MODE_NOTICE || shownKey === UPDATES_CONSENT_NOTICE) markLaunchDialog("notices");
+    if (shownKey === SIMPLE_MODE_NOTICE || shownKey === UPDATES_CONSENT_NOTICE) markLaunchDialog("notices");
     if (shownKey === CLOUD_INTRO) {
       setIntroOpen(true);
       const patch = introShown(record, now());
@@ -234,18 +214,8 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
       .then(config => dispatch({ type: "configStatus", config })).catch(() => {});
   };
   const close = () => { setClosed(true); setTrialOpen(null); setFailed(false); };
-  if (grokOpen) return <GrokMoveDialog onClose={() => setGrokOpen(false)} />;
   if (toast) return <NoticeToast text={toast} onDone={() => setToast(null)} />;
   if (!notice) return null;
-
-  if (notice === GROK_MOVE_NOTICE) {
-    const done = (action: GrokMovePopupAction) => {
-      close(); save(GROK_MOVE_NOTICE);
-      void desktop?.seen(GROK_MOVE_NOTICE).catch(() => {});
-      if (action === "start") setGrokOpen(true);
-    };
-    return <GrokMovePopup onDone={done} />;
-  }
 
   if (notice === PHONE_UPDATE_NOTICE && retiredPhones?.length) {
     const done = () => { close(); const patch = dismissNotices(record, retiredPhones.map(phone => phoneUpdateHint(phone.id)));

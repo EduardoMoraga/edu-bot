@@ -182,8 +182,8 @@ describe("search", () => {
 
   describe.each([["Simple", false], ["Advanced", true]] as const)("Import & export in %s", (_mode, advanced) => {
     const owner = fullContext({ advanced });
-    it.each(["grok", "grok bot", "move from"])("puts Move from Grok Bot first for “%s”, with no Advanced tag", (query) => {
-      expect(find(query, owner)[0]).toMatchObject({ entry: { id: "grok-move", page: "transfer", anchor: "grok-move" }, advanced: undefined });
+    it("has no place for moving from Grok Bot", () => {
+      expect(find("grok bot", owner).map((hit) => hit.entry.id)).not.toContain("grok-move");
     });
 
     it.each(["import", "bring", "export", "backup", "restore"])("lands “%s” on Import & export", (query) => {
@@ -194,14 +194,14 @@ describe("search", () => {
 
     it("finds each row by its natural words", () => {
       const found = (query: string) => find(query, owner).map((hit) => hit.entry.id);
-      expect(found("import")).toEqual(expect.arrayContaining(["page:transfer", "grok-move", "ai-apps", "backup-import", "bring-in"]));
+      expect(found("import")).toEqual(expect.arrayContaining(["page:transfer", "ai-apps", "backup-import", "bring-in"]));
       expect(found("export")).toEqual(expect.arrayContaining(["page:transfer", "backup-export", "take-out"]));
       expect(found("backup")).toEqual(expect.arrayContaining(["backup-export", "backup-import"]));
       expect(first("restore", owner)?.id).toBe("backup-import");
     });
 
     it("offers a team's member none of it, and a team's admin all of it", () => {
-      for (const query of ["grok", "import", "export", "backup", "restore", "bring"]) {
+      for (const query of ["import", "export", "backup", "restore", "bring"]) {
         expect(find(query, { ...PEOPLE["a team member"], advanced }).filter((hit) => hit.entry.page === "transfer"), query).toEqual([]);
         expect(find(query, { ...PEOPLE["a team admin"], advanced })[0]?.entry.page, query).toBe("transfer");
       }
