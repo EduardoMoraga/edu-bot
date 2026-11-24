@@ -202,8 +202,11 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
      permiso. Ahora `pnpm dev:desktop` lo prepara (Mac y Windows) y baja Electron si falta. Probado en máquinas Mac
      Intel y Windows de GitHub. **Falta tu prueba en tu Mac** (paso 7 de "Necesito de Eduardo").
   4. Bienvenida (#38): "Te damos la bienvenida a Edu Bot", tres líneas y un botón.
-- [ ] v0.1.0: se está armando de nuevo con todo lo anterior (borrador privado). Se publica cuando pase tu prueba
-  en el Mac.
+- [x] v0.1.0 armada con todo lo anterior: borrador privado listo, con 7 instaladores (Mac Apple e Intel, Windows,
+  Linux), SHA256SUMS y notas en inglés y español. Pasó CI completo, también Mac. (Un test de Mac solo fallaba en la
+  línea de lanzamiento por un simulador incompleto; arreglado en #42.)
+- [ ] **Publicar v0.1.0**: espera tu prueba de 2 minutos en el Mac (paso 7 de "Necesito de Eduardo"). Si prefieres,
+  la publico antes y la prueba queda para después.
 - Quedan como están (decidido): la pieza de Windows `agent-browser` se baja de upstream (fijada por SHA256); el
   test "browser driver S4" de Windows se reintenta; los nombres internos `openmausbot` del archivo de bloqueo y la
   caché no se cambian (cambiarlos necesita migración).
