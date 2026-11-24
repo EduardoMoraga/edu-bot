@@ -4,6 +4,7 @@ import { t } from "@/lib/i18n";
 import { LearnMore, SettingRow, SettingsRows, Switch } from "./SettingsPrimitives";
 import { Select } from "./Select";
 import { sameFields, useStoreDispatch, useStoreSelector } from "@/state/store-select";
+import { engineDisplayName } from "@/lib/engine-name";
 
 type Recovery = NonNullable<ConfigStatus["automaticRecovery"]>;
 
@@ -77,7 +78,7 @@ export function AutomaticRecoverySettings() {
           <option value="">{t("settings.recovery.chooseEngine")}</option>
           {value.backup && !engine && <option value={value.backup.instanceId} disabled>{t("settings.recovery.unavailable", { name: value.backup.instanceId })}</option>}
           {engines.map((instance) => <option key={instance.instanceId} value={instance.instanceId}
-            disabled={!instance.models.options.some((model) => instance.snapshot.authenticated !== false || model.custom)}>{instance.displayName}</option>)}
+            disabled={!instance.models.options.some((model) => instance.snapshot.authenticated !== false || model.custom)}>{engineDisplayName(instance)}</option>)}
         </Select>
       </SettingRow>}
       {value.enabled && <SettingRow title={t("settings.recovery.model")} message={status}>

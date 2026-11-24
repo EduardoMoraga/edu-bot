@@ -7,6 +7,7 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { InstanceProviderMark } from "./ProviderIcons";
 import { useStoreActions } from "@/state/store-select";
+import { engineDisplayName } from "@/lib/engine-name";
 
 export function engineReady(instance: InstanceInfo): boolean {
   if (instance.driverKind === "clineAgent") {
@@ -35,7 +36,7 @@ export function EngineCard({ instance, children, summary, bare = false }: { inst
   if (bare) return <div data-engine-card={instance.instanceId} className="min-w-0">{children}</div>;
   const ready = summary?.ready ?? engineReady(instance);
   const email = instance.snapshot.authenticated === true ? instance.snapshot.account?.email : undefined;
-  const title = summary?.title ?? instance.displayName;
+  const title = summary?.title ?? engineDisplayName(instance);
   const subtitle = summary?.subtitle ?? email ?? (instance.access === "custom"
     ? t("engines.library.custom")
     : providerName(instance));

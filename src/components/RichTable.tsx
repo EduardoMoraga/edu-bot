@@ -100,7 +100,7 @@ export function RichTable({ columns, rows, name = t("table.title"), expanded = f
       {rows.length > SMALL_TABLE_ROWS && (
         <div className="flex items-center gap-2 px-4 pb-1.5 text-ink-tertiary">
           {search("flex min-w-24 flex-1 items-center gap-2")}
-          <span role="status" className="shrink-0 text-[12px] tabular-nums">{t("table.count", { shown: order.length.toLocaleString(), total: rows.length.toLocaleString(), columns: columns.length })}</span>
+          <span role="status" className="shrink-0 text-[12px] tabular-nums">{t("table.count", { shown: order.length.toLocaleString(intlLocale()), total: rows.length.toLocaleString(intlLocale()), columns: columns.length })}</span>
         </div>
       )}
       <TableViewport columns={columns} rows={rows} order={order} name={name} wrap={wrap} large={false} sort={sort} direction={direction} headless={headless} look="card" onSort={sortBy} />

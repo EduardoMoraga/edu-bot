@@ -18,6 +18,7 @@ import { InstanceProviderMark } from "../ProviderIcons";
 import { SimpleModelMenu } from "../SimpleModelMenu";
 import { buttonCls, Card, ColRow, RowIcon, RowText, TrashButton } from "./rows";
 import { sameFields, useStoreActions, useStoreDispatch, useStoreSelector } from "@/state/store-select";
+import { engineDisplayName } from "@/lib/engine-name";
 
 type Backup = NonNullable<Bot["fallback"]>[number];
 
@@ -250,7 +251,7 @@ export function BackupAis({ bot, onChange }: { bot: Bot; onChange: (fallback: Ba
                     exclude={others(index)}
                     onPick={(picked) => onChange(chain.map((candidate, at) => (at === index ? picked : candidate)))}
                     label={t("botPanel.backups.row", { position: index + 1, model: name })}
-                    title={instance ? `${instance.displayName} · ${name}` : name}
+                    title={instance ? `${engineDisplayName(instance)} · ${name}` : name}
                     data-panel-action="backup-change"
                     className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[8px] bg-ink/[0.04] pl-2.5 pr-2 text-left text-[13px] text-ink hover:bg-ink/[0.07] aria-expanded:bg-ink/[0.08]"
                   >

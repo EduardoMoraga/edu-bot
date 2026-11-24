@@ -115,7 +115,11 @@ posixOnly("profile apply routes", () => {
   });
 
   it("applies the rest without the more-access lines, then those from an admin session", async () => {
+    const language = (await api("GET", "/api/config")).body.language ?? null;
+    expect((await api("PATCH", "/api/config", { language: "es" })).status).toBe(200);
     const plan = (await api("POST", "/api/profiles/plan", {})).body;
+    expect(plan.lines.map((line: Rec) => line.text)).toContain("Añade el área BI");
+    expect((await api("PATCH", "/api/config", { language })).status).toBe(200);
     const applied = await api("POST", "/api/profiles/apply", { expect: plan.digest });
     expect(applied.status).toBe(200);
     expect(applied.body.applied.skipped.map((line: Rec) => line.text)).toEqual([NOTION_ADD, "Analista BI: Edu brain the shared brain of area bi", "Analista BI: Edu crew on",

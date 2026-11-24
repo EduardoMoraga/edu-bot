@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { setLocale } from "@/lib/i18n";
 import type { Bot } from "@/state/store";
 import type { HistoryRow } from "./HistorySection";
 import { HistorySection } from "./HistorySection";
@@ -43,6 +44,8 @@ function render(rows: HistoryRow[] | null, onRollback = vi.fn()) {
   return renderToStaticMarkup(createElement(HistorySection, { bot, rows, onRollback }));
 }
 
+afterEach(() => setLocale("en"));
+
 describe("HistorySection", () => {
   it("shows Loading… before rows arrive", () => {
     const markup = render(null);
@@ -62,6 +65,13 @@ describe("HistorySection", () => {
     expect(markup).toContain("bot");
     expect(markup).toContain("api");
     expect(markup).toContain("Title changed");
+  });
+
+  it("names who changed it and the field in the app's language", () => {
+    setLocale("es");
+    const markup = render([{ ...titleRow, id: "name-row", actor: "user", via: "api", field: "name", summary: "name: \"Edu\" → \"Sol\"" }]);
+    expect(markup).toContain("tú (api)");
+    expect(markup).toContain("nombre:");
   });
 
   it("shows an Undo button only on soul rows", () => {

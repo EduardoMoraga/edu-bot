@@ -1,5 +1,13 @@
 import { whenLabel } from "@/lib/schedule-label";
+import { recentChangeText } from "@/lib/bot-overview-text";
 import { t } from "@/lib/i18n";
+import type { LocaleKey } from "@/locales";
+
+const ACTOR: Readonly<Record<string, LocaleKey>> = {
+  user: "history.actor.user", bot: "history.actor.bot", file: "history.actor.file", import: "history.actor.import", system: "history.actor.system",
+};
+
+const actorLabel = (actor: string) => (Object.hasOwn(ACTOR, actor) ? t(ACTOR[actor]!) : actor);
 
 export interface HistoryRow {
   id: string;
@@ -47,11 +55,9 @@ export function HistorySection({
             <div className="min-w-0 flex-1 text-[13px] leading-relaxed text-ink">
               <span className="text-ink-secondary">{whenLabel(row.at)}</span>
               {" · "}
-              <span>
-                {row.actor} via {row.via}
-              </span>
+              <span>{t("history.by", { actor: actorLabel(row.actor), via: row.via })}</span>
               {" · "}
-              <span>{row.summary}</span>
+              <span>{recentChangeText(row.summary)}</span>
             </div>
             {row.field === "soul" && row.canRestore === true && (
               <button

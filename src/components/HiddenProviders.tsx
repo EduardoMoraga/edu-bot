@@ -6,6 +6,7 @@ import { t } from "@/lib/i18n";
 import { InstanceProviderMark } from "./ProviderIcons";
 import { SettingsMark } from "./SettingsPrimitives";
 import { sameFields, useStoreSelector } from "@/state/store-select";
+import { engineDisplayName } from "@/lib/engine-name";
 
 /** A provider someone hid: the server leaves it out of /api/instances and every model list (withInstanceConfig), so
  * these lists are the only way back to it. */
@@ -52,10 +53,10 @@ export function HiddenProviderRows({ hidden }: { hidden: HiddenProvider[] }) {
       <div key={entry.instanceId} data-hidden-engine={entry.instanceId} className="flex min-h-11 items-center gap-3 px-4 py-1.5">
         <SettingsMark><InstanceProviderMark instance={{ driverKind: entry.driverKind ?? "" }} size={18} subtle /></SettingsMark>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="truncate text-[14px] leading-5 text-ink">{entry.displayName}</span>
+          <span className="truncate text-[14px] leading-5 text-ink">{engineDisplayName(entry)}</span>
           <span className="truncate text-[13px] leading-[18px] text-ink-secondary">{t("settings.ai.hiddenStatus")}</span>
         </span>
-        <button type="button" data-unhide-engine={entry.instanceId} disabled={busy !== null} onClick={() => unhide(entry.instanceId)} aria-label={t("engines.unhideAria", { name: entry.displayName })} className="ui-button ml-3 shrink-0 disabled:opacity-50">
+        <button type="button" data-unhide-engine={entry.instanceId} disabled={busy !== null} onClick={() => unhide(entry.instanceId)} aria-label={t("engines.unhideAria", { name: engineDisplayName(entry) })} className="ui-button ml-3 shrink-0 disabled:opacity-50">
           {busy === entry.instanceId ? t("engines.unhiding") : t("engines.unhide")}
         </button>
       </div>
@@ -76,8 +77,8 @@ export function HiddenEngines() {
       <div className="mt-2 flex flex-col gap-1.5">
         {hidden.map((entry) => (
           <div key={entry.instanceId} className="flex items-center justify-between gap-3 rounded-lg bg-control px-3 py-2">
-            <span className="min-w-0 truncate text-[13px] text-ink">{entry.displayName}</span>
-            <button type="button" data-unhide-engine={entry.instanceId} disabled={busy !== null} onClick={() => unhide(entry.instanceId)} aria-label={t("engines.unhideAria", { name: entry.displayName })}
+            <span className="min-w-0 truncate text-[13px] text-ink">{engineDisplayName(entry)}</span>
+            <button type="button" data-unhide-engine={entry.instanceId} disabled={busy !== null} onClick={() => unhide(entry.instanceId)} aria-label={t("engines.unhideAria", { name: engineDisplayName(entry) })}
               className="shrink-0 text-[12px] font-medium text-accent hover:underline disabled:opacity-50">
               {busy === entry.instanceId ? t("engines.unhiding") : t("engines.unhide")}
             </button>

@@ -5,6 +5,7 @@ import type { ProfileChoice, ProfilePlanLine } from "../../shared/profile-plan.t
 import { vaultNameKey, type VaultSecret } from "../../shared/vault.ts";
 import { isRemoteMcpServer, parseStoredMcpServer } from "../mcp-registry.ts";
 import { vaultPointer } from "../vault/mcp-keys.ts";
+import { ENGLISH_PLAN, sayList, type PlanSay } from "./plan-words.ts";
 import type { ProfilesState } from "./state.ts";
 
 type McpState = ProfilesState["mcpServers"];
@@ -43,6 +44,8 @@ export interface McpPlanInput {
   state: McpState;
   choices: Record<string, ProfileChoice>;
   prune: boolean;
+  /** The plan's words; English when absent. */
+  say?: PlanSay;
 }
 
 export interface McpPlanOutput {
@@ -72,23 +75,23 @@ const sortedRecord = (record: Record<string, string>) => Object.fromEntries(Obje
 const specHash = (spec: ProfileMcpSpec | null) => hashOf(spec === null ? null
   : "url" in spec ? { type: spec.type, url: spec.url, headers: sortedRecord(spec.headers) } : { command: spec.command, args: spec.args, env: sortedRecord(spec.env) });
 
-const list = (names: readonly string[]) => names.length < 2 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 const quoted = (arg: string) => /^[\w@+=:,./-]+$/.test(arg) ? arg : JSON.stringify(arg);
 const commandLine = (server: McpServerProfile) => [server.command ?? "", ...(server.args ?? [])].map(quoted).join(" ");
 
-function valueWords(name: string, value: string | SecretRef): string {
-  if (typeof value === "string") return `${name} set to "${value}"`;
-  if ("secret" in value) return `${name} from your Vault secret ${value.secret}`;
-  return "env" in value ? `${name} from environment variable ${value.env}` : `${name} from a key file`;
+function valueWords(say: PlanSay, name: string, value: string | SecretRef): string {
+  if (typeof value === "string") return say("server.profiles.mcp.valueSet", { name, value });
+  if ("secret" in value) return say("server.profiles.mcp.valueSecret", { name, secret: value.secret });
+  return "env" in value ? say("server.profiles.mcp.valueEnv", { name, env: value.env }) : say("server.profiles.mcp.valueFile", { name });
 }
 
-function describe(server: McpServerProfile): string {
+function describe(say: PlanSay, server: McpServerProfile): string {
   if (server.transport === "stdio") {
-    const env = Object.entries(server.env ?? {}).map(([name, value]) => valueWords(`variable ${name}`, value));
-    return `that runs \`${commandLine(server)}\` on this computer${env.length ? `, with ${list(env)}` : ""}`;
+    const env = Object.entries(server.env ?? {}).map(([name, value]) => valueWords(say, say("server.profiles.mcp.variable", { name }), value));
+    return env.length ? say("server.profiles.mcp.runsWith", { command: commandLine(server), values: sayList(say, env) }) : say("server.profiles.mcp.runs", { command: commandLine(server) });
   }
-  const headers = Object.entries(server.headers ?? {}).map(([name, value]) => valueWords(`header ${name}`, value));
-  return `at ${server.url}${server.transport === "sse" ? " (SSE)" : ""}${headers.length ? `, sending ${list(headers)}` : ""}`;
+  const headers = Object.entries(server.headers ?? {}).map(([name, value]) => valueWords(say, say("server.profiles.mcp.header", { name }), value));
+  const url = `${server.url}${server.transport === "sse" ? " (SSE)" : ""}`;
+  return headers.length ? say("server.profiles.mcp.atSending", { url, values: sayList(say, headers) }) : say("server.profiles.mcp.at", { url });
 }
 
 /** The server as this app would store it, with each secret slot pointing at the team's Vault secret of that name. */
@@ -113,13 +116,11 @@ function resolve(server: McpServerProfile, vault: Record<string, string>) {
   return { spec, missing: [...new Set(missing)], unread, keys: [...new Set(keys)] };
 }
 
-function offReason(missing: readonly string[], unread: readonly string[]): string | null {
-  if (missing.length) return `Needs your key: it stays off until you save ${list(missing)} in Settings → Vault and apply again`;
-  if (unread.length) return "Needs your key: this app fills an MCP server's keys only from secret slots ({ secret: NAME }), so it stays off";
+function offReason(say: PlanSay, missing: readonly string[], unread: readonly string[]): string | null {
+  if (missing.length) return say("server.profiles.mcp.missingKey", { names: sayList(say, missing) });
+  if (unread.length) return say("server.profiles.mcp.unreadKey");
   return null;
 }
-
-const CONFIRM = "it stays off until you check this command and turn it on in Apps → MCP servers";
 
 /** The parts a profile sets of the app's server, and the app's own settings for it, or null when it cannot be read. */
 function appSide(name: string, raw: unknown): { spec: ProfileMcpSpec; keep: Record<string, unknown>; enabled: boolean } | null {
@@ -149,21 +150,21 @@ function widens(have: ProfileMcpSpec, want: ProfileMcpSpec): boolean {
   return true;
 }
 
-function changeWords(server: McpServerProfile, have: ProfileMcpSpec, want: ProfileMcpSpec): string[] {
-  if ("url" in want !== "url" in have) return [`becomes a server ${describe(server)}`];
+function changeWords(say: PlanSay, server: McpServerProfile, have: ProfileMcpSpec, want: ProfileMcpSpec): string[] {
+  if ("url" in want !== "url" in have) return [say("server.profiles.mcp.becomes", { where: describe(say, server) })];
   const words: string[] = [];
-  const parts = (from: Record<string, string>, to: Record<string, string>, fileValues: Record<string, string | SecretRef> | undefined, what: string) => {
+  const parts = (from: Record<string, string>, to: Record<string, string>, fileValues: Record<string, string | SecretRef> | undefined, what: "server.profiles.mcp.header" | "server.profiles.mcp.variable") => {
     for (const name of [...new Set([...Object.keys(from), ...Object.keys(to)])].sort()) {
-      if (!Object.hasOwn(to, name)) words.push(`stops sending ${what} ${name}`);
-      else if (from[name] !== to[name]) words.push(`sends ${valueWords(`${what} ${name}`, fileValues?.[name] ?? to[name]!)}`);
+      if (!Object.hasOwn(to, name)) words.push(say("server.profiles.mcp.stopsSending", { name: say(what, { name }) }));
+      else if (from[name] !== to[name]) words.push(say("server.profiles.mcp.sends", { value: valueWords(say, say(what, { name }), fileValues?.[name] ?? to[name]!) }));
     }
   };
   if ("url" in want && "url" in have) {
-    if (have.url !== want.url || have.type !== want.type) words.push(`address ${have.url} → ${want.url}${want.type === "sse" ? " (SSE)" : ""}`);
-    parts(have.headers, want.headers, server.headers, "header");
+    if (have.url !== want.url || have.type !== want.type) words.push(say("server.profiles.mcp.address", { from: have.url, to: `${want.url}${want.type === "sse" ? " (SSE)" : ""}` }));
+    parts(have.headers, want.headers, server.headers, "server.profiles.mcp.header");
   } else if ("command" in want && "command" in have) {
-    if (have.command !== want.command || JSON.stringify(have.args) !== JSON.stringify(want.args)) words.push(`now runs \`${commandLine(server)}\` on this computer`);
-    parts(have.env, want.env, server.env, "variable");
+    if (have.command !== want.command || JSON.stringify(have.args) !== JSON.stringify(want.args)) words.push(say("server.profiles.mcp.nowRuns", { command: commandLine(server) }));
+    parts(have.env, want.env, server.env, "server.profiles.mcp.variable");
   }
   return words;
 }
@@ -174,6 +175,7 @@ const decide = (base: string | undefined, file: string, app: string): "same" | "
 /** Compares the folder's `mcp/` servers with this app's, as plan lines and the writes applying them makes. A server
  * no profile made is never touched; one a profile made and the folder no longer has is kept unless the plan prunes. */
 export function planMcpServers(input: McpPlanInput): McpPlanOutput {
+  const say = input.say ?? ENGLISH_PLAN;
   const lines: ProfilePlanLine[] = [];
   const actions: McpServerAction[] = [];
   const kept: McpState = {};
@@ -184,24 +186,26 @@ export function planMcpServers(input: McpPlanInput): McpPlanOutput {
 
   for (const server of input.servers) {
     const { key, file } = server;
-    const subject = { kind: "mcp-server" as const, id: key, name: `MCP server ${key}` };
+    const subject = { kind: "mcp-server" as const, id: key, name: say("server.profiles.mcp.subject", { key }) };
     const line = (kind: ProfilePlanLine["kind"], text: string, extra: Partial<ProfilePlanLine> = {}): ProfilePlanLine => ({ kind, subject, field: "server", file, text, ...extra });
+    const about = (text: string) => say("server.profiles.labelled", { what: subject.name, text });
+    const then = (text: string, more: string | null) => (more ? say("server.profiles.then", { text, more }) : text);
     const base = Object.hasOwn(input.state, key) ? input.state[key] : undefined;
     const { spec, missing, unread, keys } = resolve(server, input.vault);
-    const off = offReason(missing, unread);
+    const off = offReason(say, missing, unread);
     const stdio = server.transport === "stdio";
     const fileHash = specHash(spec);
     const applied = { hash: fileHash, ...(off ? { needsKey: true as const } : {}) };
 
     if (!has(key)) {
-      const suffix = off ?? (stdio ? CONFIRM : null);
-      const added = line("access", `Adds MCP server ${key} ${describe(server)}${suffix ? `; ${suffix}` : ""}`);
+      const suffix = off ?? (stdio ? say("server.profiles.mcp.confirm") : null);
+      const added = line("access", then(say("server.profiles.mcp.adds", { key, where: describe(say, server) }), suffix));
       lines.push(added);
       actions.push({ kind: "mcp-server", key, op: "add", line: added, access: true, spec, enabled: !off && !stdio, vaultKeys: keys, state: applied });
       continue;
     }
     if (!base) {
-      lines.push(line("note", `MCP server ${key}: this app already has a server with this name that did not come from your profiles, so it is left as it is and bots use that one`));
+      lines.push(line("note", about(say("server.profiles.mcp.notOurs"))));
       continue;
     }
     const current = appSide(key, input.app[key]);
@@ -211,35 +215,36 @@ export function planMcpServers(input: McpPlanInput): McpPlanOutput {
     if (outcome === "mine") {
       settled += 1;
       kept[key] = { ...base, hash: fileHash };
-      lines.push(line("note", `MCP server ${key}: you keep yours; the file's value is recorded, so this is no longer a conflict`));
+      lines.push(line("note", about(say("server.profiles.kept"))));
       continue;
     }
     if (outcome === "same") {
       if (off && current?.enabled) {
         kept[key] = base;
-        const turnedOff = line("change", `MCP server ${key}: ${off}`);
+        const turnedOff = line("change", about(off));
         lines.push(turnedOff);
         actions.push({ kind: "mcp-server", key, op: "change", line: turnedOff, access: false, spec, ...(current ? { keep: current.keep } : {}), enabled: false, vaultKeys: keys, state: applied });
         continue;
       }
       kept[key] = applied;
-      if (off) lines.push(line("note", `MCP server ${key}: ${off}`));
+      if (off) lines.push(line("note", about(off)));
       continue;
     }
     kept[key] = base;
     if (outcome === "here") {
-      lines.push(line("changed-here", `MCP server ${key}: changed in this app; that change stays`));
+      lines.push(line("changed-here", about(say("server.profiles.mcp.changedHere"))));
       continue;
     }
     if (outcome === "conflict") {
-      lines.push(line("conflict", `MCP server ${key}: the file and this app both changed it`,
-        { conflict: { choice, file: describe(server), mine: "as changed in this app" } }));
+      lines.push(line("conflict", about(say("server.profiles.mcp.bothChanged")),
+        { conflict: { choice, file: describe(say, server), mine: say("server.profiles.mcp.asChangedHere") } }));
       continue;
     }
     const access = !current || widens(current.spec, spec);
     const enabled = off || stdio ? false : base.needsKey ? true : undefined;
-    const suffix = off ?? (stdio ? CONFIRM : base.needsKey ? "it is turned on" : null);
-    const changed = line(access ? "access" : "change", `MCP server ${key}: ${current ? list(changeWords(server, current.spec, spec)) : `becomes a server ${describe(server)}`}${suffix ? `; ${suffix}` : ""}`);
+    const suffix = off ?? (stdio ? say("server.profiles.mcp.confirm") : base.needsKey ? say("server.profiles.mcp.turnedOn") : null);
+    const what = current ? sayList(say, changeWords(say, server, current.spec, spec)) : say("server.profiles.mcp.becomes", { where: describe(say, server) });
+    const changed = line(access ? "access" : "change", about(then(what, suffix)));
     lines.push(changed);
     actions.push({ kind: "mcp-server", key, op: "change", line: changed, access, spec, ...(current ? { keep: current.keep } : {}), ...(enabled === undefined ? {} : { enabled }), vaultKeys: keys, state: applied });
   }
@@ -247,21 +252,21 @@ export function planMcpServers(input: McpPlanInput): McpPlanOutput {
   const inFolder = new Set(input.servers.map((server) => server.key));
   for (const [key, base] of Object.entries(input.state)) {
     if (inFolder.has(key)) continue;
-    const subject = { kind: "mcp-server" as const, id: key, name: `MCP server ${key}` };
+    const subject = { kind: "mcp-server" as const, id: key, name: say("server.profiles.mcp.subject", { key }) };
     const file = `mcp/${key}.md`;
     if (blocked(key)) {
       kept[key] = base;
-      if (has(key)) lines.push({ kind: "blocked", subject, field: "server", file, text: `${file} has problems, so MCP server ${key} is left as it is` });
+      if (has(key)) lines.push({ kind: "blocked", subject, field: "server", file, text: say("server.profiles.blockedOne", { file, name: subject.name }) });
       continue;
     }
     if (!has(key)) continue;
     kept[key] = base;
     if (input.prune) {
-      const removed: ProfilePlanLine = { kind: "remove", subject, field: "server", file, text: `Deletes MCP server ${key}, which is no longer in your profiles` };
+      const removed: ProfilePlanLine = { kind: "remove", subject, field: "server", file, text: say("server.profiles.bot.deletes", { name: subject.name }) };
       lines.push(removed);
       actions.push({ kind: "mcp-server", key, op: "remove", line: removed, access: false, vaultKeys: [] });
     } else {
-      lines.push({ kind: "gone", subject, field: "server", file, text: `MCP server ${key} is no longer in your profiles; it stays in this app as it is` });
+      lines.push({ kind: "gone", subject, field: "server", file, text: say("server.profiles.bot.gone", { name: subject.name }) });
     }
   }
   return { lines, actions, kept, settled };

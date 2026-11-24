@@ -3,6 +3,7 @@ import type { InboxRow } from "../../../shared/inbox";
 import { personWait, type PersonWaitKind } from "../../../shared/person-wait";
 import type { Message } from "@/state/store";
 import { t } from "@/lib/i18n";
+import { credentialLabel } from "@/lib/server-labels";
 import { cardQuestions } from "../QuestionCard";
 import { accessRequestWords } from "../bot-access/access-card";
 import { senderLabel, subjectOf, textOf } from "./inbox-view";
@@ -57,7 +58,7 @@ const firstLine = (text: string) => text.split("\n").map((line) => line.replace(
 /** What a line is about, in a few words: a question's short header or its first line, what an approval asks for, the
  * password or site asked for, else the first line of what it says. */
 export function headlineOf(row: InboxRow): string {
-  if (row.secret) return row.secret.label;
+  if (row.secret) return credentialLabel(row.secret.target, row.secret.label);
   if (row.signIn) return t("inbox.headline.signIn", { site: row.signIn.site });
   if (row.connector) return t("inbox.headline.connect", { app: row.connector.label });
   if (row.kind === "ask") {
@@ -73,7 +74,7 @@ export function headlineOf(row: InboxRow): string {
 export function snippetOf(row: InboxRow): string | null {
   const text = textOf(row).replace(/\s+/g, " ").trim();
   const headline = headlineOf(row);
-  if (!text || text === headline) return null;
+  if (!text || text === headline || text === row.secret?.label) return null;
   return text.startsWith(headline) ? text.slice(headline.length).trim() || null : text;
 }
 

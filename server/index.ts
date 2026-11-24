@@ -12046,6 +12046,7 @@ const botPatchRoutes = createBotPatchRoutes({ turnBots: directTurnBots,
 }); ROUTES.push(botPatchRoutes);
 ROUTES.push(createProfilesRoutes({
   dataDir: DATA_DIR, desktopManaged: DESKTOP_MANAGED, routes: () => ROUTES, mcpServers: () => ({ ...cfg.mcpServers }),
+  language: (auth) => personLanguages.forLine(auth.kind === "session" ? actorKey(auth) : undefined),
   vaultSecretIds: (names) => (CLOUD_TEAM || HOSTED_WORKSPACE ? {} : teamVaultSecretIds(logins.listSecrets(TEAM_READER), names)),
   stamp: (botId, profileSource) => {
     const bot = store.patchBot(botId, { profileSource });

@@ -7,6 +7,7 @@ import { EngineCard, EngineSections, RefreshEngines, engineReady } from "./Engin
 import { cn } from "@/lib/cn";
 import { useMenuMotion } from "./MenuMotion";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import type { LocaleKey } from "@/locales";
 import { ApiKeyEngineManage, EngineSetup, EngineUpdateNotice, EngineWarningNotice, isApiKeyEngine } from "./EngineSetup";
 import { AppCopyNotice } from "./EngineAppCopy";
@@ -116,7 +117,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
             setSelected(e.target.value);
             setManual("");
           }}
-          aria-label={t("engines.detectedAria", { name: instance.displayName })}
+          aria-label={t("engines.detectedAria", { name: engineDisplayName(instance) })}
           disabled={busy}
         >
           <option value="">{t("engines.selectBinary")}</option>
@@ -136,7 +137,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
           save();
         }}
         placeholder={candidates?.length ? t("engines.manualPath") : "/absolute/path/to/cli"}
-        aria-label={t("engines.customAria", { name: instance.displayName })}
+        aria-label={t("engines.customAria", { name: engineDisplayName(instance) })}
         spellCheck={false}
         disabled={busy}
         className="w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2 font-mono text-[12px] text-ink placeholder:font-sans placeholder:text-ink-secondary focus:outline-none disabled:opacity-50"
@@ -359,16 +360,16 @@ function EngineAccountAction({ instance, action, cli = false, removeBody = "acco
   };
   return <>
     <div className="flex flex-wrap items-center gap-2">
-      <button type="button" disabled={running || usedBy > 0} onClick={() => setConfirming(true)} aria-label={remove ? undefined : t("accounts.signOutAria", { name: instance.displayName })} className={cn("rounded-lg px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50", remove ? "text-danger hover:bg-danger/10" : "text-ink-secondary hover:bg-raised hover:text-ink")}>
+      <button type="button" disabled={running || usedBy > 0} onClick={() => setConfirming(true)} aria-label={remove ? undefined : t("accounts.signOutAria", { name: engineDisplayName(instance) })} className={cn("rounded-lg px-2.5 py-1.5 text-[12px] font-medium disabled:cursor-not-allowed disabled:opacity-50", remove ? "text-danger hover:bg-danger/10" : "text-ink-secondary hover:bg-raised hover:text-ink")}>
         {running ? <Loader2 size={13} className="animate-spin" /> : label}
       </button>
       {usedBy > 0 && <p className="text-[11px] text-ink-secondary">{t("accounts.inUse", { count: String(usedBy) })}</p>}
     </div>
     {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
-    <ConfirmDialog open={confirming} title={t(remove ? "accounts.removeTitle" : "accounts.signOutTitle", { name: instance.displayName })}
+    <ConfirmDialog open={confirming} title={t(remove ? "accounts.removeTitle" : "accounts.signOutTitle", { name: engineDisplayName(instance) })}
       body={remove ? t(removeBody) : cli
         // The CLI's own sign-in is the one removed: its files in the home folder of the computer this app runs on.
-        ? <>{t("accounts.signOutBody")}<span data-sign-out-cli="" className="mt-2 block">{t("accounts.signOutCliBody", { name: instance.displayName })}</span></>
+        ? <>{t("accounts.signOutBody")}<span data-sign-out-cli="" className="mt-2 block">{t("accounts.signOutCliBody", { name: engineDisplayName(instance) })}</span></>
         : t("accounts.signOutBody")}
       confirmLabel={label} tone="neutral" pending={running} onCancel={() => { if (!running) setConfirming(false); }} onConfirm={() => void run()} />
   </>;
@@ -458,7 +459,7 @@ function ProviderRow({ instance, ready, open, onToggle, compact, children }: {
     <div data-simple-engine={instance.instanceId} className={cn("flex items-center gap-3 px-4", compact && !ready && !status.tone ? "min-h-11 py-1.5" : "min-h-16 py-3")}>
       <SettingsMark><InstanceProviderMark instance={instance} size={18} subtle /></SettingsMark>
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-[14px] leading-5 text-ink">{instance.displayName}</span>
+        <span className="truncate text-[14px] leading-5 text-ink">{engineDisplayName(instance)}</span>
         {!(compact && !ready && !status.tone) && <span className="truncate text-[13px] leading-[18px] text-ink-secondary"><StatusDot tone={status.tone} />{status.text}</span>}
       </span>
       <button type="button" aria-expanded={open} className="ui-button ml-3 shrink-0" onClick={onToggle}>
