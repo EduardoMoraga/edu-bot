@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fixture = vi.hoisted(() => ({ home: "", alive: true, dead: new Set(), hosts: [], failStarts: 0, granted: true }));
-vi.mock("electron", () => ({ app: { isPackaged: false, getPath: () => fixture.home }, ipcMain: { handle: () => {} } }));
+vi.mock("electron", () => ({ app: { isPackaged: false, getPath: () => fixture.home, getAppPath: () => fixture.home }, ipcMain: { handle: () => {} } }));
 vi.mock("@trycua/cua-driver/embedded", () => ({
   EmbeddedCuaDriverHost: class {
     static withOptions() { return new this(); }
