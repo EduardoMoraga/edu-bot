@@ -1,0 +1,102 @@
+name: Dev desktop setup
+
+# `pnpm dev:desktop` on a clean macOS or Windows checkout: Electron's download and the screen control driver are
+# fetched when missing, and the dev app finds the driver it was given.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/dev-desktop-setup.yml
+      - scripts/dev-desktop-setup.mjs
+      - scripts/prepare-cua.mjs
+      - scripts/prepare-cua-win.mjs
+      - scripts/testing/dev-cua-probe.electron.mjs
+      - electron/cua.mjs
+      - electron/cua-driver-path.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-desktop-setup-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: dev:desktop setup (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ff378ebe6b225b0680b81c1ad4498ae0d1d3a5e3 # v6.0.10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Unit tests of the setup and of the driver's place
+        run: |
+          pnpm exec vitest run scripts/dev-desktop-setup.test.mjs
+          node --test electron/cua-driver-path.node-test.mjs
+      - name: Remove Electron's download, as an install that skipped it leaves things
+        run: node -e "const fs=require('fs'),path=require('path');const dir=path.dirname(require.resolve('electron/package.json'));fs.rmSync(path.join(dir,'dist'),{recursive:true,force:true});fs.rmSync(path.join(dir,'path.txt'),{force:true});"
+      - name: Set up as dev:desktop does
+        run: node scripts/dev-desktop-setup.mjs 2>&1 | tee setup-first.log
+      - name: Electron is back and the driver is staged
+        run: |
+          grep -q "Electron is not downloaded yet" setup-first.log
+          grep -q "Electron is ready." setup-first.log
+          pnpm exec electron --version
+          if [ "$RUNNER_OS" = "macOS" ]; then driver="dist-native/$(node -p process.arch)/cua-driver"; else driver="dist-native/cua-win32-x64/cua-driver.exe"; fi
+          test -f "$driver"
+          "$driver" --version
+      - name: A second run has nothing to do
+        run: |
+          node scripts/dev-desktop-setup.mjs 2>&1 | tee setup-second.log
+          test ! -s setup-second.log
+      - name: The dev app, started from a shell, finds the staged driver
+        env:
+          DEV_CUA_PROBE_OUT: probe-shell.json
+        run: |
+          pnpm exec electron scripts/testing/dev-cua-probe.electron.mjs || true
+          node -e "const r=require('./probe-shell.json');if(!r.staged||!r.binaryExists||r.packaged)throw new Error('the dev app did not find the staged driver');console.log('mode from a shell:',r.mode,'|',r.reason)"
+      - name: macOS, started as its own app, before any permission
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          app="$PWD/node_modules/electron/dist/Electron.app"
+          /usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist"
+          open -n -W -a "$app" --env DEV_CUA_PROBE_OUT="$PWD/probe-open-before.json" --args "$PWD/scripts/testing/dev-cua-probe.electron.mjs"
+          cat probe-open-before.json
+      - name: macOS, allow Electron under Accessibility and Screen Recording
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          for service in kTCCServiceAccessibility kTCCServiceScreenCapture; do
+            sql="INSERT OR REPLACE INTO access (service,client,client_type,auth_value,auth_reason,auth_version,indirect_object_identifier,flags,last_modified) VALUES ('$service','com.github.Electron',0,2,4,1,'UNUSED',0,strftime('%s','now'));"
+            sudo sqlite3 "/Library/Application Support/com.apple.TCC/TCC.db" "$sql"
+            sqlite3 "$HOME/Library/Application Support/com.apple.TCC/TCC.db" "$sql"
+          done
+      - name: macOS, started as its own app, after the permission
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        run: |
+          app="$PWD/node_modules/electron/dist/Electron.app"
+          open -n -W -a "$app" --env DEV_CUA_PROBE_OUT="$PWD/probe-open-after.json" --args "$PWD/scripts/testing/dev-cua-probe.electron.mjs"
+          cat probe-open-after.json
+      - name: What each start reported
+        if: always()
+        run: |
+          for file in probe-shell.json probe-open-before.json probe-open-after.json; do
+            [ -f "$file" ] || continue
+            { echo "### $file"; echo '```json'; cat "$file"; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done

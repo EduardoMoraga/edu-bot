@@ -5521,6 +5521,7 @@
   "computer.mac.permission.requiredOne": "{permission} is required for {app} to use this computer. Grant it in System Settings → Privacy & Security, then relaunch {app}.",
   "computer.mac.permission.requiredBoth": "Screen Recording and Accessibility are required for {app} to use this computer. Grant them in System Settings → Privacy & Security, then relaunch {app}.",
   "computer.mac.permission.generic": "Local computer control is not ready. {app} needs Accessibility and Screen Recording to use this Mac. Check Driver detail or System Settings, then click Retry.",
+  "computer.mac.permission.devRun": "This is a development run. In System Settings the app is listed as Electron, or as the terminal you started it from. Allow that one.",
   "computer.windows.title": "Screen control isn't running on this PC",
   "computer.windows.body": "Bots here and on the Cloud can't use this PC's apps and screen until it runs.",
   "computer.windows.blocked": "Windows Security may have stopped it. Allow it under Windows Security → Protection history, or reinstall {app}.",
