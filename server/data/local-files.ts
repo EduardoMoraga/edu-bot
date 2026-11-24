@@ -190,6 +190,12 @@ function fileUrlPaths(address: string): string[] | null {
   }
 }
 
+/** Whether a `file:` address names another computer, or a protected place on this one under either reading. */
+export function addressOpensProtected(address: string, places: ProtectedPlaces): boolean {
+  const paths = fileUrlPaths(address.trim());
+  return paths === null || paths.some((local) => opensProtected(local, places));
+}
+
 /** The files a pattern matches, as DuckDB itself expands it; null when there are more than CHECKED_FILES_MAX. */
 export type ExpandPattern = (pattern: string) => Promise<string[] | null>;
 

@@ -3,6 +3,7 @@ import { existsSync, globSync, lstatSync, mkdirSync, realpathSync, statSync, wri
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ValidateFunction } from "ajv";
 
 import {
@@ -19,7 +20,7 @@ import {
 } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
 import { openStore, queryNamed, type NamedDataAccess } from "./live.ts";
-import { CHECKED_FILES_MAX, listFolder, localReads, opensProtected, PROTECTED_FILE_SENTENCE, protectedPlaces, readVerdict, TOO_MANY_FILES_SENTENCE, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
+import { addressOpensProtected, CHECKED_FILES_MAX, listFolder, localReads, opensProtected, PROTECTED_FILE_SENTENCE, protectedPlaces, readVerdict, TOO_MANY_FILES_SENTENCE, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
@@ -324,10 +325,10 @@ async function refuseProtectedReads(ctx: DataContext, sql: string): Promise<void
   }
 }
 
-function refuseProtectedFiles(ctx: DataContext, files: string[]): void {
-  if (!ctx.named || !files.length) return;
+function refuseProtectedFiles(ctx: DataContext, files: string[], address?: string): void {
+  if (!ctx.named || (!files.length && address === undefined)) return;
   const places = protectedPlaces(ctx.named.dataDir, openStore(ctx.named), ctx.exportRoots());
-  if (files.some((file) => opensProtected(file, places))) throw fail("invalid_input", PROTECTED_FILE_SENTENCE);
+  if ((address !== undefined && addressOpensProtected(address, places)) || files.some((file) => opensProtected(file, places))) throw fail("invalid_input", PROTECTED_FILE_SENTENCE);
 }
 
 export type LoadKind = "auto" | "csv" | "tsv" | "parquet" | "json" | "xlsx" | "sqlite" | "folder" | "url" | "postgres" | "mysql" | "gsheet";
@@ -357,12 +358,22 @@ export interface LoadPlan {
 
 const GLOB_CHARS = /[*?[\]]/;
 const REMOTE_ADDRESS = /^(?!file:)[a-z][a-z0-9+.-]*:\/\//i;
-/** DuckDB 1.5 reads a `file:` address by dropping the scheme and the host, and decodes nothing. */
 const FILE_ADDRESS = /^file:(?:\/\/[^/\\]*)?/i;
+
+/** The local path a `file:` address names; an address Node cannot read as one keeps its path as typed. */
+function localPathOf(source: string): string {
+  if (!/^file:/i.test(source)) return source;
+  try {
+    const url = new URL(source);
+    url.hostname = "";
+    return fileURLToPath(url);
+  } catch {
+    return source.replace(FILE_ADDRESS, "");
+  }
+}
 /** DuckDB 1.5 expands a pattern in every file name it is given, so a name is passed with its pattern characters
- * bracketed, and with forward slashes, which it takes on every platform. */
-const PATTERN_CHARS = /[*?[\]]/g;
-const exactName = (file: string) => file.replace(/\\/g, "/").replace(PATTERN_CHARS, "[$&]");
+ * bracketed. */
+const exactName = (file: string) => file.replace(/[*?[\]]/g, "[$&]");
 const COMPRESSION = /\.(gz|zst|zstd|bz2)$/i;
 
 function readerFor(ext: string, kind: LoadKind | undefined): "csv" | "tsv" | "json" | "parquet" | "xlsx" | "sqlite" | null {
@@ -461,7 +472,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
     return [{ kind: "url", source: stripCredentials(source), stem: input.name ?? (stemOf(pathname) || "download"), reader: readerExpression(reader, source, input, false), extensions, warnings }];
   }
   const kind = typed === "url" ? "auto" : typed;
-  const path = source.replace(FILE_ADDRESS, "");
+  const path = localPathOf(source.trim());
   const local = path.startsWith("~/") || path === "~" ? join(homedir(), path.slice(1)) : path;
   const skipped = (links: number) => { if (links) warnings.push(`Skipped ${links} symbolic ${links === 1 ? "link" : "links"}; load a linked file by its own path.`); };
   if (GLOB_CHARS.test(local) && !existsSync(local)) {
@@ -501,7 +512,7 @@ export function planLoad(input: LoadInput): LoadPlan[] {
   if (reader === "xlsx" && GLOB_CHARS.test(local)) throw fail("source_unsupported", `${local} has * ? [ or ] in its name.`, { hint: "Rename the workbook, then load it." });
   if (reader === "xlsx" && !input.sheet) warnings.push("Loaded the workbook's first sheet; pass sheet to load another.");
   if (extensionOf(local).toLowerCase() === ".txt") warnings.push("Read as CSV; pass options.delimiter if the columns did not split.");
-  return [{ kind: reader === "tsv" ? "csv" : reader, source: local, files: [local], stem: input.name ?? (input.sheet ? `${stemOf(local)}_${input.sheet}` : stemOf(local)), reader: readerExpression(reader, reader === "xlsx" ? local : local.replace(PATTERN_CHARS, "[$&]"), input, false), ...(reader === "xlsx" ? { extensions: ["excel" as const] } : {}), warnings }];
+  return [{ kind: reader === "tsv" ? "csv" : reader, source: local, files: [local], stem: input.name ?? (input.sheet ? `${stemOf(local)}_${input.sheet}` : stemOf(local)), reader: readerExpression(reader, reader === "xlsx" ? local : exactName(local), input, false), ...(reader === "xlsx" ? { extensions: ["excel" as const] } : {}), warnings }];
 }
 
 const DATABASE_TABLES_MAX = 25;
@@ -511,6 +522,7 @@ export interface LoadOutput { tables: LoadedTable[]; warnings: string[]; elapsed
 
 export async function loadData(ctx: DataContext, input: LoadInput): Promise<LoadOutput> {
   const started = Date.now();
+  if (/^\s*file:/i.test(input.source)) refuseProtectedFiles(ctx, [], input.source);
   const plans = planLoad(input);
   refuseProtectedFiles(ctx, plans.flatMap((plan) => plan.files ?? []));
   const replace = input.replace !== false;

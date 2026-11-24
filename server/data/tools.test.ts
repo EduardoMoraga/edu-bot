@@ -230,10 +230,9 @@ describe("sources", () => {
     expect(book).toMatchObject({ kind: "xlsx", stem: "book_Q1", reader: `read_xlsx('${join(dir, "book.xlsx")}', sheet='Q1')`, warnings: [] });
     expect(planLoad({ source: join(dir, "book.xlsx") })[0]!.warnings[0]).toContain("first sheet");
     writeFileSync(join(dir, "one.parquet"), "");
-    const forward = dir.replace(/\\/g, "/");
     const glob = planLoad({ source: join(dir, "*.parquet") })[0]!;
     expect(glob).toMatchObject({ kind: "folder", files: [join(dir, "one.parquet")] });
-    expect(glob.reader).toBe(`read_parquet(['${forward}/one.parquet'], union_by_name=true, filename=true)`);
+    expect(glob.reader).toBe(`read_parquet(['${join(dir, "one.parquet")}'], union_by_name=true, filename=true)`);
     expect(() => planLoad({ source: join(dir, "none-*.parquet") })).toThrow(expect.objectContaining({ error: expect.objectContaining({ code: "source_not_found" }) }));
     mkdirSync(join(dir, "nested"));
     writeFileSync(join(dir, "nested", "more.parquet"), "");
@@ -243,8 +242,8 @@ describe("sources", () => {
     expect(folder.map((plan) => plan.stem).sort()).toEqual(["stuff_csv", "stuff_json", "stuff_parquet", "stuff_tsv"]);
     const csvFamily = folder.find((plan) => plan.stem === "stuff_csv")!;
     expect(csvFamily.files).toEqual([join(dir, "it's.csv"), join(dir, "nested", "legacy.txt"), join(dir, "odd[1].CSV")]);
-    expect(csvFamily.reader).toBe(`read_csv(['${forward}/it''s.csv', '${forward}/nested/legacy.txt', '${forward}/odd[[]1[]].CSV'], union_by_name=true, filename=true)`);
-    expect(folder.find((plan) => plan.stem === "stuff_parquet")!.reader).toBe(`read_parquet(['${forward}/nested/more.parquet', '${forward}/one.parquet'], union_by_name=true, filename=true)`);
+    expect(csvFamily.reader).toBe(`read_csv(['${join(dir, "it''s.csv")}', '${join(dir, "nested", "legacy.txt")}', '${join(dir, "odd[[]1[]].CSV")}'], union_by_name=true, filename=true)`);
+    expect(folder.find((plan) => plan.stem === "stuff_parquet")!.reader).toBe(`read_parquet(['${join(dir, "nested", "more.parquet")}', '${join(dir, "one.parquet")}'], union_by_name=true, filename=true)`);
     expect(folder.find((plan) => plan.stem === "stuff_tsv")!.reader).toContain("delim='\t'");
   });
 
