@@ -11,8 +11,8 @@ Hecho = verificado. Cada línea dice cómo se probó.
 | M2 | Memoria Edu en cada bot, con aprobaciones | Hecho (PR #7, #8, #9, #10, 22-11) |
 | M3 | Organización, áreas y bots en archivos | Hecho (PR #13 a #17, 22-11) |
 | M4 | Conector SQL, permisos por bot, registro de auditoría, conectores, Antigravity | Hecho (PR #19 a #26, 22-11) |
-| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | Listo; v0.1.0 en espera (ver M6) |
-| M6 | Auditoría final con dos proveedores, inglés y español completos | En curso |
+| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | Hecho (PR #28 a #31 y #34; v0.1.0 publicada 24-11) |
+| M6 | Auditoría final con dos proveedores, inglés y español completos | Hecho (PR #32, #33, #35 a #43, 24-11); falta tu prueba en el Mac |
 
 ## M0: salud del repo
 
@@ -179,7 +179,7 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 - [x] M5-2 (#29, fusionado; lo hizo Grok porque Codex no tenía cupo, Agy auditó 2 rondas hasta PASS): README en
   inglés y español, escritos desde el código. Se sacó todo lo de upstream que no es cierto en Edu Bot (MausBot
   Cloud, el servicio de Composio de MausBot, links de descarga de upstream). Explica cómo abrir la app sin firma.
-- [ ] M5-3: publicar la versión v0.1.0.
+- [x] M5-3: versión v0.1.0 publicada el 24-11: https://github.com/EduardoMoraga/edu-bot/releases/tag/v0.1.0
 
 ## M6: revisión final, inglés y español, prueba en la app real
 
@@ -205,8 +205,10 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 - [x] v0.1.0 armada con todo lo anterior: borrador privado listo, con 7 instaladores (Mac Apple e Intel, Windows,
   Linux), SHA256SUMS y notas en inglés y español. Pasó CI completo, también Mac. (Un test de Mac solo fallaba en la
   línea de lanzamiento por un simulador incompleto; arreglado en #42.)
-- [ ] **Publicar v0.1.0**: espera tu prueba de 2 minutos en el Mac (paso 7 de "Necesito de Eduardo"). Si prefieres,
-  la publico antes y la prueba queda para después.
+- [x] **v0.1.0 publicada** (24-11, a pedido de Eduardo): https://github.com/EduardoMoraga/edu-bot/releases/tag/v0.1.0
+  Tiene 16 archivos. La descarga pública funciona (probado con `SHA256SUMS`).
+- [ ] **Pendiente: tu prueba de "Usar este computador" en el Mac** (paso 7 de "Necesito de Eduardo"). Se publicó
+  antes, como pediste. Si falla, lo arreglo y saco una v0.1.1.
 - Quedan como están (decidido): la pieza de Windows `agent-browser` se baja de upstream (fijada por SHA256); el
   test "browser driver S4" de Windows se reintenta; los nombres internos `openmausbot` del archivo de bloqueo y la
   caché no se cambian (cambiarlos necesita migración).
@@ -324,7 +326,8 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
    la app (el README explica cómo abrirla igual). Para Mac: Apple Developer ID (USD 99 al año) y sus secretos
    `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD` y los de notarización. Para Windows: un certificado de firma de código
    (`WIN_CSC_LINK`). No es urgente.
-7. **Probar "Usar este computador" en tu Mac (2 minutos).** Con el repo actualizado (`git pull`):
+7. **Pendiente: probar "Usar este computador" en tu Mac (2 minutos).** La v0.1.0 ya está publicada; esta prueba
+   quedó para después. Con el repo actualizado (`git pull`):
    1. En la Terminal: `pnpm install`.
    2. `pnpm dev:server` (déjalo abierto). En otra pestaña: `pnpm dev` (déjalo abierto).
    3. En una tercera pestaña: `pnpm dev:desktop`. La primera vez dice "Getting the screen control driver". Espera.
