@@ -13,8 +13,10 @@ No se toca `cheil-sofland` (es de otra persona), ni `C:\Cheil`, ni datos de Chei
 
 ## Estado
 
-**En curso.** H2 a H5 esperan que el Mac mini comparta. El resto está **preparado, falta correrlo**. Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza
-mi llave SSH y FFM no tiene SSH. Los comandos de abajo son para Edu Git; los pasos con las manos son para Eduardo.
+**En curso.** Edu Bot 0.1.0 ya está instalado y abierto en el Mac mini y en FFM. H2 a H5 esperan que el Mac mini
+comparta (pasos 1 a 3 de Eduardo). El resto está **preparado, falta correrlo**.
+
+Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza mi llave SSH y FFM no tiene SSH. Los comandos de abajo son para Edu Git; los pasos con las manos son para Eduardo.
 
 ## Lo que ya revisé (desde omarchy, 24-11)
 
@@ -48,7 +50,7 @@ Lo que dice el código (revisado, sin cambios):
 
 | # | Chequeo | Resultado |
 | --- | --- | --- |
-| H1 | Edu Bot 0.1.0 abierto, servidor en `127.0.0.1:8799` | pendiente |
+| H1 | Edu Bot 0.1.0 abierto, servidor en `127.0.0.1:8799` | **A medias** (Edu Git, 14:07 Chile): no estaba instalado. Se instaló el `.dmg` de la v0.1.0 y se abrió; el proceso corre. A los 10 s **no escuchaba en 8799**. Falta ver en qué puerto queda |
 | H2 | **Tus otros ordenadores** encendido: dice `Listo en https://…ts.net` (o `http://…:8799`) | **No listo** (24-11, 16:59 UTC): el Mac mini no comparte nada. Ver "Intentos H2 a H5" |
 | H3 | Desde omarchy: `/.well-known/openmausbot/environment` responde por Tailscale | **Falla por ahora**: `curl: (7) Failed to connect to mac-mini-de-eduardomoraga.tail9f9734.ts.net:443` (y `:8799`) |
 | H4 | Seguridad: `Host: evil.example.com` da 421; `/api/bots` sin sesión da 403 | pendiente: necesita H3 |
@@ -58,6 +60,24 @@ Lo que dice el código (revisado, sin cambios):
 | H8 | Un bot del home ve la pantalla de FFM (captura) y abre Chrome en FFM | pendiente |
 | H9 | El teléfono aparece en la lista de teléfonos del home | pendiente |
 
+### Instalación en el Mac mini (Edu Git, 24-11, 14:07 hora de Chile)
+
+- Al llegar: Edu Bot **no estaba instalado** ni corriendo. Nada en `:8799`; `/api/health` vacío.
+- Tailscale bien: `100.90.146.38`. Sin `tailscale serve`.
+- Se instaló la v0.1.0 (el `.dmg` de la release) en `/Applications`. Se le quitó la cuarentena y se abrió.
+- El proceso corre. La app guarda sus datos de ventana en `~/Library/Application Support/Edu Bot`.
+- A los 10 s todavía **no escuchaba en 8799**. La app prueba los puertos 8799, 18799 y 28799, en ese orden
+  (`electron/desktop-ports.mjs`). El registro del servidor está en `~/Library/Logs/Edu Bot/server.log`.
+- **No confirmado**: que **Tus otros ordenadores** esté encendido. Antes no se podía, porque la app no existía.
+
+Para saber en qué puerto quedó (Edu Git, en el Mac mini):
+
+```sh
+lsof -nP -iTCP -sTCP:LISTEN | grep -iE 'edu|electron|node' | head
+for p in 8799 18799 28799; do printf '%s: ' $p; curl -s -m 3 http://127.0.0.1:$p/api/health; echo; done
+tail -n 40 ~/Library/Logs/"Edu Bot"/server.log
+```
+
 ### Intentos H2 a H5 (desde omarchy, que está en la misma red local que el Mac mini, `192.168.68.55`)
 
 **24-11, 16:59 UTC.** El Mac mini está en línea en Tailscale (`tailscale ping`: 100 ms, directo por
@@ -65,7 +85,9 @@ Lo que dice el código (revisado, sin cambios):
 8443 rechazan la conexión (`Connection refused`). Quiere decir que Edu Bot no está abierto, o que **Tus otros
 ordenadores** está apagado. Faltan los pasos 1 a 3 de Eduardo en el Mac mini.
 
-Queda una vigilancia en omarchy: cuando el Mac mini abra 443 u 8799, corre sola estos chequeos y los anoto aquí.
+Queda una vigilancia en omarchy: cuando el Mac mini abra 443, 8799, 18799 o 28799, corre sola estos chequeos y
+los anoto aquí. A las 17:06 UTC (después de la instalación) los cuatro seguían cerrados por Tailscale: es lo
+esperado mientras **Tus otros ordenadores** esté apagado, porque la app escucha solo en `127.0.0.1`.
 
 - H3: `GET /.well-known/openmausbot/environment` y `/api/health` sin sesión, por `https://<nombre>` y
   `http://<nombre>:8799`.
@@ -78,13 +100,24 @@ Queda una vigilancia en omarchy: cuando el Mac mini abra 443 u 8799, corre sola 
 
 | # | Chequeo | Resultado |
 | --- | --- | --- |
-| F1 | Edu Bot 0.1.0 instalado sin admin (instalador por usuario) y abierto | pendiente |
+| F1 | Edu Bot 0.1.0 instalado sin admin (instalador por usuario) y abierto | **OK** (Edu Git, 14:07 Chile): `EduBot-0.1.0-setup.exe /S` instaló en `%LOCALAPPDATA%\Programs\edu-bot`, sin admin. La app corre |
 | F2 | **＋ → Conectar a un servidor** encuentra el Mac mini y dice "Tailscale" | pendiente |
 | F3 | Conecta y se puede chatear con un bot del home desde FFM | pendiente |
 | F4 | Sale "¿Dejar que … use este equipo?" y Permitir funciona | pendiente |
 | F5 | **Ajustes → Servidores**: compartir la carpeta `EduBotPrueba` (solo lectura) | pendiente |
 | F6 | Permisos de pantalla en Windows: el controlador de pantalla corre | pendiente |
 | F7 | **Ajustes → Servidores → Acceso al equipo** registra lo que hizo el bot | pendiente |
+
+### Instalación en FFM (Edu Git, 24-11, 14:07 hora de Chile)
+
+- Tailscale bien: `100.124.16.12`.
+- Solo había un clon viejo del código (`ee20686`), cerrado. No se usó.
+- Se instaló la v0.1.0 con `EduBot-0.1.0-setup.exe /S` en `%LOCALAPPDATA%\Programs\edu-bot`, sin admin. La app
+  corre.
+- Chrome está en `C:\Program Files\Google\Chrome\Application\chrome.exe`.
+- Carpeta de prueba creada: `%USERPROFILE%\EduBotPrueba\hola.txt`. Es lo único que se va a compartir.
+- Sigue sin aclarar el `HTTP/2 502` en el puerto 443 de FFM (un `tailscale serve` viejo). Para verlo:
+  `& "C:\Program Files\Tailscale\tailscale.exe" serve status`. No molesta: FFM es cliente.
 
 ## Resultados: teléfono
 
