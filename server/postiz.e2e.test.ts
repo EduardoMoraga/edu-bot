@@ -2,6 +2,7 @@
 // both ways of connecting end to end, the bot's turn gets the postiz tools and calls one, the token and the key reach
 // Postiz and nothing else (no answer, transcript, prompt, log or data file), a refused key or address is said plainly,
 // a revoked credential shows as such, and disconnecting takes the tools away.
+import { brokeredAddress } from "./testing/brokered-mcp.ts";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -108,7 +109,7 @@ it("signs in with Postiz Cloud, gives the bot the postiz tools behind a hidden t
 
   const bot = await newBot("Buzz");
   const mounted = await turn(bot.id, [{ server: "postiz", name: "schedulePostTool", input: draft }]);
-  expect(mounted.mcpConfig.mcpServers.postiz).toMatchObject({ url: signInUrl });
+  brokeredAddress(mounted.mcpConfig.mcpServers.postiz);
   // A third-party server: Claude Code loads its tools on demand through tool search.
   expect(mounted.mcpConfig.mcpServers.postiz?.alwaysLoad).toBeUndefined();
   expect(cloud.calls).toEqual([{ name: "schedulePostTool", arguments: draft, authorization: `Bearer ${token}` }]);
@@ -158,7 +159,7 @@ it("connects a person's own Postiz with an API key, refuses a wrong key or addre
 
   const bot = await newBot("Buzz with a key");
   const mounted = await turn(bot.id, [{ server: "postiz", name: "schedulePostTool", input: draft }]);
-  expect(mounted.mcpConfig.mcpServers.postiz).toMatchObject({ url: `${own.url}/mcp` });
+  brokeredAddress(mounted.mcpConfig.mcpServers.postiz);
   expect(own.calls).toEqual([{ name: "schedulePostTool", arguments: draft, authorization: `Bearer ${FAKE_POSTIZ_KEY}` }]);
   expect(cloud.calls.length).toBe(1);
   const messages = JSON.stringify((await api("GET", `/api/threads/${bot.threadId}/messages?limit=50`)).body);
