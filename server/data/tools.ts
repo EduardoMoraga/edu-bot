@@ -18,7 +18,8 @@ import {
   type OmbChartSpec,
 } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
-import { queryNamed, type NamedDataAccess } from "./live.ts";
+import { openStore, queryNamed, type NamedDataAccess } from "./live.ts";
+import { localReads, PROTECTED_FILE_SENTENCE, protectedPlaces, readsProtected, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
@@ -302,6 +303,21 @@ export interface DataContext {
   named?: NamedDataAccess;
 }
 
+/** Security: a bot's local reads never open a connection's file, a folder allowed for connections or the app's data
+ * folder. The person's own panel is not limited. */
+function refuseProtectedPaths(ctx: DataContext, paths: string[], sql?: string): void {
+  if (!ctx.named || !paths.length) return;
+  const places = protectedPlaces(ctx.named.dataDir, openStore(ctx.named), ctx.exportRoots());
+  if (paths.some((path) => readsProtected(path, places))) throw fail("invalid_input", PROTECTED_FILE_SENTENCE, sql ? { sql } : {});
+}
+
+async function refuseProtectedReads(ctx: DataContext, sql: string): Promise<void> {
+  if (!ctx.named) return;
+  const reads = await localReads(sql);
+  if (!reads.ok) throw fail("invalid_input", UNCHECKED_FILES_SENTENCE, { sql });
+  refuseProtectedPaths(ctx, reads.files, sql);
+}
+
 const runOptions = (ctx: DataContext, extra: Partial<RunOptions> = {}): RunOptions =>
   ({ connection: ctx.connection, signal: ctx.signal, timeoutMs: DATA_LIMITS.sqlTimeoutMs, ...extra });
 
@@ -473,6 +489,7 @@ export interface LoadOutput { tables: LoadedTable[]; warnings: string[]; elapsed
 export async function loadData(ctx: DataContext, input: LoadInput): Promise<LoadOutput> {
   const started = Date.now();
   const plans = planLoad(input);
+  refuseProtectedPaths(ctx, plans.filter((plan) => plan.kind !== "url" && plan.kind !== "gsheet").map((plan) => plan.source));
   const replace = input.replace !== false;
   const existing = new Set((await ctx.database.listTables()).map((table) => table.name.toLowerCase()));
   const tables: LoadedTable[] = [];
@@ -560,6 +577,7 @@ export async function describeTarget(ctx: DataContext, target: string): Promise<
   } else {
     const kind = gateSql(target);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Describe takes a table name or a SELECT.", { sql: target });
+    await refuseProtectedReads(ctx, target);
     sql = target;
     relation = queryRelation(target);
   }
@@ -617,6 +635,7 @@ export async function runSql(ctx: DataContext, input: SqlInput): Promise<SqlOutp
     return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: result.elapsedMs };
   }
   const kind = gateSql(input.sql, { allowCreate: true });
+  await refuseProtectedReads(ctx, input.sql);
   if (kind.kind === "create") {
     await ctx.database.run(input.sql, runOptions(ctx));
     const described = await ctx.database.describe(kind.target, runOptions(ctx));
@@ -713,6 +732,7 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
     if (input.sql) {
       const kind = gateSql(input.sql);
       if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "A card shows a SELECT's result.", { sql: input.sql });
+      if (ctx.named) await refuseProtectedReads(ctx, input.sql);
       from = queryRelation(input.sql);
     } else {
       from = await ctx.database.resolveTable(input.table!);
@@ -886,6 +906,7 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
   } else {
     const kind = gateSql(input.sql!);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Export takes a SELECT.", { sql: input.sql });
+    await refuseProtectedReads(ctx, input.sql!);
     relation = queryRelation(input.sql!);
     stem = "query";
   }

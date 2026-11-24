@@ -12,6 +12,7 @@ import { Connection, MspError, type DuplexTransport } from "@muse-code/sdk";
 import { z } from "zod";
 import { instanceEnvNames } from "../bot-box/env.ts";
 import { PROVIDER_CREDENTIAL_ENV, stripControlPlaneEnv, WORKSPACE_CREDENTIAL_ENV } from "../config.ts";
+import { guardEduCrew } from "../edu-crew-guard.ts";
 import type {
   ModelCatalog, ProviderDriver, ProviderInstance, ProviderSnapshot, RequestOutcome, RuntimeEvent,
   RuntimeEventListener, SendTurnInput, SteerOutcome,
@@ -280,6 +281,7 @@ export const MuseCodeDriver: ProviderDriver<MuseConfig> = {
       const env: Record<string, string | undefined> = { ...process.env, ...input.environment, PATH: augmentedPath(), MUSE_NO_AUTO_UPDATE: "1" };
       for (const key of [...PROVIDER_CREDENTIAL_ENV, ...WORKSPACE_CREDENTIAL_ENV]) delete env[key];
       stripControlPlaneEnv(env);
+      guardEduCrew(env);
       if (input.environment.META_API_KEY) env.META_API_KEY = input.environment.META_API_KEY;
       return env;
     };

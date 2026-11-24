@@ -96,6 +96,7 @@ function answerQueue(conn: ReturnType<typeof connect>) {
 const CONTROL_PLANE_FIXTURE = {
   OMB_CLOUD_READY_TOKEN: "ready-should-not-leak", OMB_CLOUD_BOOTSTRAP: "bootstrap-should-not-leak",
   OMB_LICENSE_KEY: "license-should-not-leak", OMB_INSTALLATION_CREDENTIAL: "fleet-should-not-leak",
+  EDU_CLOUD_STEWARD: "edu-cloud-token-should-not-leak",
 };
 
 describe("ClaudeDriver.decodeConfig", () => {
@@ -962,6 +963,7 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     expect(seen.env.ANTHROPIC_API_KEY).toBe("omb_workspace_fixture");
     expect(seen.env.ANTHROPIC_AUTH_TOKEN).toBe("omb_workspace_fixture");
     for (const name of Object.keys(CONTROL_PLANE_FIXTURE)) expect(seen.env[name]).toBeUndefined();
+    expect(seen.env.EDU_CREW_JOB).toMatch(/^edu-bot/);
   });
 
   it("keeps user and system prompts off argv and strips identity env vars", async () => {
@@ -2146,13 +2148,13 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     expect(other.onDemand).toContain("browser");
   });
 
-  it("mounts the Edu brain with its memory tools pre-allowed and the crew-worker guard on the engine alone", async () => {
+  it("mounts the Edu brain with its memory tools pre-allowed and the crew-worker guard on the engine on every turn", async () => {
     await create();
     const dump = join(scratch, "edu.json");
     process.env.FAKE_CLAUDE_DUMP = dump;
     const edu = { command: process.execPath, args: ["/fake/edu/cli.js", "--cwd", "/fake/brain", "mcp", "--profile", "memory"], env: { EDU_LOCK_WORKSPACE: "1" } };
-    const turn = async (threadId: string) => {
-      const { turnId } = await instance.adapter.sendTurn({ threadId, botId: "b-edu", text: "hi", cwd: scratch, integrations: { edu } });
+    const turn = async (threadId: string, mounted = true) => {
+      const { turnId } = await instance.adapter.sendTurn({ threadId, botId: "b-edu", text: "hi", cwd: scratch, ...(mounted ? { integrations: { edu } } : {}) });
       await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
       return JSON.parse(readFileSync(dump, "utf8")) as { argv: string[]; env: Record<string, string>; mcpConfig: { mcpServers: Record<string, { env?: Record<string, string> }> } };
     };
@@ -2160,13 +2162,13 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     const allowed = seen.argv[seen.argv.indexOf("--allowedTools") + 1]!.split(",");
     expect(allowed).toEqual(expect.arrayContaining(["mcp__edu__edu_recall", "mcp__edu__edu_remember", "mcp__edu__edu_propose_canonical", "mcp__edu__edu_session_close"]));
     expect(allowed.filter((name) => name === "mcp__edu" || name === "mcp__edu__edu_project_use" || name.startsWith("mcp__edu__edu_crew"))).toEqual([]);
-    expect(seen.mcpConfig.mcpServers.edu?.env).toMatchObject({ EDU_LOCK_WORKSPACE: "1", EDU_CREW_JOB: "" });
+    expect(seen.mcpConfig.mcpServers.edu?.env).toEqual(edu.env);
     expect(seen.env.EDU_CREW_JOB).toBe("edu-bot:b-edu");
+    expect((await turn("t-edu-unmounted", false)).env.EDU_CREW_JOB).toBe("edu-bot:b-edu");
 
     process.env.EDU_CREW_JOB = "outer-job";
     try {
       const inherited = await turn("t-edu-inherited");
-      expect(inherited.mcpConfig.mcpServers.edu?.env).not.toHaveProperty("EDU_CREW_JOB");
       expect(inherited.env.EDU_CREW_JOB).toBe("outer-job");
     } finally {
       delete process.env.EDU_CREW_JOB;

@@ -10,7 +10,7 @@ const tablesOf = async (sql: string, mode: "named" | "local" = "named") => {
 
 describe("inspectSql", () => {
   it("allows a single select, a column-list CTE, and a recursive CTE", async () => {
-    expect(await inspectSql("SELECT 1", "named")).toEqual({ ok: true, kind: "select", tables: [] });
+    expect(await inspectSql("SELECT 1", "named")).toEqual({ ok: true, kind: "select", tables: [], files: [] });
     expect(await tablesOf("WITH a(x) AS (SELECT 1), b AS (SELECT 2) SELECT * FROM a, b")).toEqual([]);
     expect(await tablesOf("WITH RECURSIVE c(n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM c WHERE n < 3) SELECT * FROM c")).toEqual([]);
   });
@@ -45,9 +45,10 @@ describe("inspectSql", () => {
     expect(await inspectSql("CREATE TABLE stolen AS SELECT * FROM read_csv('payroll.csv')", "named")).toMatchObject({ ok: false });
   });
 
-  it("lets a local query use range and show, and still catches a file read", async () => {
-    expect(await inspectSql("SELECT * FROM range(3)", "local")).toMatchObject({ ok: true });
+  it("lets a local query use range and show, names the files it reads, and refuses a path it cannot read", async () => {
+    expect(await inspectSql("SELECT * FROM range(3)", "local")).toMatchObject({ ok: true, files: [] });
     expect(await inspectSql("SHOW TABLES", "local")).toMatchObject({ ok: true });
-    expect(await inspectSql("SELECT * FROM read_csv('payroll.csv')", "local")).toMatchObject({ ok: false, reason: "unsafe" });
+    expect(await inspectSql("SELECT * FROM read_csv('payroll.csv')", "local")).toMatchObject({ ok: true, files: ["payroll.csv"] });
+    expect(await inspectSql("SELECT * FROM read_csv('pay' || 'roll.csv')", "local")).toMatchObject({ ok: false, reason: "unsafe" });
   });
 });

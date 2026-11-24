@@ -11787,6 +11787,7 @@
   "serverError.engine.notInstalledOrSettings": "{product} no está instalado en este servidor. Instálalo desde {url}, o desde Ajustes si este servidor tiene npm, y vuelve a intentarlo.",
   "serverError.engine.cantStart": "{product} no pudo iniciarse en este servidor. Revisa la ruta del CLI configurada y sus permisos de ejecución.",
   "serverError.profiles.accessRefused": "Estos cambios dan más acceso a los bots, así que hay que confirmarlos desde la app de escritorio o un dispositivo de administrador vinculado.",
+  "serverError.profiles.accessNeedsPlan": "Para dar más acceso hace falta el plan que vio la persona: envía su resumen (digest) como expect.",
   "serverError.profiles.windowsDrive": "Una carpeta de perfiles debe estar en una unidad de este computador, como C:\\Profiles.",
   "serverError.profiles.chooseFolder": "Primero elige una carpeta de perfiles.",
   "serverError.profiles.insideData": "Una carpeta de perfiles no puede estar dentro de la carpeta de datos de esta app.",

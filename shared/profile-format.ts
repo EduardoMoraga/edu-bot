@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { APPROVAL_MODES, approvalCeilingMessage, type ApprovalMode } from "./approval-mode.ts";
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "./bot-profile.ts";
+import { EDU_CLOUD_TOKEN_ENV } from "./edu-brain.ts";
 import { MCP_SERVER_NAME, RESERVED_MCP_NAMES } from "./mcp-name.ts";
 import { AGENT_MAX_SKILLS, isLoopbackHost, TEAM_BRIEF_MAX_BYTES, utf8Bytes } from "./package-format.ts";
 import { findInvisibles, findLeaks, leakIn, type Leak } from "./profile-leaks.ts";
@@ -252,6 +253,7 @@ const eduBrainSchema = z.object({
   }
   if (brain.token === undefined) context.addIssue({ code: "custom", path: ["token"], message: "is required for mode cloud: each person's token, as { secret: NAME }" });
   else if (!secretRefSchema.safeParse(brain.token).success) context.addIssue({ code: "custom", path: ["token"], message: `must be a secret slot; ${SECRET_HINT}` });
+  else if ("env" in (brain.token as SecretRef) && !EDU_CLOUD_TOKEN_ENV.test((brain.token as { env: string }).env)) context.addIssue({ code: "custom", path: ["token", "env"], message: "must name a variable starting with EDU_CLOUD_" });
 }).transform((brain): ProfileEduBrain => brain.mode === "cloud"
   ? { mode: "cloud", url: brain.url as string, token: brain.token as SecretRef }
   : { mode: brain.mode as "own" | "area" | "off" });

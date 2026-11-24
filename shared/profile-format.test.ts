@@ -224,6 +224,8 @@ name: Helper
       ]],
       ["a cloud brain with a written token", withBot("eduBrain: { mode: cloud, url: \"https://brain.example/mcp\", token: abc }"),
         ["areas/bi/bots/analyst.md, line 6: eduBrain.token must be a secret slot; put it in a secret slot instead: { secret: NAME }"]],
+      ["a cloud token from a variable that is not an edu-cloud one", withBot("eduBrain: { mode: cloud, url: \"https://brain.example/mcp\", token: { env: ANTHROPIC_API_KEY } }"),
+        ["areas/bi/bots/analyst.md, line 6: eduBrain.token.env must name a variable starting with EDU_CLOUD_"]],
       ["a plain http cloud brain", withBot("eduBrain: { mode: cloud, url: \"http://brain.example/mcp\", token: { secret: T } }"),
         ["areas/bi/bots/analyst.md, line 6: eduBrain.url must be an https:// address (http:// only for this computer)"]],
       ["eduBrain twice in an area", { ...base(), "areas/bi/area.md": AREA.replace("name: BI\n", "name: BI\neduBrain: { mode: area }\ndefaults:\n  eduBrain: { mode: own }\n") },

@@ -24,6 +24,7 @@ import { tmpdir } from "node:os";
 import { delimiter, isAbsolute, join, resolve } from "node:path";
 
 import { DATA_DIR, PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
+import { guardEduCrew } from "../edu-crew-guard.ts";
 import { writeFileAtomic } from "../atomic.ts";
 import { killCliTree, spawnCli } from "../procs.ts";
 import type { BoxRelay } from "../bot-box/relay.ts";
@@ -262,7 +263,7 @@ export async function prepareAntigravityProfile(input: {
   for (const [key, value] of Object.entries(input.baseEnv ?? process.env)) {
     if (!REMOVED_ENVIRONMENT_KEYS.has(key.toUpperCase())) environment[key] = value;
   }
-  stripWorkspaceCredentialEnv(environment);
+  stripWorkspaceCredentialEnv(environment); guardEduCrew(environment, undefined, input.baseEnv ?? process.env);
   const caBundle = (input.platform ?? process.platform) === "linux" ? linuxCaBundle(input.baseEnv ?? process.env) : undefined;
   const cli = isAntigravityCli(input.runtime);
   Object.assign(environment, {

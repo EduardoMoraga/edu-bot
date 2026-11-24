@@ -7,9 +7,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, wr
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
+import { piEnvironment } from "./pi-environment.ts";
 import { openStartupModelCatalog, unconfirmedModelCatalog, writeStartupModelCache } from "../startup-model-catalog.ts";
-import { augmentedPath } from "../env-path.ts";
 import { describeSpawnFailure, execCliBoxed, killCliTree, spawnCli } from "../procs.ts";
 import { instanceEnvNames } from "../bot-box/env.ts";
 import {
@@ -318,15 +317,6 @@ interface PiEvent {
   method?: string;
   options?: unknown[];
   title?: string;
-}
-
-function piEnvironment(source: Record<string, string | undefined>): Record<string, string | undefined> {
-  const env: Record<string, string | undefined> = { ...source, PATH: augmentedPath() };
-  // pi reads provider keys from its env: an inherited key would flip billing, and workspace
-  // credentials are the harness's secrets.
-  stripWorkspaceCredentialEnv(env);
-  for (const key of PROVIDER_CREDENTIAL_ENV) delete env[key];
-  return env;
 }
 
 export const PiDriver: ProviderDriver<PiConfig> = {

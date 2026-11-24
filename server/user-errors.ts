@@ -261,6 +261,7 @@ export const USER_ERROR = {
   "serverError.engine.notInstalledOrSettings": "{product} is not installed on this server. Install it from {url}, or from Settings when this server has npm, then try again.",
   "serverError.engine.cantStart": "{product} could not start on this server. Check the configured CLI path and its executable permissions.",
   "serverError.profiles.accessRefused": "These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.",
+  "serverError.profiles.accessNeedsPlan": "Giving more access needs the plan the person saw: send its digest as expect.",
   "serverError.profiles.windowsDrive": "A profile folder must be on a drive of this computer, such as C:\\Profiles.",
   "serverError.profiles.chooseFolder": "Choose a profile folder first.",
   "serverError.profiles.insideData": "A profile folder cannot be inside this app's data folder.",

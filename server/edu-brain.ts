@@ -4,12 +4,13 @@ import { execFile } from "node:child_process";
 import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, normalize, resolve } from "node:path";
 
-import { EDU_AREA_KEY, eduCloudUrlProblem, type EduBrainSetting, type EduCloudToken, type EduState } from "../shared/edu-brain.ts";
+import { EDU_AREA_KEY, EDU_CLOUD_TOKEN_ENV, eduCloudUrlProblem, type EduBrainSetting, type EduCloudToken, type EduState } from "../shared/edu-brain.ts";
 import { canUseMcpServer } from "../shared/tool-scope.ts";
 import { createBriefCache, EDU_BRIEF_TIMEOUT_MS, eduBriefText, eduPromptParts } from "./edu-brief.ts";
 import { EDU_CLOUD_NO_TOKEN, EDU_CLOUD_NOT_LOCAL, type EduCloud, type EduCloudTurn } from "./edu-cloud.ts";
 import { augmentedPath, findCliCandidates, resolveCliSpawn, userHome } from "./env-path.ts";
-import { AGENTS_NODE_FLAG } from "./proxy-paths.ts";
+import { inheritsEduCrewGuard } from "./edu-crew-guard.ts";
+import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { eduStoreRefusal } from "./edu-store.ts";
 import { isInside, resolveThroughLinks } from "./sentinel/paths.ts";
 import type { PromptPart } from "./system-prompt.ts";
@@ -129,7 +130,7 @@ function cloudTokenOf(value: unknown): EduCloudToken | null {
   const keys = record ? Object.keys(record) : [];
   if (keys.length !== 1) return null;
   if (typeof record!.secret === "string" && /^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(record!.secret)) return { secret: record!.secret };
-  if (typeof record!.env === "string" && /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(record!.env)) return { env: record!.env };
+  if (typeof record!.env === "string" && EDU_CLOUD_TOKEN_ENV.test(record!.env)) return { env: record!.env };
   return null;
 }
 
@@ -154,7 +155,7 @@ export function parseEduBrainSetting(value: unknown): { ok: true; value: EduBrai
     const problem = url.length > 2000 ? "is too long" : eduCloudUrlProblem(url);
     if (problem) return { ok: false, error: `eduBrain.url ${problem}` };
     const token = cloudTokenOf(record.token);
-    if (!token) return { ok: false, error: "eduBrain.token must name where this person's token is kept: {secret: NAME} for a Vault secret, or {env: NAME}" };
+    if (!token) return { ok: false, error: "eduBrain.token must name where this person's token is kept: {secret: NAME} for a Vault secret, or {env: EDU_CLOUD_NAME}" };
     return { ok: true, value: { mode: "cloud", url, token } };
   }
   return { ok: false, error: "eduBrain must be {mode: \"off\"}, {mode: \"own\"}, {mode: \"folder\", path}, {mode: \"area\", area} or {mode: \"cloud\", url, token}" };
@@ -354,10 +355,12 @@ export function createEduBrains(deps: EduBrainDeps) {
     }
   }
 
+  /** Started without the engine's crew-worker guard, unless Edu Bot itself runs as a crew worker. */
   function server(runtime: EduRuntime, folder: string): EduStdioServer {
+    const edu = [runtime.cli!, "--cwd", folder, "mcp", "--profile", "memory"];
     return {
       command: process.execPath,
-      args: [runtime.cli!, "--cwd", folder, "mcp", "--profile", "memory"],
+      args: inheritsEduCrewGuard(env) ? edu : [SPAWNED_PROXIES.eduMcp, ...edu],
       // EDU_LOCK_WORKSPACE refuses edu_project_use; Edu 6.0.0 ignores --project under it, so the brain comes from --cwd.
       env: { ...AGENTS_NODE_FLAG, EDU_LOCK_WORKSPACE: "1", EDU_HOME: runtime.home },
     };
@@ -479,18 +482,5 @@ export interface EduTurn {
   generation?: string;
 }
 
-/** Claude Code 2.1.330 starts an MCP child with its own environment plus the server's `env`, an empty value included, so
- * the engine (and its shell) carries Edu's crew-worker guard while the `edu` server alone has it cleared. A guard Edu Bot
- * inherited is kept for both. */
-export function claudeEduMount(edu: EduStdioServer, botId: string | undefined, engineEnv: NodeJS.ProcessEnv): ClaudeEduMount {
-  const allowed = EDU_PREALLOWED_TOOLS.map((tool) => `mcp__edu__${tool}`);
-  if (engineEnv.EDU_CREW_JOB?.trim()) return { server: edu, engineEnv: {}, allowed };
-  return { server: { ...edu, env: { ...edu.env, EDU_CREW_JOB: "" } }, engineEnv: { EDU_CREW_JOB: `edu-bot:${botId ?? "bot"}` }, allowed };
-}
-
-export interface ClaudeEduMount {
-  server: EduStdioServer;
-  engineEnv: Record<string, string>;
-  /** Claude's pre-allowed tool names for the server. */
-  allowed: string[];
-}
+/** Claude's pre-allowed tool names for the turn's `edu` server. */
+export const CLAUDE_EDU_ALLOWED = EDU_PREALLOWED_TOOLS.map((tool) => `mcp__edu__${tool}`);

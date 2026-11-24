@@ -1,5 +1,6 @@
 // Credential env names and the strippers that keep them out of child processes. Lives apart from
 // config.ts so the lists can grow (one name per engine) without that file growing with them.
+import { EDU_CLOUD_TOKEN_ENV_PREFIX } from "../shared/edu-brain.ts";
 
 /** Workspace credential env names; spawned engine CLIs must never inherit them. */
 export const WORKSPACE_CREDENTIAL_ENV = [
@@ -50,7 +51,7 @@ export const CONTROL_PLANE_ENV_PREFIX = "OMB_CLOUD_";
 export function stripControlPlaneEnv(env: Record<string, string | undefined>): void {
   for (const key of Object.keys(env)) {
     const name = key.toUpperCase();
-    if (name.startsWith(CONTROL_PLANE_ENV_PREFIX) || (CONTROL_PLANE_ENV as readonly string[]).includes(name)) delete env[key];
+    if (name.startsWith(CONTROL_PLANE_ENV_PREFIX) || name.startsWith(EDU_CLOUD_TOKEN_ENV_PREFIX) || (CONTROL_PLANE_ENV as readonly string[]).includes(name)) delete env[key];
   }
 }
 

@@ -27,10 +27,19 @@ import {
   splitPiModel,
   updatePiModelCatalog,
 } from "./pi.ts";
+import { piEnvironment } from "./pi-environment.ts";
 
 const FAKE_CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "testing", "fake-pi-cli.ts");
 const MODELS_LINE =
   '{"type":"response","command":"get_available_models","success":true,"data":{"models":[{"provider":"ollama-cloud","id":"glm-5.2","name":"glm-5.2"},{"provider":"openai","id":"gpt-4o","name":"GPT-4o"}]}}';
+
+describe("piEnvironment", () => {
+  it("carries Edu's crew-worker guard and no edu-cloud token", () => {
+    const env = piEnvironment({ PATH: "/usr/bin", EDU_CLOUD_STEWARD: "edu-cloud-token" });
+    expect(env.EDU_CREW_JOB).toBe("edu-bot");
+    expect(env).not.toHaveProperty("EDU_CLOUD_STEWARD");
+  });
+});
 
 describe("parsePiCatalog", () => {
   it("turns a get_available_models response into custom composite-id options", () => {

@@ -43,9 +43,9 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
     const regions = ["north", "south", "west"];
     const lines = ["region,amount,day"];
     for (let i = 0; i < 300; i++) lines.push(`${regions[i % 3]},${(i % 17) + 1},2026-10-${String((i % 10) + 1).padStart(2, "0")}`);
-    const csv = join(dataDir, "sales.csv");
-    writeFileSync(csv, lines.join("\n") + "\n");
     mkdirSync(join(dataDir, "Downloads"), { recursive: true });
+    const csv = join(dataDir, "Downloads", "sales.csv");
+    writeFileSync(csv, lines.join("\n") + "\n");
 
     const minted = await api("POST", "/api/testing/internal-capability", { botId: bot.id, threadId, kind: "data" }, 201, { "x-openmausbot-test-capability": CAPABILITY_KEY });
     const mcp = async (method: string, params?: unknown, token: string = minted.token) =>

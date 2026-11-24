@@ -25,7 +25,10 @@ export interface EduBrainField {
 const ABSOLUTE_PATH = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/;
 export const EDU_AREA_KEY = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const SECRET_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+/** The only variables a cloud token may come from. Security: Edu Bot removes every variable with this prefix from each
+ * engine and MCP server it starts, so the bot's own shell never reads the person's token. */
+export const EDU_CLOUD_TOKEN_ENV_PREFIX = "EDU_CLOUD_";
+export const EDU_CLOUD_TOKEN_ENV = /^EDU_CLOUD_[A-Za-z0-9_]{1,118}$/;
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 /** Why `value` cannot be an edu-cloud address, or null: https, or http on this computer only, with no user, query or
@@ -42,7 +45,7 @@ export function eduCloudUrlProblem(value: string): string | null {
 
 const cloudTokenSchema = z.union([
   z.object({ secret: z.string().regex(SECRET_NAME) }).strict(),
-  z.object({ env: z.string().regex(ENV_NAME) }).strict(),
+  z.object({ env: z.string().regex(EDU_CLOUD_TOKEN_ENV) }).strict(),
 ]);
 
 /** An `EduBrainSetting` as a file carries it; `folder` needs an absolute path. */

@@ -80,14 +80,22 @@ posixOnly("profile apply routes", () => {
     expect(await profileBots()).toEqual([]);
   });
 
+  it("refuses more access without the plan the person saw, and applies nothing", async () => {
+    const blind = await api("POST", "/api/profiles/apply", { giveAccess: true }, "admin");
+    expect(blind.status).toBe(400);
+    expect(blind.body.error).toBe("Giving more access needs the plan the person saw: send its digest as expect.");
+    expect(await profileBots()).toEqual([]);
+  });
+
   it("refuses more access from a program on this computer, and applies nothing", async () => {
-    const refused = await api("POST", "/api/profiles/apply", { giveAccess: true });
+    const { digest } = (await api("POST", "/api/profiles/plan", {})).body;
+    const refused = await api("POST", "/api/profiles/apply", { giveAccess: true, expect: digest });
     expect(refused.status).toBe(403);
     expect(refused.body.error).toBe("These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.");
     expect(refused.body.lines.map((line: Rec) => line.text)).toEqual(["Analista BI: Edu brain the shared brain of area bi", "Analista BI: Edu crew on",
       "Reporter: Edu brain the shared brain of area bi", "Closer: Edu brain edu-cloud at https://brain.acme.example/mcp, token from secret EDU_CLOUD_SALES", NOTION_ADD]);
     expect(await profileBots()).toEqual([]);
-    expect((await api("POST", "/api/profiles/apply", { giveAccess: true }, "member")).status).toBe(403);
+    expect((await api("POST", "/api/profiles/apply", { giveAccess: true, expect: digest }, "member")).status).toBe(403);
     expect(await profileBots()).toEqual([]);
   });
 

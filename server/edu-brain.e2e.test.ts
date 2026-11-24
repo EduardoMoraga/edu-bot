@@ -52,7 +52,7 @@ it.skipIf(!cli)("gives a bot its own Edu brain: a remembered note lands there an
 
     const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
     expect(dump.mcpConfig.mcpServers.edu.args.slice(-5)).toEqual(["--cwd", brain, "mcp", "--profile", "memory"]);
-    expect(dump.mcpConfig.mcpServers.edu.env).toMatchObject({ EDU_LOCK_WORKSPACE: "1", EDU_HOME: eduHome, EDU_CREW_JOB: "" });
+    expect(dump.mcpConfig.mcpServers.edu.env).toMatchObject({ EDU_LOCK_WORKSPACE: "1", EDU_HOME: eduHome });
     expect(dump.env.EDU_CREW_JOB).toBe(`edu-bot:${bot.id}`);
 
     const transcript = JSON.stringify((await api("GET", `/api/threads/${bot.threadId}/messages?limit=100`)).body.messages);
@@ -86,7 +86,7 @@ it("mounts no Edu and still answers when Edu is not installed", async () => {
     await runControlOmb(["wait", "--bot", bot.id, "--timeout", "60", "--url", fixture.info.url]);
     const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
     expect(dump.mcpConfig.mcpServers.edu).toBeUndefined();
-    expect(dump.env.EDU_CREW_JOB).toBeUndefined();
+    expect(dump.env.EDU_CREW_JOB).toBe(`edu-bot:${bot.id}`);
     expect((await api("GET", `/api/bots/${bot.id}/memory`)).body.edu).toMatchObject({ state: "missing", mode: "own" });
     const rows = (await api("GET", `/api/threads/${bot.threadId}/messages?limit=50`)).body.messages as any[];
     expect(rows.some((row) => row.role === "bot" && String(row.text ?? "").length > 0)).toBe(true);

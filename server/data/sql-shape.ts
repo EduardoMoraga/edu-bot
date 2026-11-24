@@ -16,8 +16,9 @@ export interface SqlTable {
   table: string;
 }
 
+/** `files` are the paths a local read names, each a string literal; a read whose path is not one is unsafe. */
 export type SqlInspection =
-  | { ok: true; kind: "select"; tables: SqlTable[] }
+  | { ok: true; kind: "select"; tables: SqlTable[]; files: string[] }
   | { ok: false; reason: "not-select" | "unsafe" | "unparsed" };
 
 const IDENTIFIER = /^[A-Za-z_\u0080-\uffff][A-Za-z0-9_\u0080-\uffff]*$/;
@@ -36,9 +37,45 @@ function fileFunction(name: string): boolean {
   return FILE_FUNCTIONS.has(folded) || folded.endsWith("_scan") || folded === "getenv" || folded === "current_setting";
 }
 
+function readsFiles(name: string): boolean {
+  const folded = name.toLowerCase();
+  return fileFunction(folded) || /^(read_|parquet_|iceberg_|delta_|sqlite_|st_read)/.test(folded) || folded === "sniff_csv";
+}
+
+function aliasOf(node: unknown): string {
+  const alias = node && typeof node === "object" ? (node as { alias?: unknown }).alias : "";
+  return typeof alias === "string" ? alias.toLowerCase() : "";
+}
+
+/** The string literals a value names: one constant, or a list of constants. Null when it is anything else. */
+function literalStrings(node: unknown): string[] | null {
+  if (!node || typeof node !== "object") return null;
+  const record = node as { class?: unknown; function_name?: unknown; children?: unknown; value?: { is_null?: unknown; value?: unknown } };
+  if (record.class === "CONSTANT") return record.value?.is_null === true ? [] : typeof record.value?.value === "string" ? [record.value.value] : null;
+  if (record.class === "FUNCTION" && (record.function_name === "list_value" || record.function_name === "list_pack") && Array.isArray(record.children)) {
+    const values: string[] = [];
+    for (const child of record.children) {
+      const strings = literalStrings(child);
+      if (!strings) return null;
+      values.push(...strings);
+    }
+    return values;
+  }
+  return null;
+}
+
+/** A file-reading table function's paths: its first positional argument, or its `path` argument. */
+function pathArguments(fn: unknown): string[] | null {
+  const children = fn && typeof fn === "object" ? (fn as { children?: unknown }).children : undefined;
+  if (!Array.isArray(children)) return [];
+  const argument = children.find((child) => aliasOf(child) === "") ?? children.find((child) => ["path", "file", "files"].includes(aliasOf(child)));
+  return argument === undefined ? [] : literalStrings(argument);
+}
+
 interface WalkState {
   mode: "named" | "local";
   tables: SqlTable[];
+  files: string[];
   unsafe: boolean;
 }
 
@@ -83,10 +120,10 @@ async function inspectUnlocked(sql: string, mode: "named" | "local"): Promise<Sq
     return { ok: false, reason: "unparsed" };
   }
   if (!Array.isArray(body.statements) || body.statements.length !== 1) return { ok: false, reason: "not-select" };
-  const state: WalkState = { mode, tables: [], unsafe: false };
+  const state: WalkState = { mode, tables: [], files: [], unsafe: false };
   walk(body.statements[0], new Set(), new WeakSet(), state);
   if (state.unsafe) return { ok: false, reason: "unsafe" };
-  return { ok: true, kind: "select", tables: state.tables };
+  return { ok: true, kind: "select", tables: state.tables, files: state.files };
 }
 
 function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, state: WalkState): void {
@@ -115,7 +152,10 @@ function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, s
     const catalog = typeof record.catalog_name === "string" ? record.catalog_name : "";
     if (!table) return;
     if (!catalog && !schema && ctes.has(table.toLowerCase())) return;
-    if (isPathTable(table)) state.unsafe = true;
+    if (isPathTable(table)) {
+      if (state.mode === "local") state.files.push(table);
+      else state.unsafe = true;
+    }
     state.tables.push({ catalog, schema, table });
     return;
   }
@@ -126,8 +166,15 @@ function walk(node: unknown, ctes: ReadonlySet<string>, seen: WeakSet<object>, s
   }
   if (record.type === "TABLE_FUNCTION") {
     const name = functionName(record.function);
-    if (state.mode === "named" || fileFunction(name)) state.unsafe = true;
-    walk(record.function, ctes, seen, state);
+    if (state.mode === "named") state.unsafe = true;
+    else if (readsFiles(name)) {
+      const paths = pathArguments(record.function);
+      if (paths) state.files.push(...paths);
+      else state.unsafe = true;
+    }
+    const fn = record.function;
+    if (state.mode === "local" && fn && typeof fn === "object") for (const value of Object.values(fn)) walk(value, ctes, seen, state);
+    else walk(fn, ctes, seen, state);
     return;
   }
   if (record.type === "FUNCTION" || record.class === "FUNCTION") {

@@ -8,4 +8,4 @@ Do not point this at a live app. The fixture's data directory is removed when th
 
 ## Known limits
 
-The local data tools follow the bot's own file access, as upstream. A bot whose engine has shell or file tools can already read local files. Hardening is planned.
+The table allowlist is the hard boundary for named connections. The local data tools (`data_load`, and `data_sql`, `data_describe`, `data_show` and `data_export` without `on`) read files with the app's rights, like the bot's terminal. They refuse a path whose real location is a connection's database file, inside a folder allowed for connections, or inside Edu Bot's data folder (except the bots' working folders and attachments); a SQL read whose path is not a plain string is refused too. Every other file the bot can reach stays readable, with no approval card. The check is `server/data/local-files.test.ts`.

@@ -167,6 +167,9 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
         const parsed = requestSchema.safeParse(await readBody(req));
         if (!parsed.success) return json(res, 400, { error: parsed.error.issues[0]?.message ?? "invalid request" });
         if (path === "/api/profiles/plan") return json(res, 200, (await plan(req, auth, parsed.data)).planned.plan satisfies ProfilePlan);
+        if (parsed.data.giveAccess === true && parsed.data.expect === undefined) {
+          return json(res, 400, userError("serverError.profiles.accessNeedsPlan"));
+        }
         if (applying) return json(res, 409, userError("serverError.profiles.busy"));
         applying = true;
         try {

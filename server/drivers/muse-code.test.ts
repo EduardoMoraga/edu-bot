@@ -150,6 +150,7 @@ describe.skipIf(process.platform === "win32")("Muse Code's process", () => {
 
   it("starts through the shared launcher, in the conversation's engine home, and stops with the instance", async () => {
     const { cli, log } = fakeMuse();
+    vi.stubEnv("EDU_CLOUD_STEWARD", "edu-cloud-token");
     const home = join(root, "home");
     const dataDir = join(home, ".edubot");
     mkdirSync(dataDir, { recursive: true });
@@ -169,7 +170,8 @@ describe.skipIf(process.platform === "win32")("Muse Code's process", () => {
       const bot = spawned.mock.calls.findIndex((call) => call[3] === "bot");
       expect(bot).toBeGreaterThanOrEqual(0);
       expect(spawned.mock.calls[bot]![1]).toEqual(["serve", "--trust-workspace"]);
-      expect(spawned.mock.calls[bot]![2]).toMatchObject({ cwd: root, box: { allowEnv: ["HOME"] } });
+      expect(spawned.mock.calls[bot]![2]).toMatchObject({ cwd: root, box: { allowEnv: ["HOME"] }, env: { EDU_CREW_JOB: "edu-bot" } });
+      expect(spawned.mock.calls[bot]![2]!.env).not.toHaveProperty("EDU_CLOUD_STEWARD");
       engine = spawned.mock.results[bot]!.value;
       const launches = readFileSync(log, "utf8").trim().split("\n").map((line) => JSON.parse(line) as { argv: string[]; home: string });
       expect(launches.find((launch) => launch.argv.includes("--trust-workspace"))?.home).toBe(audienceHome(dataDir, "member:p_bob"));

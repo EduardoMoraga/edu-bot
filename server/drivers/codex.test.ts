@@ -62,6 +62,7 @@ function processIsAlive(pid: number): boolean {
 const CONTROL_PLANE_FIXTURE = {
   OMB_CLOUD_READY_TOKEN: "ready-should-not-leak", OMB_CLOUD_BOOTSTRAP: "bootstrap-should-not-leak",
   OMB_LICENSE_KEY: "license-should-not-leak", OMB_INSTALLATION_CREDENTIAL: "fleet-should-not-leak",
+  EDU_CLOUD_STEWARD: "edu-cloud-token-should-not-leak",
 };
 
 describe("CodexDriver.decodeConfig", () => {
@@ -851,6 +852,7 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n');});`)
     expect(seen.env.BOX_TOKEN).toBeUndefined();
     expect(seen.env.OMB_TTS_KEY).toBeUndefined();
     for (const name of Object.keys(CONTROL_PLANE_FIXTURE)) expect(seen.env[name]).toBeUndefined();
+    expect(seen.env.EDU_CREW_JOB).toBe("edu-bot");
     const methods = seen.calls.map((c: { method: string }) => c.method);
     expect(methods).toEqual(["initialize", "initialized", "config/read", "thread/start", "turn/start"]);
     const turnStart = seen.calls.at(-1);
