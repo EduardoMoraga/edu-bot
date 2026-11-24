@@ -489,7 +489,7 @@ export interface LoadOutput { tables: LoadedTable[]; warnings: string[]; elapsed
 export async function loadData(ctx: DataContext, input: LoadInput): Promise<LoadOutput> {
   const started = Date.now();
   const plans = planLoad(input);
-  refuseProtectedPaths(ctx, plans.filter((plan) => plan.kind !== "url" && plan.kind !== "gsheet").map((plan) => plan.source));
+  refuseProtectedPaths(ctx, [input.source, ...plans.filter((plan) => plan.kind !== "url" && plan.kind !== "gsheet").map((plan) => plan.source)]);
   const replace = input.replace !== false;
   const existing = new Set((await ctx.database.listTables()).map((table) => table.name.toLowerCase()));
   const tables: LoadedTable[] = [];

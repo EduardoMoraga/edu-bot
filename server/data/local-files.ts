@@ -1,10 +1,12 @@
 // Security: a bot's local data tools read files with the app's own rights, so a connection's database file, a folder
 // allowed for connections and the app's data folder are refused there; a named connection reads only its allowed tables.
-// Every other file stays readable, as it is from the bot's terminal. Known open risk: a symbolic link to one of these
-// places inside a folder loaded whole is not followed here.
-import { globSync, realpathSync } from "node:fs";
+// Every other file stays readable, as it is from the bot's terminal. Known open risks: a symbolic link to one of these
+// places inside a folder loaded whole is not followed here, and a folder loaded whole is searched for hard links only
+// through its first FOLDER_LINK_SEARCH entries.
+import { globSync, opendirSync, realpathSync, statSync, type BigIntStats } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { isInside } from "../sentinel/paths.ts";
 import type { ConnectionStore } from "./connections.ts";
@@ -53,24 +55,110 @@ export function protectedPlaces(dataDir: string, connections: Pick<ConnectionSto
   };
 }
 
+const PROTECTED_LINK_SEARCH = 100_000;
+const FOLDER_LINK_SEARCH = 10_000;
+
+const fileId = (stat: BigIntStats): string => `${stat.dev}:${stat.ino}`;
+
+function statOf(path: string): BigIntStats | undefined {
+  try { return statSync(path, { bigint: true, throwIfNoEntry: false }); } catch { return undefined; }
+}
+
+/** Adds the files under `folder` that have a second name; false when `budget` ran out before the end. */
+function collectLinkedFiles(folder: string, skip: string[], budget: { left: number }, found: Set<string>): boolean {
+  const pending = [folder];
+  for (let current = pending.pop(); current !== undefined; current = pending.pop()) {
+    let entries;
+    try { entries = opendirSync(current); } catch { continue; }
+    try {
+      for (let entry = entries.readSync(); entry; entry = entries.readSync()) {
+        if (budget.left-- <= 0) return false;
+        const path = join(current, entry.name);
+        if (entry.isDirectory()) {
+          if (!skip.includes(path)) pending.push(path);
+        } else if (entry.isFile()) {
+          const stat = statOf(path);
+          if (stat && stat.nlink > 1n) found.add(fileId(stat));
+        }
+      }
+    } finally {
+      entries.closeSync();
+    }
+  }
+  return true;
+}
+
+const protectedLinks = new WeakMap<ProtectedPlaces, Set<string> | "unknown">();
+
+/** The protected files a hard link could share; "unknown" when there are too many to list. */
+function protectedFileIds(places: ProtectedPlaces): Set<string> | "unknown" {
+  const known = protectedLinks.get(places);
+  if (known) return known;
+  const found = new Set<string>();
+  for (const file of places.files) {
+    const stat = statOf(file);
+    if (stat) found.add(fileId(stat));
+  }
+  const budget = { left: PROTECTED_LINK_SEARCH };
+  const complete = [...places.folders, places.dataDir].every((folder) => collectLinkedFiles(folder, places.botFolders, budget, found));
+  const result = complete ? found : "unknown";
+  protectedLinks.set(places, result);
+  return result;
+}
+
+/** Whether `path`, or a file in the folder `path`, is a hard link of a protected file. */
+function sharesProtectedFile(path: string, places: ProtectedPlaces): boolean {
+  const stat = statOf(path);
+  const candidates = new Set<string>();
+  if (stat?.isFile() && stat.nlink > 1n) candidates.add(fileId(stat));
+  else if (stat?.isDirectory()) collectLinkedFiles(path, [], { left: FOLDER_LINK_SEARCH }, candidates);
+  if (!candidates.size) return false;
+  const ids = protectedFileIds(places);
+  return ids === "unknown" || [...candidates].some((id) => ids.has(id));
+}
+
 function overlaps(path: string, places: ProtectedPlaces): boolean {
   if (places.files.some((file) => isInside(file, path))) return true;
   if (places.folders.some((folder) => isInside(path, folder) || isInside(folder, path))) return true;
   if (isInside(places.dataDir, path)) return true;
-  return isInside(path, places.dataDir) && !places.botFolders.some((folder) => isInside(path, folder));
+  if (isInside(path, places.dataDir) && !places.botFolders.some((folder) => isInside(path, folder))) return true;
+  return sharesProtectedFile(path, places);
 }
 
-/** Whether reading `path` (a file, a folder read whole, or a glob) could reach a protected place. Remote addresses pass. */
-export function readsProtected(path: string, places: ProtectedPlaces): boolean {
-  const trimmed = path.trim();
-  if (REMOTE.test(trimmed) && !/^file:\/\//i.test(trimmed)) return false;
-  const local = trimmed.replace(/^file:\/\//i, "");
+const LOCAL_HOSTS = new Set(["", "localhost", "127.0.0.1", "[::1]"]);
+
+/** The local paths a `file:` address may open: as a URL, and as DuckDB reads it, which strips the scheme and host and
+ * decodes nothing. Null when it is not an address of this computer. */
+function fileUrlPaths(address: string): string[] | null {
+  try {
+    const url = new URL(address);
+    if (!LOCAL_HOSTS.has(url.hostname)) return null;
+    url.hostname = "";
+    return [fileURLToPath(url), address.replace(/^file:(?:\/\/[^/\\]*)?/i, "")];
+  } catch {
+    return null;
+  }
+}
+
+function reachesProtected(local: string, places: ProtectedPlaces): boolean {
   const expanded = local === "~" || local.startsWith("~/") ? join(homedir(), local.slice(1)) : local;
   if (overlaps(realPath(expanded), places)) return true;
   if (!GLOB.test(expanded)) return false;
   let matches: string[];
   try { matches = globSync(expanded.replace(/\\/g, "/")); } catch { return true; }
   return matches.some((match) => overlaps(realPath(match), places));
+}
+
+/** Whether reading `path` (a file, a folder read whole, or a glob) could reach a protected place. Remote addresses
+ * pass; a `file:` address that names another computer does not. */
+export function readsProtected(path: string, places: ProtectedPlaces): boolean {
+  const trimmed = path.trim();
+  if (/^file:/i.test(trimmed)) {
+    const paths = fileUrlPaths(trimmed);
+    return paths === null || paths.some((local) => reachesProtected(local, places));
+  }
+  if (REMOTE.test(trimmed)) return false;
+  return reachesProtected(trimmed, places);
 }
 
 /** The query whose reads a statement makes: the SELECT inside CREATE … AS and EXPLAIN [ANALYZE]. */
