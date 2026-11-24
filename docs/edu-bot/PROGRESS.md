@@ -187,20 +187,26 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   dicen Edu Bot (se mantienen el crédito a OpenMausBot y la app del teléfono MausBot).
 - [x] Prueba en la app real en inglés y español (#33, Claude; Grok auditó 3 rondas): 57 pantallas, arreglos de
   textos en inglés que quedaban, capturas nuevas del README. El plan de perfiles ahora vale en cualquier idioma.
-- [ ] Auditoría final (Fable 5.2): 4 graves y 4 importantes. Arreglos en curso (Fable): seguridad en #35
-  (un bot podía aprobar su propia nota de Edu, las herramientas de datos leían cualquier archivo, un token de
-  edu-cloud quedaba visible para el bot, dar acceso sin la huella del plan) y textos (comando de Edu en el README,
-  errores del servidor en inglés, restos de "OpenMausBot", `/api/health` y el log del servidor).
-- **Urgente antes de publicar v0.1.0** (pedido de Eduardo, 23-11, tras probar en su MacBook):
-  1. Conectar herramientas en pocos clics y con palabras simples: Gmail y Calendar, Notion, tu servidor MCP,
-     GitHub, Slack.
-  2. Quitar "Grok Bot" de lo que se ve (es una función heredada para mudarse desde la app Grok Bot de xAI;
-     se oculta). El proveedor de modelos Grok no se toca.
-  3. Arreglar los permisos de "Usar este computador" en macOS (Accesibilidad y Grabación de pantalla).
-  4. Pantalla de bienvenida: 3 líneas simples sobre qué hace Edu Bot y un primer paso útil.
-  La v0.1.0 no se publica hasta tener estos 4 resueltos y probados en la app.
-- La v0.1.0 ya tiene instaladores armados (Mac en máquinas Intel, porque GitHub no daba máquinas Mac ARM). Queda
-  como borrador privado. Se rehará con todo lo anterior.
+- [x] Auditoría final (Fable 5.2, revisión de Grok en 3 rondas): 4 graves y 4 importantes, todos arreglados.
+  - Seguridad (#35): un bot ya no puede aprobar su propia nota de Edu en ningún motor. Las herramientas de datos no
+    leen las bases guardadas ni la carpeta de datos de la app (tampoco con `file://`, enlaces o carpetas). El token
+    de edu-cloud no llega al bot. Dar acceso exige la huella del plan.
+  - Textos (#37): el comando para instalar Edu funciona. Los errores del servidor salen en tu idioma. Lo que leen
+    los bots y tú dice Edu Bot. El servidor dice "Edu Bot server on…" (#40); `/api/health` suma `product`.
+- [x] Urgentes de Eduardo (23-11), probados en la app aislada:
+  1. Conectar herramientas (#38): "Empieza aquí" con Notion, Linear y Atlassian en un clic (inicias sesión en el
+     navegador), GitHub con una llave, tu servidor MCP pegando el enlace, Gmail/Calendar/Slack con Composio.
+     Composio quedó en "Más apps (avanzado)". Los tokens de estos servidores no llegan al bot.
+  2. "Grok Bot" ya no aparece en la app (#38). El proveedor Grok sigue.
+  3. "Usar este computador" (#39): en desarrollo la app no traía el controlador, por eso no había nada a qué dar
+     permiso. Ahora `pnpm dev:desktop` lo prepara (Mac y Windows) y baja Electron si falta. Probado en máquinas Mac
+     Intel y Windows de GitHub. **Falta tu prueba en tu Mac** (paso 7 de "Necesito de Eduardo").
+  4. Bienvenida (#38): "Te damos la bienvenida a Edu Bot", tres líneas y un botón.
+- [ ] v0.1.0: se está armando de nuevo con todo lo anterior (borrador privado). Se publica cuando pase tu prueba
+  en el Mac.
+- Quedan como están (decidido): la pieza de Windows `agent-browser` se baja de upstream (fijada por SHA256); el
+  test "browser driver S4" de Windows se reintenta; los nombres internos `openmausbot` del archivo de bloqueo y la
+  caché no se cambian (cambiarlos necesita migración).
 
 ## Cómo trabajamos
 
@@ -315,5 +321,11 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
    la app (el README explica cómo abrirla igual). Para Mac: Apple Developer ID (USD 99 al año) y sus secretos
    `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD` y los de notarización. Para Windows: un certificado de firma de código
    (`WIN_CSC_LINK`). No es urgente.
-7. **Probar los permisos de Mac (2 minutos).** Nadie más tiene un Mac. Cuando esté el arreglo de "Usar este computador",
-   te dejo aquí los pasos exactos para probarlo en tu MacBook.
+7. **Probar "Usar este computador" en tu Mac (2 minutos).** Con el repo actualizado (`git pull`):
+   1. En la Terminal: `pnpm install`.
+   2. `pnpm dev:server` (déjalo abierto). En otra pestaña: `pnpm dev` (déjalo abierto).
+   3. En una tercera pestaña: `pnpm dev:desktop`. La primera vez dice "Getting the screen control driver". Espera.
+   4. En la app: Ajustes, busca "Permitir control de este equipo". Pulsa los dos botones de Ajustes del Sistema y en
+      cada lista activa **Electron** (si no aparece, tu **Terminal**). Cierra la app y ábrela otra vez (paso 3).
+   5. Pídele a un bot "abre la Calculadora". Debe pedirte permiso y abrirla.
+   Si algo falla, dime en qué paso y qué texto ves.
