@@ -29,7 +29,7 @@ export const CODEX_DEVICE_SIGN_IN: DeviceSignIn = {
   homeEnv: "CODEX_HOME",
   homeDir: ".codex",
   loginArgs: ["login", "--device-auth"],
-  install: "Run npm install -g @openai/codex@latest on the server, then try again.",
+  install: { url: "https://github.com/openai/codex", fromSettings: true },
   failure: loginFailure,
   status: {
     args: ["login", "status"],

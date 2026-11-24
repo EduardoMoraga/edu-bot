@@ -73,11 +73,11 @@
   "table.tooLarge": "Ten plik jest zbyt duży do podglądu w aplikacji (10 MB, 100 000 wierszy, 200 kolumn lub 500 000 komórek). Pobierz oryginał, aby zobaczyć całość.",
   "table.invalid": "Nie udało się odczytać tego pliku CSV/TSV jako tabeli. Sprawdź cudzysłowy i liczbę kolumn albo pobierz oryginał.",
   "table.loadFailed": "Nie udało się otworzyć tej tabeli. Sprawdź połączenie i spróbuj ponownie. Obsługiwane są pliki CSV i TSV w formacie UTF-8.",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "My Cloud",
   "pro.fromPrice": "Plany Edu Bot Cloud od {price}/miesiąc + podatek.",
   "pro.seePlans": "Porównaj plany",
   "pro.reauthShort": "Zaloguj się ponownie, aby korzystać z Chmury na tym komputerze. Twój plan nie ulega zmianie.",
-  "pro.openCloudSettings": "Ustawienia Edu Bot Cloud",
+  "pro.openCloudSettings": "Ustawienia My Cloud",
   "pro.settingsSummary": "Utrzymuje twoje boty i rutyny w działaniu 24/7, nawet gdy ten komputer jest wyłączony.",
   "pro.disclaimer": "Edu Bot na tym komputerze pozostaje darmowy i otwartoźródłowy.",
   "notice.dismiss": "Odrzuć na zawsze",
@@ -919,7 +919,7 @@
   "settings.noMatch": "Brak wyników dla „{query}”",
   "settings.section.general": "Ogólne",
   "settings.section.organization": "Organizacja",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "My Cloud",
   "cloudAccount.separate": "Twoje osobiste konto w Chmurze jest oddzielne od logowania przez organizację.",
   "cloudAccount.desktopOnly": "Używaj Edu Bot Cloud w lokalnej aplikacji na komputerze.",
   "cloudAccount.loading": "Wczytywanie konta Chmury…",
@@ -7300,5 +7300,6 @@
   "botSettings.data.save": "Zapisz",
   "botSettings.data.saved": "Zapisano.",
   "botSettings.data.allow": "Zezwól",
-  "profiles.field.data": "połączenia danych"
+  "profiles.field.data": "połączenia danych",
+  "settings.data.connectionFailed": "Nie udało się zapisać połączenia."
 }

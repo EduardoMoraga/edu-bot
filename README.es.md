@@ -40,7 +40,16 @@ La app no se actualiza sola. Descarga el instalador nuevo desde la misma página
 
 ## Memoria Edu
 
-Instala [Edu](https://github.com/EduardoMoraga/edu) 6.0.0 o más nuevo (`npm install -g edu-agent`). Cada bot recibe entonces un cerebro Edu. Puede recordar notas y proponer otras.
+Instala [Edu](https://github.com/EduardoMoraga/edu) 6.0.0 o más nuevo. Necesita Node.js 22 o más nuevo. Edu no está en el registro de npm: instala su archivo de versión verificado.
+
+```bash
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/edu-agent.tgz
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS   # en macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+npm install -g ./edu-agent.tgz
+```
+
+En Windows, usa el instalador de una línea de la [guía rápida de Edu](https://github.com/EduardoMoraga/edu#quickstart). Cada bot recibe entonces un cerebro Edu. Puede recordar notas y proponer otras.
 
 Una nota canónica queda como propuesta hasta que una persona la acepta. Un bot no puede aprobarla. La app funciona igual si Edu no está instalado.
 

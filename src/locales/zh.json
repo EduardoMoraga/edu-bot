@@ -179,11 +179,11 @@
   "table.tooLarge": "这个文件太大，无法在应用内预览（上限为 10 MB、100,000 行、200 列或 500,000 个单元格）。请下载原文件查看完整内容。",
   "table.invalid": "无法将这个 CSV/TSV 读取为表格。请检查引号和列数，或下载原文件。",
   "table.loadFailed": "无法打开这个表格。请检查网络连接后重试。支持 UTF-8 编码的 CSV 和 TSV 文件。",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "My Cloud",
   "pro.fromPrice": "Edu Bot Cloud 方案每月 {price} 起，另加税费。",
   "pro.seePlans": "比较方案",
   "pro.reauthShort": "重新登录即可在这台电脑上使用 Cloud。你的方案不受影响。",
-  "pro.openCloudSettings": "Edu Bot Cloud 设置",
+  "pro.openCloudSettings": "My Cloud 设置",
   "pro.settingsSummary": "即使这台电脑关机，你的机器人和例行任务也会全天候运行。",
   "pro.disclaimer": "这台电脑上的 Edu Bot 依然免费且开源。",
   "notice.dismiss": "永久关闭",
@@ -1273,7 +1273,7 @@
   "settings.noMatch": "没有与「{query}」匹配的内容",
   "settings.section.general": "通用",
   "settings.section.organization": "组织",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "My Cloud",
   "cloudAccount.separate": "你的个人 Cloud 账户与组织登录相互独立。",
   "cloudAccount.desktopOnly": "在这台电脑的本地桌面应用中使用 Edu Bot Cloud。",
   "cloudAccount.loading": "正在加载 Cloud 账户…",
@@ -10266,5 +10266,6 @@
   "botSettings.data.save": "保存",
   "botSettings.data.saved": "已保存。",
   "botSettings.data.allow": "允许",
-  "profiles.field.data": "数据连接"
+  "profiles.field.data": "数据连接",
+  "settings.data.connectionFailed": "无法保存连接。"
 }

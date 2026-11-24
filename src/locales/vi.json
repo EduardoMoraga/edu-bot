@@ -61,12 +61,12 @@
   "table.tooLarge": "Tệp này quá lớn để xem trước trong ứng dụng (10 MB, 100.000 hàng, 200 cột hoặc 500.000 ô). Tải xuống tệp gốc để xem toàn bộ.",
   "table.invalid": "Không thể đọc tệp CSV/TSV này dưới dạng bảng. Hãy kiểm tra dấu ngoặc kép và số lượng cột của tệp, hoặc tải xuống tệp gốc.",
   "table.loadFailed": "Không thể mở bảng này. Hãy kiểm tra kết nối và thử lại. Ứng dụng hỗ trợ tệp CSV và TSV định dạng UTF-8.",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "My Cloud",
   "pro.fromPrice": "Các gói Edu Bot Cloud từ {price}/tháng + thuế.",
   "pro.seePlans": "So sánh các gói",
   "cloudBuy.includes": "Mọi gói đều có",
   "pro.reauthShort": "Đăng nhập lại để sử dụng Cloud trên máy tính này. Gói của bạn không bị ảnh hưởng.",
-  "pro.openCloudSettings": "Cài đặt Edu Bot Cloud",
+  "pro.openCloudSettings": "Cài đặt My Cloud",
   "pro.settingsSummary": "Giúp các bot và tác vụ định kỳ của bạn tiếp tục chạy 24/7, ngay cả khi máy tính này đã tắt.",
   "pro.disclaimer": "Edu Bot trên máy tính này luôn miễn phí và là mã nguồn mở.",
   "notice.dismiss": "Bỏ qua vĩnh viễn",
@@ -630,7 +630,7 @@
   "settings.noMatch": "Không có kết quả nào khớp với “{query}”",
   "settings.section.general": "Chung",
   "settings.section.organization": "Tổ chức",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "My Cloud",
   "cloudAccount.separate": "Tài khoản Cloud cá nhân của bạn tách biệt với đăng nhập của tổ chức.",
   "cloudAccount.desktopOnly": "Sử dụng Edu Bot Cloud trong ứng dụng desktop cục bộ trên máy tính này.",
   "cloudAccount.loading": "Đang tải tài khoản Cloud…",
@@ -6098,5 +6098,6 @@
   "botSettings.data.save": "Lưu",
   "botSettings.data.saved": "Đã lưu.",
   "botSettings.data.allow": "Cho phép",
-  "profiles.field.data": "kết nối dữ liệu"
+  "profiles.field.data": "kết nối dữ liệu",
+  "settings.data.connectionFailed": "Không thể lưu kết nối."
 }

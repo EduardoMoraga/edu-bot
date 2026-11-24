@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import { useStore, type InstanceInfo } from "@/state/store";
+import { engineReason } from "@/lib/engine-reason";
 import { t } from "@/lib/i18n";
 import { companyInstanceFor, instanceCanRun, planCompanySwitch } from "@/lib/company-models";
 import { EngineSetup, needsCli } from "./EngineSetup";
@@ -66,5 +67,5 @@ function CompanyEngineReadiness({ instance, instances }: { instance: InstanceInf
     return <EngineSetup instance={local} intent="inject" className="mt-2"
       description={t("organization.engineInstallHelp", { engine: local.displayName })} />;
   }
-  return <p className="mt-1 text-[12px] text-ink-secondary">{instance.snapshot.reason ?? t("organization.engineUnavailable")}</p>;
+  return <p className="mt-1 text-[12px] text-ink-secondary">{engineReason(instance.snapshot) ?? t("organization.engineUnavailable")}</p>;
 }

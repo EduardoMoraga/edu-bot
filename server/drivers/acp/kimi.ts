@@ -88,7 +88,7 @@ export const KIMI_DEVICE_SIGN_IN: DeviceSignIn = {
   homeEnv: "KIMI_CODE_HOME",
   homeDir: ".kimi-code",
   loginArgs: ["login"],
-  install: "Install it with Moonshot's installer (https://code.kimi.com), or from Settings when this server has npm, then try again.",
+  install: { url: "https://code.kimi.com", fromSettings: true },
   failure: kimiLoginFailure,
   signedIn: kimiSignedIn,
   signInState: kimiSignInState,

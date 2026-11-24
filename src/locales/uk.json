@@ -35,7 +35,7 @@
   "pro.seePlans": "Порівняти плани",
   "cloudBuy.includes": "У кожен план входить",
   "pro.reauthShort": "Увійдіть знову, щоб користуватися Cloud на цьому комп’ютері. Ваш план від цього не змінюється.",
-  "pro.openCloudSettings": "Налаштування Edu Bot Cloud",
+  "pro.openCloudSettings": "Налаштування «Моя хмара»",
   "pro.settingsSummary": "Ваші боти й рутини працюють цілодобово, навіть коли цей комп’ютер вимкнено.",
   "pro.disclaimer": "Edu Bot на цьому комп’ютері лишається безкоштовним і з відкритим кодом.",
   "notice.dismiss": "Приховати назавжди",
@@ -2663,7 +2663,7 @@
   "place.view.ccAtOnce.short": "Використовується",
   "place.view.localUnavailable.short": "Поки не можна використати",
   "place.view.autoTeam.short": "Спільний",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "Моя хмара",
   "settings.sendKey.title": "Клавіша надсилання повідомлень",
   "settings.sendKey.subtitle": "Оберіть Shift+Enter або {key}, щоб Enter починав новий рядок, — зручно, коли метод введення підтверджує текст клавішею Enter, як-от під час введення японською. {key} надсилає за будь-якого вибору. Лише на цьому пристрої.",
   "call.live.disclosure": "Live-дзвінок надсилає ваш голос в OpenAI разом з останніми повідомленнями чату, відповідями бота та подробицями будь-якого погодження, яке він просить. Ключ OpenAI залишається на вашому комп’ютері.",
@@ -4279,5 +4279,6 @@
   "botSettings.data.save": "Зберегти",
   "botSettings.data.saved": "Збережено.",
   "botSettings.data.allow": "Дозволити",
-  "profiles.field.data": "підключення даних"
+  "profiles.field.data": "підключення даних",
+  "settings.data.connectionFailed": "Не вдалося зберегти підключення."
 }

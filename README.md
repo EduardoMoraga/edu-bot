@@ -40,7 +40,16 @@ The app does not update itself. Download the newer installer from Releases and i
 
 ## Edu memory
 
-Install [Edu](https://github.com/EduardoMoraga/edu) 6.0.0 or newer (`npm install -g edu-agent`). Each bot then gets an Edu brain. It can recall notes and propose new ones.
+Install [Edu](https://github.com/EduardoMoraga/edu) 6.0.0 or newer. It needs Node.js 22 or newer. Edu is not on the npm registry: install its verified release file.
+
+```bash
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/edu-agent.tgz
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS   # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+npm install -g ./edu-agent.tgz
+```
+
+On Windows, use the one-line installer in [Edu's quickstart](https://github.com/EduardoMoraga/edu#quickstart). Each bot then gets an Edu brain. It can recall notes and propose new ones.
 
 A canonical note stays a proposal until a person accepts it. A bot cannot approve one. The app still runs if Edu is missing.
 

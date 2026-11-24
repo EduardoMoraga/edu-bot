@@ -50,8 +50,8 @@ it("what a click or sign-out that didn't go through says, in plain words", () =>
   expect(switchNote({ outcome: "signed-out" })).toBeNull();
 });
 
-it("the Edu Bot Cloud row says Sign in while nobody is signed in here; any other page keeps its name", () => {
+it("the My Cloud row says Sign in while nobody is signed in here; any other page keeps its name", () => {
   expect(cloudRowLabel({ active: null })).toBe("Sign in");
-  expect(cloudRowLabel({ active: { id: "b", email: "b@example.test" } })).toBe("Edu Bot Cloud");
-  expect(cloudRowLabel(null)).toBe("Edu Bot Cloud");
+  expect(cloudRowLabel({ active: { id: "b", email: "b@example.test" } })).toBe("My Cloud");
+  expect(cloudRowLabel(null)).toBe("My Cloud");
 });

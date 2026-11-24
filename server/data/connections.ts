@@ -6,7 +6,9 @@ import { DatabaseSync } from "node:sqlite";
 
 import { writeFileAtomic } from "../atomic.ts";
 import { resolveThroughLinks } from "../sentinel/paths.ts";
-import { CONNECTION_NAME, connectionNameError, containsRawDsn } from "../../shared/data-connections.ts";
+import { CONNECTION_NAME, connectionNameError, containsRawDsn, RESERVED_CONNECTION_NAMES } from "../../shared/data-connections.ts";
+import type { ServerErrorBody } from "../../shared/server-text.ts";
+import { userError, userErrorFields, userErrorThrown, type UserErrorKey } from "../user-errors.ts";
 import { probeConnection } from "./session.ts";
 
 export type ConnectionType = "postgres" | "sqlite" | "duckdb";
@@ -82,7 +84,7 @@ export class ConnectionStore {
       const id = connection.dsn.startsWith("vault:") ? connection.dsn.slice("vault:".length) : "";
       const secret = id ? this.vault.secret(id) : null;
       const value = secret?.value ?? "";
-      if (!/^postgres(ql)?:\/\//i.test(value)) throw new Error("That connection's password is no longer in the Vault.");
+      if (!/^postgres(ql)?:\/\//i.test(value)) throw userErrorThrown("serverError.dataConnection.passwordGone");
       return value;
     }
     this.assertInside(connection.dsn);
@@ -105,14 +107,14 @@ export class ConnectionStore {
   add(input: { name: string; type: ConnectionType; dsn?: string; path?: string }): PublicConnection {
     const name = input.name.trim();
     const nameError = connectionNameError(name);
-    if (nameError) throw new Error(nameError);
+    if (nameError) throw RESERVED_CONNECTION_NAMES.has(name) ? userErrorThrown("serverError.dataConnection.nameReserved", { name }) : userErrorThrown("serverError.dataConnection.nameRule");
     const file = this.read();
-    if (file.connections.some((connection) => connection.name === name)) throw new Error(`A connection named ${name} already exists.`);
+    if (file.connections.some((connection) => connection.name === name)) throw userErrorThrown("serverError.dataConnection.exists", { name });
     let dsn: string;
     if (input.type === "postgres") {
       const value = input.dsn ?? "";
-      if (!/^postgres(ql)?:\/\//i.test(value) || containsRawDsn(value) === false) throw new Error("A Postgres connection is a postgres:// URL. It is saved in the Vault and never shown again.");
-      if (!this.vault.saveSecret) throw new Error("The Vault is not available.");
+      if (!/^postgres(ql)?:\/\//i.test(value) || containsRawDsn(value) === false) throw userErrorThrown("serverError.dataConnection.postgresUrl");
+      if (!this.vault.saveSecret) throw userErrorThrown("serverError.dataConnection.vaultUnavailable");
       const saved = this.vault.saveSecret({ name: `data:${name}`, value, source: "settings", bots: [], refOnly: true });
       dsn = `vault:${saved.id}`;
     } else {
@@ -126,14 +128,14 @@ export class ConnectionStore {
   remove(name: string): void {
     const file = this.read();
     const connection = file.connections.find((item) => item.name === name);
-    if (!connection) throw new Error(`There is no connection named ${name}.`);
+    if (!connection) throw userErrorThrown("serverError.dataConnection.missing", { name });
     if (connection.dsn.startsWith("vault:") && this.vault.removeSecret) this.vault.removeSecret(connection.dsn.slice("vault:".length));
     this.write({ ...file, connections: file.connections.filter((item) => item.name !== name) });
   }
 
-  async test(name: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async test(name: string): Promise<{ ok: true } | ({ ok: false } & ServerErrorBody)> {
     const connection = this.get(name);
-    if (!connection) return { ok: false, error: `There is no connection named ${name}.` };
+    if (!connection) return { ok: false, ...userError("serverError.dataConnection.missing", { name }) };
     try {
       const target = this.target(connection);
       if (connection.type === "sqlite") {
@@ -143,15 +145,15 @@ export class ConnectionStore {
       }
       return await probeConnection({ dataDir: this.dataDir, type: connection.type, alias: connection.name, target });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "The connection could not be opened.";
-      return { ok: false, error: containsRawDsn(message) ? "The connection could not be opened." : message };
+      const message = error instanceof Error ? error.message : "";
+      return message && !containsRawDsn(message) ? { ok: false, error: message, ...userErrorFields(error) } : { ok: false, ...userError("serverError.dataConnection.notOpened") };
     }
   }
 
   addFolder(path: string): string {
     const folder = this.directory(path);
     const rejected = folderRejected(folder, this.dataDir);
-    if (rejected) throw new Error(rejected);
+    if (rejected) throw userErrorThrown(rejected);
     const file = this.read();
     if (file.folders.includes(folder)) return folder;
     this.write({ ...file, folders: [...file.folders, folder] });
@@ -162,7 +164,7 @@ export class ConnectionStore {
     const file = this.read();
     const folder = this.knownFolder(path, file.folders);
     if (file.connections.some((connection) => connection.type !== "postgres" && this.inside(connection.dsn, folder))) {
-      throw new Error("Remove the connections in that folder first.");
+      throw userErrorThrown("serverError.dataConnection.folderNotEmpty");
     }
     this.write({ ...file, folders: file.folders.filter((item) => item !== folder) });
   }
@@ -181,10 +183,10 @@ export class ConnectionStore {
   private directory(path: string): string {
     const full = this.expand(path);
     let stat;
-    try { stat = lstatSync(full); } catch { throw new Error("That folder does not exist."); }
-    if (!stat.isDirectory() && !stat.isSymbolicLink()) throw new Error("That path is not a folder.");
+    try { stat = lstatSync(full); } catch { throw userErrorThrown("serverError.dataConnection.folderMissing"); }
+    if (!stat.isDirectory() && !stat.isSymbolicLink()) throw userErrorThrown("serverError.dataConnection.notFolder");
     const real = realpathSync(full);
-    if (!statSync(real).isDirectory()) throw new Error("That path is not a folder.");
+    if (!statSync(real).isDirectory()) throw userErrorThrown("serverError.dataConnection.notFolder");
     return real;
   }
 
@@ -193,13 +195,13 @@ export class ConnectionStore {
   }
 
   private assertInside(path: string): string {
-    if (!path.trim()) throw new Error("A file path is required.");
+    if (!path.trim()) throw userErrorThrown("serverError.dataConnection.pathRequired");
     const full = this.expand(path);
     let real: string;
-    try { real = realpathSync(full); } catch { throw new Error("That file does not exist."); }
-    if (!statSync(real).isFile()) throw new Error("That path is not a file.");
+    try { real = realpathSync(full); } catch { throw userErrorThrown("serverError.dataConnection.fileMissing"); }
+    if (!statSync(real).isFile()) throw userErrorThrown("serverError.dataConnection.notFile");
     const folders = this.read().folders;
-    if (!folders.some((folder) => this.inside(real, folder))) throw new Error("Allow the folder that contains this file first.");
+    if (!folders.some((folder) => this.inside(real, folder))) throw userErrorThrown("serverError.dataConnection.allowFolder");
     return real;
   }
 
@@ -226,7 +228,7 @@ export class ConnectionStore {
     const mode = statSync(path).mode & 0o777;
     if (mode !== MODE) chmodSync(path, MODE);
     let parsed: unknown;
-    try { parsed = JSON.parse(readFileSync(path, "utf8")); } catch { throw new Error("data-connections.json could not be read."); }
+    try { parsed = JSON.parse(readFileSync(path, "utf8")); } catch { throw userErrorThrown("serverError.dataConnection.unreadable"); }
     const body = parsed && typeof parsed === "object" ? parsed as Partial<FileShape> : {};
     const folders = Array.isArray(body.folders) ? body.folders.filter((item) => typeof item === "string") : [];
     const connections = Array.isArray(body.connections) ? body.connections.filter(isStored) : [];
@@ -274,17 +276,17 @@ function underTemp(real: string): boolean {
   return roots.some((root) => isInside(root, real));
 }
 
-function folderRejected(real: string, dataDir: string): string | null {
+function folderRejected(real: string, dataDir: string): UserErrorKey | null {
   const data = realOr(dataDir);
-  if (real === data || isInside(data, real) || isInside(real, data)) return "Edu Bot's data folder cannot hold a database connection.";
+  if (real === data || isInside(data, real) || isInside(real, data)) return "serverError.dataConnection.dataFolder";
   const home = realOr(homedir());
-  if (real === home || isInside(real, home)) return "That folder is too broad.";
-  if (EXACT_ROOTS.has(real) || windowsTooBroad(real)) return "That folder is too broad.";
-  if (real === realOr(tmpdir())) return "That folder is too broad.";
+  if (real === home || isInside(real, home)) return "serverError.dataConnection.tooBroad";
+  if (EXACT_ROOTS.has(real) || windowsTooBroad(real)) return "serverError.dataConnection.tooBroad";
+  if (real === realOr(tmpdir())) return "serverError.dataConnection.tooBroad";
   if (underTemp(real)) return null;
   for (const root of CHILD_ROOTS) {
     const canonical = realOr(root);
-    if (real === root || real === canonical || isInside(root, real) || isInside(canonical, real)) return "That folder is too broad.";
+    if (real === root || real === canonical || isInside(root, real) || isInside(canonical, real)) return "serverError.dataConnection.tooBroad";
   }
   return null;
 }

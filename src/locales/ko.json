@@ -116,11 +116,11 @@
   "table.tooLarge": "앱에서 미리 보기에는 파일이 너무 커요(10MB, 10만 행, 200열 또는 50만 셀). 전체를 보려면 원본을 다운로드하세요.",
   "table.invalid": "이 CSV/TSV를 표로 읽지 못했어요. 따옴표와 열 개수를 확인하거나 원본을 다운로드하세요.",
   "table.loadFailed": "이 표를 열지 못했어요. 연결 상태를 확인하고 다시 시도하세요. UTF-8 CSV와 TSV 파일을 지원해요.",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "내 클라우드",
   "pro.fromPrice": "Edu Bot Cloud 요금제는 월 {price}부터(세금 별도).",
   "pro.seePlans": "요금제 비교",
   "pro.reauthShort": "이 컴퓨터에서 클라우드를 쓰려면 다시 로그인하세요. 요금제에는 영향이 없어요.",
-  "pro.openCloudSettings": "Edu Bot Cloud 설정",
+  "pro.openCloudSettings": "내 클라우드 설정",
   "pro.settingsSummary": "이 컴퓨터가 꺼져 있어도 봇과 루틴이 24시간 내내 돌아가요.",
   "pro.disclaimer": "이 컴퓨터의 Edu Bot은 계속 무료 오픈 소스예요.",
   "notice.dismiss": "다시 보지 않기",
@@ -979,7 +979,7 @@
   "settings.noMatch": "“{query}”와(과) 일치하는 항목이 없어요",
   "settings.section.general": "일반",
   "settings.section.organization": "조직",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "내 클라우드",
   "cloudAccount.separate": "개인 클라우드 계정은 조직 로그인과 별개예요.",
   "cloudAccount.desktopOnly": "이 컴퓨터의 로컬 데스크톱 앱에서 Edu Bot Cloud를 쓰세요.",
   "cloudAccount.loading": "클라우드 계정 불러오는 중…",
@@ -7828,5 +7828,6 @@
   "botSettings.data.save": "저장",
   "botSettings.data.saved": "저장됨.",
   "botSettings.data.allow": "허용",
-  "profiles.field.data": "데이터 연결"
+  "profiles.field.data": "데이터 연결",
+  "settings.data.connectionFailed": "연결을 저장하지 못했습니다."
 }

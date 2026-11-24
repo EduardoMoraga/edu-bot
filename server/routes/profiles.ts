@@ -1,4 +1,5 @@
-import { approvalCeilingError } from "../user-errors.ts";
+import type { ServerErrorBody } from "../../shared/server-text.ts";
+import { approvalCeilingError, USER_ERROR, userError, userErrorFields, type UserError } from "../user-errors.ts";
 import type { IncomingMessage } from "node:http";
 import { basename, isAbsolute, resolve } from "node:path";
 
@@ -43,7 +44,7 @@ export function mayGiveProfileAccess(auth: RequestAuth, req: IncomingMessage, de
     (auth.kind === "session" ? auth.scopes.includes("admin") : !auth.companionDevice && auth.trust !== "service" && desktopManaged);
 }
 
-export const PROFILE_ACCESS_REFUSAL = "These changes give bots more access, so they have to be confirmed from the desktop app or a paired admin device.";
+export const PROFILE_ACCESS_REFUSAL = USER_ERROR["serverError.profiles.accessRefused"];
 
 const folderField = z.string().trim().min(1).max(4096).refine((path) => isAbsolute(path) && !path.includes("\0"), "must be an absolute folder path");
 const requestSchema = z.object({
@@ -57,7 +58,7 @@ const requestSchema = z.object({
 /** Security: on Windows a profile folder is on a local drive (C:\...), never a network share (\\server\share), a device
  * path (\\?\..., \\.\...) or a path relative to the current drive (\folder, C:folder). */
 export function windowsFolderRefusal(folder: string, platform: NodeJS.Platform = process.platform): string | null {
-  return platform === "win32" && !/^[A-Za-z]:[\\/]/.test(folder) ? "A profile folder must be on a drive of this computer, such as C:\\Profiles." : null;
+  return platform === "win32" && !/^[A-Za-z]:[\\/]/.test(folder) ? USER_ERROR["serverError.profiles.windowsDrive"] : null;
 }
 
 /** Security: a profile folder is never this app's data folder or inside it, judged by the path as given and where its
@@ -69,9 +70,11 @@ export function insideDataFolder(paths: readonly string[], dataDir: string): boo
 
 class RouteRefusal extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
-    super(message);
+  readonly fields: Pick<ServerErrorBody, "errorKey" | "errorParams">;
+  constructor(status: number, refusal: string | UserError) {
+    super(typeof refusal === "string" ? refusal : refusal.error);
     this.status = status;
+    this.fields = typeof refusal === "string" ? {} : userErrorFields(refusal);
   }
 }
 
@@ -84,10 +87,10 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
 
   const load = (folder: string | undefined, state: ProfilesState): LoadedProfileFolder => {
     const chosen = folder ?? state.folder;
-    if (!chosen) throw new RouteRefusal(400, "Choose a profile folder first.");
+    if (!chosen) throw new RouteRefusal(400, userError("serverError.profiles.chooseFolder"));
     const refusal = windowsFolderRefusal(chosen);
-    if (refusal) throw new RouteRefusal(400, refusal);
-    const inside = () => new RouteRefusal(400, "A profile folder cannot be inside this app's data folder.");
+    if (refusal) throw new RouteRefusal(400, userError("serverError.profiles.windowsDrive"));
+    const inside = () => new RouteRefusal(400, userError("serverError.profiles.insideData"));
     if (insideDataFolder([resolve(chosen), resolveThroughLinks(chosen)], deps.dataDir)) throw inside();
     let loaded: LoadedProfileFolder;
     try {
@@ -97,7 +100,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
       throw error;
     }
     const linked = windowsFolderRefusal(loaded.root);
-    if (linked) throw new RouteRefusal(400, linked);
+    if (linked) throw new RouteRefusal(400, userError("serverError.profiles.windowsDrive"));
     if (insideDataFolder([loaded.root], deps.dataDir)) throw inside();
     return loaded;
   };
@@ -153,7 +156,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
       if (botView) return json(res, 200, await profileBot(req, auth, decodeURIComponent(botView[1]!)));
       if (method === "PUT" && path === "/api/profiles/folder") {
         const parsed = z.object({ folder: folderField }).strict().safeParse(await readBody(req));
-        if (!parsed.success) return json(res, 400, { error: "folder must be an absolute folder path" });
+        if (!parsed.success) return json(res, 400, userError("serverError.profiles.folderPath"));
         const state = readProfilesState(deps.dataDir);
         const folder = load(parsed.data.folder, state);
         const next = { ...state, folder: folder.root };
@@ -164,19 +167,19 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
         const parsed = requestSchema.safeParse(await readBody(req));
         if (!parsed.success) return json(res, 400, { error: parsed.error.issues[0]?.message ?? "invalid request" });
         if (path === "/api/profiles/plan") return json(res, 200, (await plan(req, auth, parsed.data)).planned.plan satisfies ProfilePlan);
-        if (applying) return json(res, 409, { error: "Profiles are being applied already; plan again once that is done." });
+        if (applying) return json(res, 409, userError("serverError.profiles.busy"));
         applying = true;
         try {
           const body = parsed.data;
           const { planned, folder, state } = await plan(req, auth, body);
           if (body.expect !== undefined && body.expect !== planned.plan.digest) {
-            return json(res, 409, { error: "The profiles or this app changed since that plan; look at the new plan and apply it.", plan: planned.plan });
+            return json(res, 409, { ...userError("serverError.profiles.changed"), plan: planned.plan });
           }
           const ceiling = folder.problems.find((problem) => problem.approvalCeiling)?.approvalCeiling;
           if (ceiling) return json(res, 403, { ...approvalCeilingError(ceiling), plan: planned.plan });
           const accessLines = planned.plan.lines.filter((line) => line.kind === "access");
           if (body.giveAccess === true && accessLines.length && !mayGiveProfileAccess(auth, req, deps.desktopManaged)) {
-            return json(res, 403, { error: PROFILE_ACCESS_REFUSAL, lines: accessLines });
+            return json(res, 403, { ...userError("serverError.profiles.accessRefused"), lines: accessLines });
           }
           return json(res, 200, await applyNow(req, auth, body, planned, folder, state));
         } finally {
@@ -185,7 +188,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
       }
       return PASS;
     } catch (error) {
-      if (error instanceof RouteRefusal) return json(res, error.status, { error: error.message });
+      if (error instanceof RouteRefusal) return json(res, error.status, { error: error.message, ...error.fields });
       throw error;
     }
   };
@@ -196,7 +199,7 @@ export function createProfilesRoutes(deps: ProfilesRouteDeps): RouteHandler {
     if (answer.status >= 400) throw new RouteRefusal(answer.status, String(answer.body.error ?? "could not read the bots"));
     const echo = ((answer.body.bots ?? []) as Rec[]).find((bot) => bot.id === botId);
     const source = echo?.profileSource as ProfileSource | undefined;
-    if (!echo || !source) throw new RouteRefusal(404, "This bot did not come from a profile.");
+    if (!echo || !source) throw new RouteRefusal(404, userError("serverError.profiles.notFromProfile"));
     const state = readProfilesState(deps.dataDir);
     let folder: LoadedProfileFolder | undefined;
     try {

@@ -35,7 +35,7 @@
   "pro.seePlans": "प्लान की तुलना करें",
   "cloudBuy.includes": "हर प्लान में शामिल",
   "pro.reauthShort": "इस कंप्यूटर पर Cloud इस्तेमाल करने के लिए फिर से साइन इन करें। आपके प्लान पर कोई असर नहीं पड़ता।",
-  "pro.openCloudSettings": "Edu Bot Cloud सेटिंग्स",
+  "pro.openCloudSettings": "मेरा क्लाउड सेटिंग्स",
   "pro.settingsSummary": "आपके बॉट और रूटीन 24/7 चलते रहते हैं, तब भी जब यह कंप्यूटर बंद हो।",
   "pro.disclaimer": "इस कंप्यूटर पर Edu Bot मुफ़्त और ओपन सोर्स रहेगा।",
   "notice.dismiss": "हमेशा के लिए हटाएँ",
@@ -2193,7 +2193,7 @@
   "place.view.ccAtOnce.short": "इस्तेमाल में",
   "place.view.localUnavailable.short": "अभी इस्तेमाल नहीं हो सकता",
   "place.view.autoTeam.short": "साझा",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "मेरा क्लाउड",
   "settings.sendKey.title": "संदेश भेजने की कुंजी",
   "settings.sendKey.subtitle": "Shift+Enter या {key} चुनें ताकि Enter नई पंक्ति शुरू करे — यह तब काम आता है जब आपकी इनपुट विधि Enter से टेक्स्ट पक्का करती है, जैसे जापानी इनपुट में। {key} हर विकल्प में भेजता है। सिर्फ़ इस डिवाइस पर।",
   "notifications.status.problem": "समस्या",
@@ -3859,5 +3859,6 @@
   "botSettings.data.save": "सहेजें",
   "botSettings.data.saved": "सहेजा गया।",
   "botSettings.data.allow": "अनुमति",
-  "profiles.field.data": "डेटा कनेक्शन"
+  "profiles.field.data": "डेटा कनेक्शन",
+  "settings.data.connectionFailed": "कनेक्शन सहेजा नहीं जा सका।"
 }

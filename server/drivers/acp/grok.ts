@@ -67,7 +67,7 @@ export const GROK_DEVICE_SIGN_IN: DeviceSignIn = {
   homeDir: ".grok",
   loginArgs: ["login", "--device-auth"],
   logoutArgs: ["logout"],
-  install: "Install it with xAI's installer (https://x.ai/cli), then try again.",
+  install: { url: "https://x.ai/cli" },
   failure: grokLoginFailure,
   signedIn: grokSignedIn,
   signInState: grokSignInState,
