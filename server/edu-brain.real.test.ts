@@ -98,13 +98,21 @@ describe.skipIf(!cli)("the installed Edu binary", () => {
     }
   });
 
-  it("refuses brain writes from a process that carries the crew-worker guard", async () => {
-    const edu = await session((await brains.integration(bot, { local: true }))!, { EDU_CREW_JOB: `edu-bot:${bot.id}`, HOME: home });
+  it("refuses brain writes from a process that carries the crew-worker guard, which the mounted server removes", async () => {
+    const mounted = (await brains.integration(bot, { local: true }))!;
+    const guard = { EDU_CREW_JOB: `edu-bot:${bot.id}`, HOME: home };
+    const direct = await session({ ...mounted, args: mounted.args.slice(1) }, guard);
     try {
-      expect(await edu.call("edu_remember", { tier: "episodic", title: "Should not land", body: "x" })).toMatchObject({ ok: false });
-      expect((await edu.call("edu_recall", { query: "real binary note" })).ok).toBe(true);
+      expect(await direct.call("edu_remember", { tier: "episodic", title: "Should not land", body: "x" })).toMatchObject({ ok: false });
+      expect((await direct.call("edu_recall", { query: "real binary note" })).ok).toBe(true);
     } finally {
-      edu.close();
+      direct.close();
+    }
+    const launched = await session(mounted, guard);
+    try {
+      expect(await launched.call("edu_remember", { tier: "episodic", title: "Lands through the launcher", body: "x" })).toMatchObject({ ok: true });
+    } finally {
+      launched.close();
     }
   });
 

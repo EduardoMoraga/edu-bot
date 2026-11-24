@@ -16,6 +16,7 @@ import { homedir } from "node:os";
 import { codexConfigMcp, codexConfigRunsServer, codexMcpDisableArgs, mountedMcpServerName } from "./codex-mcp-names.ts";
 
 import { DATA_DIR, stripWorkspaceCredentialEnv } from "../config.ts";
+import { guardEduCrew } from "../edu-crew-guard.ts";
 import { laterStartup, openStartupModelCatalog, unconfirmedModelCatalog, writeStartupModelCache } from "../startup-model-catalog.ts";
 import { hostedWorkspaceConfigured } from "../enterprise.ts";
 import { cloudHomeConfigured } from "../cloud-home.ts";
@@ -231,6 +232,7 @@ export const CodexDriver: ProviderDriver<CodexConfig> = {
       // A leaked API key silently flips Codex's own ChatGPT login to pay-as-you-go.
       delete env.OPENAI_API_KEY;
       stripWorkspaceCredentialEnv(env);
+      guardEduCrew(env);
       delete env.OPENMAUSBOT_CHATGPT_TOKEN;
       delete env.OPENMAUSBOT_CODEX_API_KEY;
       for (const name of PLAN_TOKEN_BRIDGE_ENV) delete env[name];

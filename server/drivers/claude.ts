@@ -60,7 +60,8 @@ import type { KeepWarmContract } from "./claude-keepwarm.ts"; import { claudeFor
 import { BACKGROUND_CALL_TIMEOUT_MS, backgroundCallArgs, spawnBackgroundCall } from "./claude-background.ts"; import { withEndpointFolder } from "./claude-endpoint-folder.ts";
 import { permissionLaunchCwd, shellRequest } from "./permission-command.ts"; import { readToolPaths } from "../own-file-reads.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts"; import { OWN_APPS_SERVER } from "../../shared/own-apps.ts";
-import { claudeEduMount } from "../edu-brain.ts";
+import { CLAUDE_EDU_ALLOWED } from "../edu-brain.ts";
+import { guardEduCrew } from "../edu-crew-guard.ts";
 import { claudeCostSnapshot, restoredCostBase, turnCostFromRunningTotal } from "./claude-cost.ts";
 import { extractMcpImages } from "../mcp-tool-images.ts"; import { claudeToolDraft } from "./tool-progress.ts"; import { redactSecretsInText } from "../../shared/redact.ts";
 import {
@@ -131,6 +132,7 @@ function claudeEnvironment(
   delete env.CLAUDECODE;
   delete env.CLAUDE_CODE_ENTRYPOINT;
   stripWorkspaceCredentialEnv(env);
+  guardEduCrew(env);
   const applied = applyClaudeInject(env, model);
   // An inherited ANTHROPIC_API_KEY would flip a subscription login to pay-as-you-go.
   if (!applied.injected && !instanceEnvironment.ANTHROPIC_API_KEY) delete env.ANTHROPIC_API_KEY;
@@ -1052,9 +1054,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
       for (const name of ["data", "device"] as const) {
         if (turn.integrations?.[name]) { mcpServers[name] = { ...turn.integrations[name] }; allowed.push(`mcp__${name}`); }
       }
-      const edu = turn.integrations?.edu ? claudeEduMount(turn.integrations.edu, turn.botId, turnEnvironment) : null;
-      if (edu) mcpServers.edu = edu.server;
-      if (edu) allowed.push(...edu.allowed);
+      if (turn.integrations?.edu) { mcpServers.edu = { ...turn.integrations.edu }; allowed.push(...CLAUDE_EDU_ALLOWED); }
       if (turn.integrations?.email) { mcpServers.email = { ...turn.integrations.email }; allowed.push(...EMAIL_READ_TOOL_NAMES.map((tool) => `mcp__email__${tool}`)); } // Only its reads: a send asks as any tool of a person's own server does.
       if (turn.integrations?.dweb) {
         mcpServers.dweb = {
@@ -1105,7 +1105,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeConfig> = {
       // A guest pre-allows only harness tools; anything else (the browser can open file:) asks.
       if (turn.guestConfined) allowed.splice(0, allowed.length, ...allowed.filter((name) => name === "mcp__ogb" || name === "mcp__agents"));
       const env = withEndpointFolder(environment(config.endpointModels ? undefined : turnModel), config, () => retryState.delete(threadId)); if (ownHttp) withLoopbackNoProxy(env);
-      if (edu) Object.assign(env, edu.engineEnv);
+      guardEduCrew(env, turn.botId);
       env.PATH = turnEnvironment.PATH; // launch the copy this turn checked, not one a newer PATH finds
       // The MCP config carries credentials and argv is readable via `ps`: a 0600 file, removed at settle.
       let mcpConfigPath: string | null = null;

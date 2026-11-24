@@ -112,6 +112,7 @@ const TextStartDriver = createAcpDriver({
 const CONTROL_PLANE_FIXTURE = {
   OMB_CLOUD_READY_TOKEN: "ready-should-not-leak", OMB_CLOUD_BOOTSTRAP: "bootstrap-should-not-leak",
   OMB_LICENSE_KEY: "license-should-not-leak", OMB_INSTALLATION_CREDENTIAL: "fleet-should-not-leak",
+  EDU_CLOUD_STEWARD: "edu-cloud-token-should-not-leak",
 };
 
 describe("skipSubscriptionAuthForLocalInject", () => {
@@ -1252,6 +1253,7 @@ describe("ACP turns (fake CLI)", () => {
     expect(seen.env.BOX_TOKEN).toBeUndefined();
     expect(seen.env.OMB_TTS_KEY).toBeUndefined();
     for (const name of Object.keys(CONTROL_PLANE_FIXTURE)) expect(seen.env[name]).toBeUndefined();
+    expect(seen.env.EDU_CREW_JOB).toBe("edu-bot");
   });
 
   it("mounts connected apps as a stdio MCP server", async () => {

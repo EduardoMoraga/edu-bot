@@ -5,6 +5,7 @@ import { lstat, mkdir, readdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ValidateFunction } from "ajv";
 import { stripControlPlaneEnv } from "../config.ts";
+import { guardEduCrew } from "../edu-crew-guard.ts";
 import type { SendTurnInput } from "../contracts.ts";
 import { cloudRole } from "../bot-box/detect.ts";
 import { redactSecretsInText } from "../redact.ts";
@@ -143,6 +144,7 @@ function mcpRefusalText(method: string | undefined, error: unknown): string {
 export function chatMcpEnvironment(serverEnv: Record<string, string>, source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...source, PATH: augmentedPath() };
   stripControlPlaneEnv(env);
+  guardEduCrew(env, undefined, source);
   return mcpCommandEnvironment(env, serverEnv);
 }
 

@@ -41,7 +41,7 @@ async function api(person: Person, method: string, path: string, body?: unknown,
 }
 const plan = async (person: Person, extra: Rec = {}) => (await api(person, "POST", "/api/profiles/plan", { folder, ...extra })).body;
 async function apply(person: Person, extra: Rec = {}) {
-  const result = await api(person, "POST", "/api/profiles/apply", { folder, giveAccess: true, ...extra }, true);
+  const result = await api(person, "POST", "/api/profiles/apply", { folder, giveAccess: true, expect: (await plan(person, extra)).digest, ...extra }, true);
   expect(result.status, JSON.stringify(result.body)).toBe(200);
   return result.body;
 }

@@ -356,6 +356,11 @@ describe("the runtime's launch environment", () => {
       instanceId: "environment", runtime, baseDir: fake.directory, baseEnv: { PATH: process.env.PATH, CHROME_CRASHPAD_PIPE_NAME: "gone" },
     });
     expect(profile.environment.CHROME_CRASHPAD_PIPE_NAME).toBeUndefined();
+    const guarded = await prepareAntigravityProfile({
+      instanceId: "environment", runtime, baseDir: fake.directory, baseEnv: { PATH: process.env.PATH, EDU_CLOUD_STEWARD: "edu-cloud-token" },
+    });
+    expect(guarded.environment.EDU_CLOUD_STEWARD).toBeUndefined();
+    expect(guarded.environment.EDU_CREW_JOB).toBe("edu-bot");
     const present = (path: string) => path === "/etc/ssl/certs/ca-certificates.crt" || path === "/nix/store/certs.crt";
     expect(linuxCaBundle({}, present)).toBe("/etc/ssl/certs/ca-certificates.crt");
     expect(linuxCaBundle({ NIX_SSL_CERT_FILE: "/nix/store/certs.crt" }, present)).toBe("/nix/store/certs.crt");

@@ -281,6 +281,12 @@ describe("Chat MCP session", () => {
     expect(f.read().path).toBe(own);
   });
 
+  it("starts a chat bot's tool servers with Edu's crew-worker guard and without an edu-cloud token", () => {
+    expect(chatMcpEnvironment({}, { PATH: "/usr/bin", EDU_CLOUD_STEWARD: "edu-cloud-token" })).toMatchObject({ EDU_CREW_JOB: "edu-bot" });
+    expect(chatMcpEnvironment({}, { PATH: "/usr/bin", EDU_CLOUD_STEWARD: "edu-cloud-token" })).not.toHaveProperty("EDU_CLOUD_STEWARD");
+    expect(chatMcpEnvironment({}, { PATH: "/usr/bin", EDU_CREW_JOB: "outer-job" }).EDU_CREW_JOB).toBe("outer-job");
+  });
+
   it("keeps the operator's control-plane secrets from a chat bot's tool servers, but not what the descriptor grants", async () => {
     const secrets = ["OMB_CLOUD_READY_TOKEN", "OMB_CLOUD_BOOTSTRAP", "OMB_LICENSE_KEY", "OMB_INSTALLATION_CREDENTIAL"];
     for (const name of secrets) vi.stubEnv(name, "should-not-leak");

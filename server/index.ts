@@ -580,7 +580,7 @@ import { createBotPresetRoutes } from "./routes/bot-presets.ts"; import { create
 import { createBotMemoryRoutes } from "./routes/bot-memory.ts";
 import { createEduHost } from "./host/edu-host.ts";
 import { EDU_CLOUD_RELAY_PATH } from "./edu-cloud.ts";
-import { isEduDecisionCard } from "../shared/edu-brain.ts";
+import { EDU_CLOUD_TOKEN_ENV, isEduDecisionCard } from "../shared/edu-brain.ts";
 import { createEduRoutes } from "./routes/edu.ts";
 import { streamCursorSeq } from "./host/stream-cursor.ts";
 import { createBotCreateRoutes } from "./routes/bots-create.ts"; import { privateUntilShared } from "./new-bot-sharing.ts"; import { createShareNotice } from "./host/share-notice.ts"; import { memberDeleteRefusal } from "./host/member-bots.ts";
@@ -2711,7 +2711,7 @@ const store = new Store(
 const eduHost = createEduHost({
   dataDir: DATA_DIR, desktop: DESKTOP_MANAGED, config: () => cfg.edu, hostLocal: () => CLOUD_HOME === null && !botBox.enabled(), store, bus,
   inRoom: (threadId) => Boolean(store.groupByThread(threadId)), decide: (row) => appendDecision(DATA_DIR, row),
-  token: (bot, ref) => "env" in ref ? process.env[ref.env] ?? null : logins.usableSecret(ref.secret, bot.id, "ref", vaultReaders.turn(bot.threadId ?? store.bot(bot.id)?.threadId ?? ""))?.value ?? null,
+  token: (bot, ref) => "env" in ref ? (EDU_CLOUD_TOKEN_ENV.test(ref.env) ? process.env[ref.env] ?? null : null) : logins.usableSecret(ref.secret, bot.id, "ref", vaultReaders.turn(bot.threadId ?? store.bot(bot.id)?.threadId ?? ""))?.value ?? null,
   relay: { origin: `http://127.0.0.1:${PORT}`, mint: (bot, turn) => mintInternalCapability({ botId: bot.id, ...turn, kind: "edu", depth: 0, skillAuthoring: false, createdBots: 0, openedThreads: 0 }) },
   crew: {
     folder: (botId, threadId) => store.taskByThread(botId, threadId)?.cwd ?? store.bot(botId)?.cwd,

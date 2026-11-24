@@ -115,7 +115,8 @@ Each bot's `eduBrain` setting (`PATCH /api/bots/:id`):
   edu-cloud's HTTP MCP as the `edu` server instead of `edu mcp`, through Edu Bot's relay (see below); the tools have
   the same names, and the brief comes from edu-cloud's `edu_brief`. It needs no Edu install on this computer, and it
   never reads your global brain. The token is yours: save it in **Settings → Vault** under the name in `secret` (or use
-  `{ "env": "NAME" }` for an environment variable of the app). Settings show only its name and what it may do there;
+  `{ "env": "EDU_CLOUD_NAME" }` for an environment variable of the app; only names that start with `EDU_CLOUD_` are
+  accepted, and Edu Bot removes every such variable from each engine and tool server it starts). Settings show only its name and what it may do there;
   no route returns its value. `http://` is accepted only for this computer (`127.0.0.1`, `localhost`).
 - `{ "mode": "off" }`: no Edu brain.
 
@@ -207,10 +208,14 @@ in a proactive turn's fence or in a Bot API conversation.
 - The brain is fixed per turn: `--cwd <brain folder>` with `EDU_LOCK_WORKSPACE=1`, so `edu_project_use` cannot move
   a bot onto another brain, the global one included.
 - A bot can propose canonical notes but never accept them: Edu has no MCP tool for that.
-- On Claude bots the engine runs with `EDU_CREW_JOB=edu-bot:<bot id>`, which Edu reads as "a crew worker": the bot's
-  own shell cannot run `edu brain approve` or start Edu crew jobs. Only the `edu` server has it cleared, so memory
-  writes still work. Codex hands one environment to all of its MCP servers, and the other engines were not checked,
-  so they do not get this guard yet. It is not a hard boundary: a shell can unset a variable.
+- Every engine on this computer (Claude, Codex, the ACP engines such as Antigravity, Grok or Cursor, Pi, Muse Code, and
+  the tool servers of chat bots) runs with `EDU_CREW_JOB=edu-bot[:<bot id>]`, which Edu reads as "a crew worker": the
+  bot's shell gets a refusal from `edu brain approve`, `edu brain reject` and Edu crew gates. The `edu` server starts
+  through a small launcher that removes the guard, so memory writes still work whatever the engine does with an MCP
+  server's environment.
+- This stops a bot that follows the rules, not one that tries: a shell can unset a variable, and the proposal is a file
+  in the bot's brain folder. The hard boundary needs Edu itself to require a secret only Edu Bot holds for an approval;
+  that is a planned Edu improvement.
 - When Edu Bot itself runs inside an Edu crew job, the inherited guard stays on for the bots too, and Edu refuses
   their brain writes.
 
@@ -259,9 +264,9 @@ instructions.
 
 **Known limits** (Edu 6.0.0):
 
-- Edu takes a gate decision from a file any local process can write. Claude bots' shells carry the `EDU_CREW_JOB` guard,
-  which makes `edu crew approve` refuse; a shell that unsets it, or a bot on another engine with a shell, could still
-  approve. As with proposals, this is not a hard boundary outside the bot box.
+- Edu takes a gate decision from a file any local process can write. Every engine's shell carries the `EDU_CREW_JOB`
+  guard, which makes `edu crew approve` refuse; a shell that unsets it could still approve. As with proposals, this is
+  not a hard boundary outside the bot box.
 - Edu's own crew workers run the coding CLIs outside Edu Bot's permission levels, bot box and audit; the gates and the
   folder rules above are the controls.
 - `edu_crew_review` in Edu reviews only a git diff, so a review of a question or paths goes through a read-only

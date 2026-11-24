@@ -2,7 +2,8 @@ import { DataFailure } from "./types.ts";
 
 const fail = (code: "invalid_input", message: string, hint?: string) => new DataFailure({ code, message, ...(hint ? { hint } : {}) });
 
-export type Token = { kind: "word" | "ident" | "punct" | "block"; text: string; raw: string };
+/** `at` is the token's offset in the statement. */
+export type Token = { kind: "word" | "ident" | "punct" | "block"; text: string; raw: string; at: number };
 
 export function singleStatement(sql: string): { tokens: Token[]; end: number } {
   const tokens: Token[] = [];
@@ -12,7 +13,7 @@ export function singleStatement(sql: string): { tokens: Token[]; end: number } {
   let i = 0;
   const n = sql.length;
   let end = n;
-  const push = (kind: Token["kind"], raw: string, text = raw) => { if (depth === 0) tokens.push({ kind, text, raw }); };
+  const push = (kind: Token["kind"], raw: string, text = raw) => { if (depth === 0) tokens.push({ kind, text, raw, at: i }); };
   while (i < n) {
     const ch = sql[i]!;
     const next = sql[i + 1];

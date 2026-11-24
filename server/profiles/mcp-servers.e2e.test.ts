@@ -97,7 +97,8 @@ posixOnly("MCP servers from profiles", () => {
         + "Needs your key: it stays off until you save NOTION_TOKEN in Settings → Vault and apply again",
     ]);
     expect((plan.lines as Rec[]).filter((line) => line.text.includes("no MCP server named")), "the folder defines both").toEqual([]);
-    expect((await api("POST", "/api/profiles/apply", { giveAccess: true })).status, "more access from a program on this computer").toBe(403);
+    const { digest } = (await api("POST", "/api/profiles/plan", {})).body;
+    expect((await api("POST", "/api/profiles/apply", { giveAccess: true, expect: digest })).status, "more access from a program on this computer").toBe(403);
     await applyAsAdmin();
     expect(await listed("notion")).toMatchObject({ type: "http", url: notion.url, headerKeys: [], enabled: false, needsKey: true });
     expect(await listed("fake")).toMatchObject({ command: "node", args: ["-e", STDIO_SERVER], envKeys: [], enabled: false, needsKey: true });

@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { claudeEduMount, compareVersions, EDU_PREALLOWED_TOOLS, createEduBrains, eduAreaFolder, eduBrainWidens, eduNoPersonalHome, eduRegistryHome, locateEduCli, parseEduBrainSetting, type EduBrainDeps, type EduConfig } from "./edu-brain.ts";
+import { compareVersions, createEduBrains, eduAreaFolder, eduBrainWidens, eduNoPersonalHome, eduRegistryHome, locateEduCli, parseEduBrainSetting, type EduBrainDeps, type EduConfig } from "./edu-brain.ts";
 import { createEduCloud, EDU_CLOUD_NO_TOKEN, EDU_CLOUD_RELAY_PATH } from "./edu-cloud.ts";
 import { parseStoredConfig } from "./config.ts";
+import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
 const temps: string[] = [];
@@ -44,6 +45,8 @@ describe("eduBrain setting", () => {
     expect(parseEduBrainSetting({ mode: "cloud", url: "https://brain.example/mcp", token: { secret: "EDU_CLOUD_BI" } }))
       .toEqual({ ok: true, value: { mode: "cloud", url: "https://brain.example/mcp", token: { secret: "EDU_CLOUD_BI" } } });
     expect(parseEduBrainSetting({ mode: "cloud", url: "http://127.0.0.1:8787/mcp", token: { env: "EDU_CLOUD_TOKEN" } }).ok).toBe(true);
+    expect(parseEduBrainSetting({ mode: "cloud", url: "https://brain.example/mcp", token: { env: "ANTHROPIC_API_KEY" } }).ok).toBe(false);
+    expect(parseEduBrainSetting({ mode: "cloud", url: "https://brain.example/mcp", token: { env: "EDU_CLOUD_" } }).ok).toBe(false);
     for (const value of [
       { mode: "area" }, { mode: "area", area: "../bi" }, { mode: "area", area: "BI" }, { mode: "area", area: "bi", personalBrain: true },
       { mode: "cloud", url: "http://brain.example/mcp", token: { secret: "T" } }, { mode: "cloud", url: "https://u:p@brain.example/mcp", token: { secret: "T" } },
@@ -149,7 +152,7 @@ describe("createEduBrains", () => {
     const folder = join(dataDir, "brains", "b1");
     expect(first).toEqual({
       command: process.execPath,
-      args: ["/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"],
+      args: [SPAWNED_PROXIES.eduMcp, "/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"],
       env: { ELECTRON_RUN_AS_NODE: "1", EDU_LOCK_WORKSPACE: "1", EDU_HOME: join(dataDir, ".edu") },
     });
     expect(second).toEqual(first);
@@ -165,8 +168,8 @@ describe("createEduBrains", () => {
     const [first, second] = await Promise.all([brains.integration(analyst, { local: true }), brains.integration(reporter, { local: true })]);
     const folder = eduAreaFolder(dataDir, "bi");
     expect(calls.filter((args) => args.includes("init"))).toEqual([["--cwd", folder, "init", "--name", "Area bi"]]);
-    expect(first).toMatchObject({ args: ["/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"], env: { EDU_HOME: join(dataDir, ".edu") } });
-    expect(second).toMatchObject({ args: ["/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"], env: { EDU_HOME: eduNoPersonalHome(dataDir) } });
+    expect(first).toMatchObject({ args: [SPAWNED_PROXIES.eduMcp, "/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"], env: { EDU_HOME: join(dataDir, ".edu") } });
+    expect(second).toMatchObject({ args: [SPAWNED_PROXIES.eduMcp, "/opt/edu/cli.js", "--cwd", folder, "mcp", "--profile", "memory"], env: { EDU_HOME: eduNoPersonalHome(dataDir) } });
     expect(brains.brainKey(reporter)).toBe(folder);
     expect(await brains.status(analyst)).toMatchObject({ state: "ready", mode: "area", brain: folder, home: join(dataDir, ".edu") });
     expect(await brains.status(reporter)).toMatchObject({ state: "ready", mode: "area", brain: folder, home: "", personalBrain: false });
@@ -257,7 +260,7 @@ describe("createEduBrains", () => {
     expect(await brains.integration(shared, { local: true })).toBeNull();
     expect(await brains.status(shared)).toMatchObject({ state: "broken", mode: "folder", brain: area });
     mkdirSync(join(area, ".edu"));
-    expect((await brains.integration(shared, { local: true }))?.args).toEqual(["/opt/edu/cli.js", "--cwd", area, "mcp", "--profile", "memory"]);
+    expect((await brains.integration(shared, { local: true }))?.args).toEqual([SPAWNED_PROXIES.eduMcp, "/opt/edu/cli.js", "--cwd", area, "mcp", "--profile", "memory"]);
     expect(calls.filter((args) => args.includes("init"))).toEqual([]);
   });
 
@@ -340,18 +343,13 @@ describe("createEduBrains", () => {
   });
 });
 
-describe("claudeEduMount", () => {
-  const edu = { command: "node", args: ["cli.js"], env: { EDU_LOCK_WORKSPACE: "1" } };
-
-  it("guards the engine and clears the guard for the edu server only", () => {
-    expect(claudeEduMount(edu, "b1", {})).toEqual({
-      server: { ...edu, env: { EDU_LOCK_WORKSPACE: "1", EDU_CREW_JOB: "" } },
-      engineEnv: { EDU_CREW_JOB: "edu-bot:b1" },
-      allowed: EDU_PREALLOWED_TOOLS.map((tool) => `mcp__edu__${tool}`),
-    });
-  });
-
-  it("keeps a guard Edu Bot inherited for both", () => {
-    expect(claudeEduMount(edu, "b1", { EDU_CREW_JOB: "job-7" })).toEqual({ server: edu, engineEnv: {}, allowed: expect.any(Array) });
+describe("the edu server's crew-worker guard", () => {
+  it("starts edu mcp through the launcher that removes the engine's guard, unless Edu Bot itself runs as a crew worker", async () => {
+    const own = createEduBrains({ dataDir: temp(), config: () => undefined, env: {}, locate: () => "/opt/edu/cli.js",
+      run: () => async (args) => { if (args.includes("init")) mkdirSync(join(args[1]!, ".edu"), { recursive: true }); return args[0] === "--version" ? "6.0.0\n" : ""; } });
+    expect((await own.integration({ id: "b1" }, { local: true }))?.args.slice(0, 2)).toEqual([SPAWNED_PROXIES.eduMcp, "/opt/edu/cli.js"]);
+    const inner = createEduBrains({ dataDir: temp(), config: () => undefined, env: { EDU_CREW_JOB: "job-7" }, locate: () => "/opt/edu/cli.js",
+      run: () => async (args) => { if (args.includes("init")) mkdirSync(join(args[1]!, ".edu"), { recursive: true }); return args[0] === "--version" ? "6.0.0\n" : ""; } });
+    expect((await inner.integration({ id: "b1" }, { local: true }))?.args[0]).toBe("/opt/edu/cli.js");
   });
 });

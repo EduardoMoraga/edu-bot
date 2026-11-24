@@ -91,6 +91,11 @@ export class ConnectionStore {
     return connection.dsn;
   }
 
+  /** The database files of the sqlite and duckdb connections. */
+  fileConnections(): string[] {
+    return this.read().connections.flatMap((connection) => connection.type === "postgres" ? [] : [connection.dsn]);
+  }
+
   allowedFile(path: string): string {
     return this.assertInside(path);
   }

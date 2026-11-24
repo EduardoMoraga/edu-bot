@@ -12,6 +12,7 @@ import { resolveAcpClientPath } from "./client-path.ts";
 import { createHash } from "node:crypto";
 
 import { PROVIDER_CREDENTIAL_ENV, stripControlPlaneEnv, WORKSPACE_CREDENTIAL_ENV } from "../../config.ts";
+import { guardEduCrew } from "../../edu-crew-guard.ts";
 import { openStartupModelCatalog } from "../../startup-model-catalog.ts";
 import { acpModelCatalog } from "./model-catalog.ts";
 import { cliProbeFailure, cliWithoutVersion } from "./probe-reason.ts";
@@ -342,7 +343,7 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
         for (const key of [...PROVIDER_CREDENTIAL_ENV, ...WORKSPACE_CREDENTIAL_ENV]) {
           if (!allowedCredentials.has(key)) delete env[key];
         }
-        stripControlPlaneEnv(env);
+        stripControlPlaneEnv(env); guardEduCrew(env);
         support.transformEnv?.(env, activeConfig, instanceId, input.environment);
         return env;
       };

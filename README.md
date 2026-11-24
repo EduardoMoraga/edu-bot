@@ -36,7 +36,7 @@ The app does not update itself. Download the newer installer from Releases and i
 1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are in **Settings → AI → Providers**.
 2. Create a bot with **New bot**.
 3. Open Apps. Press Connect on Notion, Linear or Atlassian and sign in in your browser. For GitHub, paste a token. For your own MCP server, paste its link. Gmail, Google Calendar and Slack need your own Composio project key (it starts with `ak_`): Apps asks for it under More apps. See [Connect apps](docs/composio.md) and [your own MCP servers](docs/custom-mcp-servers.md).
-4. In Settings, turn on **Advanced mode**, or search for **Data**. Then add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. A bot reads only the tables you allow.
+4. In Settings, turn on **Advanced mode**, or search for **Data**. Then add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. Through a connection, a bot reads only the tables you allow: that is the hard limit. The bot's local data tools can read other files the bot can reach, as its terminal can. They refuse a connection's database file, a folder allowed for connections, and Edu Bot's own data folder, also through a link, and they refuse a folder too large to check.
 
 ## Edu memory
 
@@ -51,7 +51,7 @@ npm install -g ./edu-agent.tgz
 
 On Windows, use the one-line installer in [Edu's quickstart](https://github.com/EduardoMoraga/edu#quickstart). Each bot then gets an Edu brain. It can recall notes and propose new ones.
 
-A canonical note stays a proposal until a person accepts it. A bot cannot approve one. The app still runs if Edu is missing.
+A canonical note stays a proposal until a person accepts it. In normal use the app stops a bot from approving one: every engine runs with Edu's crew-worker guard. A bot with a terminal could remove that guard, so the hard limit needs an approval secret in Edu itself; that is a planned Edu improvement. The app still runs if Edu is missing.
 
 Edu crew lets a bot ask other coding tools to plan work. It stays off until you turn it on for that bot. You approve each plan.
 

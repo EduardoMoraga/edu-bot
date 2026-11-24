@@ -1,8 +1,9 @@
 // Every SQL string built here quotes its literals and identifiers; every result is bounded by rows and bytes before it leaves.
-import { existsSync, mkdirSync, readdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, globSync, lstatSync, mkdirSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { basename, dirname, extname, isAbsolute, join, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ValidateFunction } from "ajv";
 
 import {
@@ -18,7 +19,8 @@ import {
   type OmbChartSpec,
 } from "../../shared/data-surface.ts";
 import { NAMED_CONNECTION_SENTENCE, containsRawDsn } from "../../shared/data-connections.ts";
-import { queryNamed, type NamedDataAccess } from "./live.ts";
+import { openStore, queryNamed, type NamedDataAccess } from "./live.ts";
+import { addressOpensProtected, CHECKED_FILES_MAX, listFolder, localReads, opensProtected, PROTECTED_FILE_SENTENCE, protectedPlaces, readVerdict, TOO_MANY_FILES_SENTENCE, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 import { tableIdentifierParts } from "./identifiers.ts";
 import { queryRelation, singleStatement, type Token } from "./sql-statements.ts";
@@ -305,6 +307,30 @@ export interface DataContext {
 const runOptions = (ctx: DataContext, extra: Partial<RunOptions> = {}): RunOptions =>
   ({ connection: ctx.connection, signal: ctx.signal, timeoutMs: DATA_LIMITS.sqlTimeoutMs, ...extra });
 
+/** Security: a bot's local reads never open a connection's file, a folder allowed for connections or the app's data
+ * folder. The person's own panel is not limited. */
+async function refuseProtectedReads(ctx: DataContext, sql: string): Promise<void> {
+  if (!ctx.named) return;
+  const reads = await localReads(sql);
+  if (!reads.ok) throw fail("invalid_input", UNCHECKED_FILES_SENTENCE, { sql });
+  if (!reads.files.length) return;
+  const places = protectedPlaces(ctx.named.dataDir, openStore(ctx.named), ctx.exportRoots());
+  const expand = async (pattern: string) => {
+    const listed = await ctx.database.run(`SELECT file FROM glob(${quoteLiteral(pattern)})`, runOptions(ctx, { maxRows: CHECKED_FILES_MAX + 1 }));
+    return listed.rows.length > CHECKED_FILES_MAX ? null : listed.rows.map((row) => String(row[0]));
+  };
+  for (const path of reads.files) {
+    const verdict = await readVerdict(path, places, expand);
+    if (verdict !== "open") throw fail("invalid_input", verdict === "protected" ? PROTECTED_FILE_SENTENCE : TOO_MANY_FILES_SENTENCE, { sql });
+  }
+}
+
+function refuseProtectedFiles(ctx: DataContext, files: string[], address?: string): void {
+  if (!ctx.named || (!files.length && address === undefined)) return;
+  const places = protectedPlaces(ctx.named.dataDir, openStore(ctx.named), ctx.exportRoots());
+  if ((address !== undefined && addressOpensProtected(address, places)) || files.some((file) => opensProtected(file, places))) throw fail("invalid_input", PROTECTED_FILE_SENTENCE);
+}
+
 export type LoadKind = "auto" | "csv" | "tsv" | "parquet" | "json" | "xlsx" | "sqlite" | "folder" | "url" | "postgres" | "mysql" | "gsheet";
 export interface LoadInput {
   source: string;
@@ -319,6 +345,8 @@ export interface LoadPlan {
   kind: DataSource["kind"];
   /** The path or URL with credentials removed. */
   source: string;
+  /** Every local file the load opens: DuckDB is handed these names and never a pattern or a folder. */
+  files?: string[];
   stem: string;
   reader?: string;
   /** Multi-file readers can keep their source paths beside a file's own filename column. */
@@ -329,6 +357,23 @@ export interface LoadPlan {
 }
 
 const GLOB_CHARS = /[*?[\]]/;
+const REMOTE_ADDRESS = /^(?!file:)[a-z][a-z0-9+.-]*:\/\//i;
+const FILE_ADDRESS = /^file:(?:\/\/[^/\\]*)?/i;
+
+/** The local path a `file:` address names; an address Node cannot read as one keeps its path as typed. */
+function localPathOf(source: string): string {
+  if (!/^file:/i.test(source)) return source;
+  try {
+    const url = new URL(source);
+    url.hostname = "";
+    return fileURLToPath(url);
+  } catch {
+    return source.replace(FILE_ADDRESS, "");
+  }
+}
+/** DuckDB 1.5 expands a pattern in every file name it is given, so a name is passed with its pattern characters
+ * bracketed. */
+const exactName = (file: string) => file.replace(/[*?[\]]/g, "[$&]");
 const COMPRESSION = /\.(gz|zst|zstd|bz2)$/i;
 
 function readerFor(ext: string, kind: LoadKind | undefined): "csv" | "tsv" | "json" | "parquet" | "xlsx" | "sqlite" | null {
@@ -404,10 +449,10 @@ export function tableNameFrom(stem: string): string {
 
 export function planLoad(input: LoadInput): LoadPlan[] {
   const { source } = input;
-  const kind = input.kind ?? "auto";
+  const typed = input.kind ?? "auto";
   const warnings: string[] = [];
   const gsheet = /^https?:\/\/docs\.google\.com\/spreadsheets\/d\/([A-Za-z0-9_-]+)/.exec(source);
-  if (kind === "gsheet" || (kind === "auto" && gsheet)) {
+  if (typed === "gsheet" || (typed === "auto" && gsheet)) {
     if (!gsheet) throw fail("source_unsupported", "A Google Sheets URL looks like https://docs.google.com/spreadsheets/d/<id>/….");
     const gid = /[?#&]gid=(\d+)/.exec(source)?.[1] ?? (input.sheet && /^\d+$/.test(input.sheet) ? input.sheet : undefined);
     const exportUrl = `https://docs.google.com/spreadsheets/d/${gsheet[1]}/export?format=csv${gid ? `&gid=${gid}` : ""}`;
@@ -415,54 +460,59 @@ export function planLoad(input: LoadInput): LoadPlan[] {
     return [{ kind: "gsheet", source: stripCredentials(source), stem: input.name ?? "sheet", reader: `read_csv(${quoteLiteral(exportUrl)}${csvOptions(input.options)})`, extensions: ["httpfs"], warnings }];
   }
   const database = /^(postgres(ql)?|mysql):\/\//i.exec(source);
-  if (kind === "postgres" || kind === "mysql" || (kind === "auto" && database)) {
+  if (typed === "postgres" || typed === "mysql" || (typed === "auto" && database)) {
     throw fail("invalid_input", NAMED_CONNECTION_SENTENCE);
   }
-  if (/^(https?|s3|gs|az|azure|r2|hf):\/\//i.test(source) || kind === "url") {
+  if (/^(https?|s3|gs|az|azure|r2|hf):\/\//i.test(source) || (typed === "url" && REMOTE_ADDRESS.test(source))) {
     const pathname = (() => { try { return new URL(source).pathname; } catch { return source; } })();
-    const reader = readerFor(extensionOf(pathname), kind === "url" ? undefined : kind);
+    const reader = readerFor(extensionOf(pathname), typed === "url" ? undefined : typed);
     if (!reader || reader === "sqlite") throw fail("source_unsupported", `No reader for ${extensionOf(pathname) || "a URL without a file extension"}.`, { hint: "Pass kind: csv, tsv, json, parquet or xlsx." });
     const extensions: DataExtension[] = [/^(az|azure):\/\//i.test(source) ? "azure" : "httpfs"];
     if (reader === "xlsx") extensions.push("excel");
     return [{ kind: "url", source: stripCredentials(source), stem: input.name ?? (stemOf(pathname) || "download"), reader: readerExpression(reader, source, input, false), extensions, warnings }];
   }
-  const local = source.startsWith("~/") || source === "~" ? join(homedir(), source.slice(1)) : source;
-  if ((GLOB_CHARS.test(local) || kind === "folder") && !existsSync(local)) {
+  const kind = typed === "url" ? "auto" : typed;
+  const path = localPathOf(source.trim());
+  const local = path.startsWith("~/") || path === "~" ? join(homedir(), path.slice(1)) : path;
+  const skipped = (links: number) => { if (links) warnings.push(`Skipped ${links} symbolic ${links === 1 ? "link" : "links"}; load a linked file by its own path.`); };
+  if (GLOB_CHARS.test(local) && !existsSync(local)) {
     const reader = readerFor(extensionOf(local), kind === "folder" ? undefined : kind);
     if (!reader || reader === "sqlite" || reader === "xlsx") throw fail("source_unsupported", "A glob needs a file extension DuckDB reads many of: *.csv, *.parquet, *.json.", { hint: "Pass kind: csv, json or parquet with the glob." });
-    const read = (column: string | boolean = true) => readerExpression(reader, local, input, true, column);
-    return [{ kind: "folder", source: local, stem: input.name ?? (basename(dirname(local)) || "files"), reader: read(), readerWithFilename: read, warnings }];
+    const matches = globSync(local.replace(/\\/g, "/"));
+    if (matches.length > CHECKED_FILES_MAX) throw fail("invalid_input", `${local} matches more than ${CHECKED_FILES_MAX.toLocaleString("en-US")} files.`, { hint: "Use a narrower pattern." });
+    const found = matches.map((match) => ({ match, stat: lstatSync(match, { throwIfNoEntry: false }) }));
+    const files = found.filter(({ stat }) => stat?.isFile()).map(({ match }) => match).sort();
+    skipped(found.filter(({ stat }) => stat?.isSymbolicLink()).length);
+    if (!files.length) throw fail("source_not_found", `No files found that match ${local}.`);
+    const read = (column: string | boolean = true) => readerExpression(reader, files.map(exactName), input, true, column);
+    return [{ kind: "folder", source: local, files, stem: input.name ?? (basename(dirname(local)) || "files"), reader: read(), readerWithFilename: read, warnings }];
   }
   let stat;
   try { stat = statSync(local); } catch { throw fail("source_not_found", `${local} does not exist.`); }
   if (stat.isDirectory()) {
-    const families = new Map<"csv" | "tsv" | "json" | "parquet", Set<string>>();
-    for (const entry of readdirSync(local, { recursive: true, withFileTypes: true })) {
-      if (!entry.isFile()) continue;
-      const reader = readerFor(extensionOf(entry.name), undefined);
-      if (!reader || reader === "sqlite" || reader === "xlsx") continue;
-      // Keep compression in the suffix even though it does not select the reader.
-      const suffix = (extensionOf(entry.name) + (COMPRESSION.exec(entry.name)?.[0] ?? "")).toLowerCase();
-      (families.get(reader) ?? families.set(reader, new Set()).get(reader)!).add(suffix);
+    const listing = listFolder(local);
+    if (!listing) throw fail("invalid_input", `${local} holds more than ${CHECKED_FILES_MAX.toLocaleString("en-US")} files and folders.`, { hint: "Load a smaller folder, or one file at a time." });
+    const loadable = (path: string) => { const reader = readerFor(extensionOf(path), undefined); return reader && reader !== "sqlite" && reader !== "xlsx" ? reader : null; };
+    const families = new Map<"csv" | "tsv" | "json" | "parquet", string[]>();
+    for (const file of listing.files.sort()) {
+      const reader = loadable(file);
+      if (reader) (families.get(reader) ?? families.set(reader, []).get(reader)!).push(file);
     }
+    skipped(listing.links.filter(loadable).length);
     if (!families.size) throw fail("source_unsupported", `${local} holds no csv, tsv, json or parquet files.`);
     const stem = input.name ?? basename(local);
-    // DuckDB globs take forward slashes on every platform and no braces: one glob per extension.
-    const folder = local.replace(/\\/g, "/").replace(/[*?[\]]/g, "[$&]");
-    return [...families.entries()].map(([reader, exts]) => {
-      // One case-independent pattern per suffix avoids both missing .CSV on
-      // Linux and overlapping .csv/.CSV patterns on case-insensitive filesystems.
-      const globs = [...exts].map((ext) => `${folder}/**/*${ext.replace(/[a-z]/g, (letter) => `[${letter}${letter.toUpperCase()}]`)}`);
-      const read = (column: string | boolean = true) => readerExpression(reader, globs.length === 1 ? globs[0]! : globs, input, true, column);
-      return { kind: "folder" as const, source: local, stem: families.size === 1 ? stem : `${stem}_${reader}`, reader: read(), readerWithFilename: read, warnings };
+    return [...families.entries()].map(([reader, files]) => {
+      const read = (column: string | boolean = true) => readerExpression(reader, files.map(exactName), input, true, column);
+      return { kind: "folder" as const, source: local, files, stem: families.size === 1 ? stem : `${stem}_${reader}`, reader: read(), readerWithFilename: read, warnings };
     });
   }
   const reader = readerFor(extensionOf(local), kind);
   if (!reader) throw fail("source_unsupported", `No reader for ${extensionOf(local) || "a file without an extension"}.`, { hint: "Pass kind: csv, tsv, json, parquet, xlsx or sqlite." });
-  if (reader === "sqlite") return [{ kind: "sqlite", source: local, stem: input.name ?? stemOf(local), attach: { type: "sqlite", connection: local, table: input.sheet }, warnings }];
+  if (reader === "sqlite") return [{ kind: "sqlite", source: local, files: [local], stem: input.name ?? stemOf(local), attach: { type: "sqlite", connection: local, table: input.sheet }, warnings }];
+  if (reader === "xlsx" && GLOB_CHARS.test(local)) throw fail("source_unsupported", `${local} has * ? [ or ] in its name.`, { hint: "Rename the workbook, then load it." });
   if (reader === "xlsx" && !input.sheet) warnings.push("Loaded the workbook's first sheet; pass sheet to load another.");
   if (extensionOf(local).toLowerCase() === ".txt") warnings.push("Read as CSV; pass options.delimiter if the columns did not split.");
-  return [{ kind: reader === "tsv" ? "csv" : reader, source: local, stem: input.name ?? (input.sheet ? `${stemOf(local)}_${input.sheet}` : stemOf(local)), reader: readerExpression(reader, local, input, false), ...(reader === "xlsx" ? { extensions: ["excel" as const] } : {}), warnings }];
+  return [{ kind: reader === "tsv" ? "csv" : reader, source: local, files: [local], stem: input.name ?? (input.sheet ? `${stemOf(local)}_${input.sheet}` : stemOf(local)), reader: readerExpression(reader, reader === "xlsx" ? local : exactName(local), input, false), ...(reader === "xlsx" ? { extensions: ["excel" as const] } : {}), warnings }];
 }
 
 const DATABASE_TABLES_MAX = 25;
@@ -472,7 +522,9 @@ export interface LoadOutput { tables: LoadedTable[]; warnings: string[]; elapsed
 
 export async function loadData(ctx: DataContext, input: LoadInput): Promise<LoadOutput> {
   const started = Date.now();
+  if (/^\s*file:/i.test(input.source)) refuseProtectedFiles(ctx, [], input.source);
   const plans = planLoad(input);
+  refuseProtectedFiles(ctx, plans.flatMap((plan) => plan.files ?? []));
   const replace = input.replace !== false;
   const existing = new Set((await ctx.database.listTables()).map((table) => table.name.toLowerCase()));
   const tables: LoadedTable[] = [];
@@ -560,6 +612,7 @@ export async function describeTarget(ctx: DataContext, target: string): Promise<
   } else {
     const kind = gateSql(target);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Describe takes a table name or a SELECT.", { sql: target });
+    await refuseProtectedReads(ctx, target);
     sql = target;
     relation = queryRelation(target);
   }
@@ -617,6 +670,7 @@ export async function runSql(ctx: DataContext, input: SqlInput): Promise<SqlOutp
     return { table: null, columns: result.columns, rowCount: result.rowCount, rows: bounded.rows, truncated: bounded.truncated || result.truncated, elapsedMs: result.elapsedMs };
   }
   const kind = gateSql(input.sql, { allowCreate: true });
+  await refuseProtectedReads(ctx, input.sql);
   if (kind.kind === "create") {
     await ctx.database.run(input.sql, runOptions(ctx));
     const described = await ctx.database.describe(kind.target, runOptions(ctx));
@@ -713,6 +767,7 @@ export async function showCard(context: DataContext, input: ShowInput, onCardRea
     if (input.sql) {
       const kind = gateSql(input.sql);
       if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "A card shows a SELECT's result.", { sql: input.sql });
+      if (ctx.named) await refuseProtectedReads(ctx, input.sql);
       from = queryRelation(input.sql);
     } else {
       from = await ctx.database.resolveTable(input.table!);
@@ -886,6 +941,7 @@ export async function exportData(ctx: DataContext, input: ExportInput): Promise<
   } else {
     const kind = gateSql(input.sql!);
     if (kind.kind !== "read" || !kind.materialisable) throw fail("invalid_input", "Export takes a SELECT.", { sql: input.sql });
+    await refuseProtectedReads(ctx, input.sql!);
     relation = queryRelation(input.sql!);
     stem = "query";
   }

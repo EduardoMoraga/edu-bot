@@ -36,7 +36,7 @@ La app no se actualiza sola. Descarga el instalador nuevo desde la misma página
 1. Inicia sesión en un motor en este computador. Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en **Ajustes → IA → Proveedores**.
 2. Crea un bot con **Bot nuevo**.
 3. Abre Apps. Pulsa Conectar en Notion, Linear o Atlassian e inicia sesión en tu navegador. Para GitHub, pega un token. Para tu propio servidor MCP, pega su enlace. Gmail, Google Calendar y Slack necesitan tu propia clave de proyecto de Composio (empieza con `ak_`): Apps la pide en Más apps. Mira [Conectar apps](docs/composio.md) y [servidores MCP propios](docs/custom-mcp-servers.md).
-4. En Ajustes, activa el **Modo avanzado**, o busca **Datos**. Luego agrega una conexión SQL de solo lectura en **Ajustes → Datos → Conexiones de datos**. Sirven SQLite, DuckDB y Postgres. La contraseña queda en la Bóveda. Un bot lee solo las tablas que tú permites.
+4. En Ajustes, activa el **Modo avanzado**, o busca **Datos**. Luego agrega una conexión SQL de solo lectura en **Ajustes → Datos → Conexiones de datos**. Sirven SQLite, DuckDB y Postgres. La contraseña queda en la Bóveda. Por una conexión, un bot lee solo las tablas que tú permites: ese es el límite firme. Las herramientas de datos locales del bot pueden leer otros archivos a los que el bot llega, igual que su terminal. Rechazan el archivo de base de datos de una conexión, una carpeta permitida para conexiones y la carpeta de datos de Edu Bot, también a través de un enlace, y rechazan una carpeta demasiado grande para revisarla.
 
 ## Memoria Edu
 
@@ -51,7 +51,7 @@ npm install -g ./edu-agent.tgz
 
 En Windows, usa el instalador de una línea de la [guía rápida de Edu](https://github.com/EduardoMoraga/edu#quickstart). Cada bot recibe entonces un cerebro Edu. Puede recordar notas y proponer otras.
 
-Una nota canónica queda como propuesta hasta que una persona la acepta. Un bot no puede aprobarla. La app funciona igual si Edu no está instalado.
+Una nota canónica queda como propuesta hasta que una persona la acepta. En el uso normal, la app impide que un bot la apruebe: cada motor corre con la protección de trabajador de crew de Edu. Un bot con terminal podría quitar esa protección, así que el límite firme necesita un secreto de aprobación en el propio Edu; es una mejora planeada de Edu. La app funciona igual si Edu no está instalado.
 
 Edu crew deja que un bot pida a otras herramientas de código que armen un plan. Sigue apagado hasta que lo actives en ese bot. Tú apruebas cada plan.
 

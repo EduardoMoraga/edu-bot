@@ -487,7 +487,8 @@ copy: an area brain is shared by the bots on one computer, not across computers.
 `eduBrain: { mode: cloud, url, token: { secret: NAME } }` shares one [edu-cloud](https://github.com/EduardoMoraga/edu-cloud)
 brain across computers. Each person asks the edu-cloud admin for their own token (`edu-cloud token add <email>`) and
 saves it in **Settings → Vault** under the name the profile gives (`NAME`). Until then the bot shows **Needs your key**
-and has no Edu tools. `{ env: NAME }` reads the token from the app's environment instead; a `{ file: … }` token is for
+and has no Edu tools. `{ env: EDU_CLOUD_NAME }` reads the token from the app's environment instead (only names that
+start with `EDU_CLOUD_`, which no engine or tool server is given); a `{ file: … }` token is for
 CI only, and this app then keeps the bot's current brain.
 
 Both are more access: the plan lists them under **Gives more access**, and only the desktop app or a paired admin
