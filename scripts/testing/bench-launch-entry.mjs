@@ -96,7 +96,7 @@ utilityProcess.fork = function (entry, ...rest) {
   const child = fork.call(this, entry, ...rest);
   child.once("spawn", () => mark("fork-spawned", { entry: label }));
   let listening = false;
-  child.stdout?.on("data", (chunk) => { if (!listening && String(chunk).includes("openmausbot server on ")) { listening = true; mark("server-first-listen-line"); } });
+  child.stdout?.on("data", (chunk) => { if (!listening && String(chunk).includes("Edu Bot server on ")) { listening = true; mark("server-first-listen-line"); } });
   return child;
 };
 

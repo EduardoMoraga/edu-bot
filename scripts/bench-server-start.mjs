@@ -89,7 +89,7 @@ function once({ appRoot, entry, cache }) {
     child.stderr.on("data", (chunk) => { output += chunk; });
     child.stdout.on("data", async (chunk) => {
       output += chunk;
-      if (listening !== undefined || !String(chunk).includes("openmausbot server on ")) return;
+      if (listening !== undefined || !String(chunk).includes("Edu Bot server on ")) return;
       listening = performance.now() - at;
       const status = await probe();
       const answered = performance.now() - at;

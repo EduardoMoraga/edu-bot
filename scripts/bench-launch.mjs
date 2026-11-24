@@ -172,7 +172,7 @@ function phases(run) {
     entry: first("entry"), mainImported: first("main-import:end"), ready: first("ready"),
     splashCreated: first("window-created", (entry) => entry.id === windowIds[0]), splashShown: shows[0]?.t,
     credentialsRead: first("credentials-decrypt:end"), proxyRead: first("resolveProxy:end"),
-    fork: first("fork"), forkSpawned: first("fork-spawned"), serverListening: logAt(/\[out\].*openmausbot server on /),
+    fork: first("fork"), forkSpawned: first("fork-spawned"), serverListening: logAt(/\[out\].*Edu Bot server on /),
     mainWindowCreated: first("window-created", (entry) => entry.id === windowIds[1]), pageNavStart: mainNav?.t,
     pageResponse: at(page.nav?.responseStart), domContentLoaded: at(page.nav?.dcl), rootFilled: page.seen?.root,
     mainWindowShown: shows.find((entry) => entry.id === windowIds[1])?.t, firstContentfulPaint: at(page.paints?.["first-contentful-paint"]),

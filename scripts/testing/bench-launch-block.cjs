@@ -30,7 +30,7 @@ if (!globalThis[LOADED]) {
   if (cpuOut) {
     const write = process.stdout.write;
     process.stdout.write = function (chunk, ...rest) {
-      if (String(chunk).includes("openmausbot server on ")) {
+      if (String(chunk).includes("Edu Bot server on ")) {
         const used = process.cpuUsage();
         try { fs.writeFileSync(cpuOut, String((used.user + used.system) / 1000)); } catch {}
         process.stdout.write = write;
@@ -50,7 +50,7 @@ if (!globalThis[LOADED]) {
     const write = process.stdout.write;
     let done = false;
     process.stdout.write = function (chunk, ...rest) {
-      if (!done && String(chunk).includes("openmausbot server on ")) {
+      if (!done && String(chunk).includes("Edu Bot server on ")) {
         done = true;
         const stop = () => session.post("Profiler.stop", (error, result) => {
           if (!error) try { fs.mkdirSync(profDir, { recursive: true }); fs.writeFileSync(`${profDir}/server-${process.pid}.cpuprofile`, JSON.stringify(result.profile)); } catch {}

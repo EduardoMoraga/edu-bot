@@ -1,10 +1,12 @@
+import { SERVER_LISTENING_LINE } from "./app-identity.mjs";
+
 export const BOOT_PROBE_FAST_INTERVAL_MS = 25;
 export const BOOT_PROBE_FAST_WINDOW_MS = 5_000;
 export const BOOT_PROBE_INTERVAL_MS = 500;
 
 export const SERVER_BOOT_TIMEOUT_MS = 60_000;
 export const SERVER_LISTENING_GRACE_MS = 180_000;
-const LISTENING_LINE = "openmausbot server on ";
+const LISTENING_LINE = SERVER_LISTENING_LINE;
 
 export function listeningSignal() {
   let tail = "";

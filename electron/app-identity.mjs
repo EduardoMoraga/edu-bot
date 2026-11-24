@@ -1,6 +1,8 @@
 export const APP_ID = "io.github.eduardomoraga.edubot";
 export const DESKTOP_ENTRY_NAME = `${APP_ID}.desktop`;
 export const PRODUCT_NAME = "Edu Bot";
+/** The line the server prints once it listens; the desktop app waits for it on the server's stdout. */
+export const SERVER_LISTENING_LINE = `${PRODUCT_NAME} server on `;
 export const CLI_NAME = "edubot";
 
 export const DATA_DIR_NAME = ".edubot";
