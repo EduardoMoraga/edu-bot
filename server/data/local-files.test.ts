@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ConnectionStore } from "./connections.ts";
 import { chartRenderer, compileChart, validateVegaLite } from "./deps.ts";
 import { createDataEngine } from "./engine.ts";
-import { localReads, PROTECTED_FILE_SENTENCE, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
+import { localReads, PROTECTED_FILE_SENTENCE, TOO_MANY_FILES_SENTENCE, UNCHECKED_FILES_SENTENCE } from "./local-files.ts";
 import { DataSheetStore } from "./sheet.ts";
 import { describeTarget, exportData, loadData, runSql, showCard, type DataContext } from "./tools.ts";
 import { DataFailure } from "./types.ts";
@@ -163,6 +163,75 @@ describe("a bot's local data tools", () => {
     ]) expect(await refusal(runSql(ctx, { sql })), sql).toBe(PROTECTED_FILE_SENTENCE);
     expect(await ctx.database.listTables()).toEqual([]);
     expect((await runSql(ctx, { sql: `SELECT product FROM read_csv(${sq(join(root, "spare", "ok-hard.csv"))})` })).rows).toEqual([["Pencil"]]);
+  });
+
+  it("never read a link to a protected file that sits beside ordinary files, by folder or by pattern", async () => {
+    const ctx = await context("beside");
+    const mixed = join(dataDir, "attachments", "mixed");
+    mkdirSync(join(mixed, "deep"), { recursive: true });
+    writeFileSync(join(mixed, "real.csv"), "product,amount\nRuler,5\n");
+    symlinkSync(join(shop, "notes.csv"), join(mixed, "notes-link.csv"));
+    symlinkSync(join(dataDir, "logins-key"), join(mixed, "deep", ".key.csv"));
+    symlinkSync(shop, join(mixed, "shop-link"), "junction");
+    for (const sql of [
+      `SELECT * FROM read_csv(${sq(mixed)})`,
+      `SELECT * FROM read_csv(${sq(`${mixed}/*.csv`)})`,
+      `SELECT * FROM read_csv(${sq(`${mixed}/n*`)})`,
+      `SELECT * FROM read_csv(${sq(join(mixed, "deep"))})`,
+      `SELECT * FROM read_csv(${sq(join(mixed, "shop-link"))})`,
+    ]) expect(await refusal(runSql(ctx, { sql })), sql).toBe(PROTECTED_FILE_SENTENCE);
+    for (const pattern of [`${mixed}/deep/*.csv`, `${mixed}/*/notes.csv`, `${mixed}/**/*.csv`]) {
+      const rows = await runSql(ctx, { sql: `SELECT * FROM read_csv(${sq(pattern)}, header=false, union_by_name=true)` }).then((result) => result.rows, () => []);
+      expect(JSON.stringify(rows), pattern).not.toMatch(/TOPSECRET|VAULTKEY/);
+    }
+    for (const source of [mixed, `${mixed}/*.csv`]) {
+      const loaded = await loadData(ctx, { source, name: "mixed" });
+      expect(loaded.warnings.join(" "), source).toContain("symbolic link");
+      expect((await runSql(ctx, { sql: "SELECT * EXCLUDE (filename) FROM mixed" })).rows, source).toEqual([["Ruler", "5"]]);
+    }
+  });
+
+  it("open a file named like a pattern as that one file", async () => {
+    const ctx = await context("named-like-a-pattern");
+    const odd = join(root, "odd");
+    mkdirSync(odd);
+    writeFileSync(join(odd, "[n]otes.csv"), "note\nplain\n");
+    symlinkSync(join(shop, "notes.csv"), join(odd, "notes.csv"));
+    await loadData(ctx, { source: join(odd, "[n]otes.csv"), name: "odd" });
+    expect((await runSql(ctx, { sql: "SELECT * FROM odd" })).rows).toEqual([["plain"]]);
+    expect(await refusal(runSql(ctx, { sql: `SELECT * FROM read_csv(${sq(join(odd, "[n]otes.csv"))})` }))).toBe(PROTECTED_FILE_SENTENCE);
+  });
+
+  it("refuse a folder too large to check, and never load part of it", async () => {
+    const ctx = await context("large");
+    const big = join(root, "big");
+    mkdirSync(big);
+    for (let index = 0; index < 10_000; index++) writeFileSync(join(big, `f${index}.dat`), "");
+    linkSync(join(shop, "notes.csv"), join(big, "secret.csv"));
+    linkSync(join(dataDir, "logins-key"), join(big, "key.csv"));
+    for (const kind of ["folder", undefined] as const) {
+      expect(await refusal(loadData(ctx, { source: big, ...(kind ? { kind } : {}) }))).toContain("more than 10,000 files and folders");
+    }
+    expect(await refusal(runSql(ctx, { sql: `SELECT * FROM read_csv(${sq(big)})` }))).toBe(TOO_MANY_FILES_SENTENCE);
+    expect(await refusal(runSql(ctx, { sql: `SELECT * FROM read_text(${sq(`${big}/*`)})` }))).toBe(TOO_MANY_FILES_SENTENCE);
+    expect(await refusal(runSql(ctx, { sql: `SELECT * FROM read_csv(${sq(`${big}/*.csv`)})` }))).toBe(PROTECTED_FILE_SENTENCE);
+    expect(await refusal(loadData(ctx, { source: `${big}/*.csv` }))).toBe(PROTECTED_FILE_SENTENCE);
+    expect(await ctx.database.listTables()).toEqual([]);
+  }, 120_000);
+
+  it("load an ordinary folder of csv files whole, by folder, by pattern and in a statement", async () => {
+    const ctx = await context("plain-folder");
+    const plain = join(root, "plain");
+    mkdirSync(join(plain, "nested"), { recursive: true });
+    writeFileSync(join(plain, "a.csv"), "product,amount\nPen,1\n");
+    writeFileSync(join(plain, "b[1].CSV"), "product,amount\nInk,2\n");
+    writeFileSync(join(plain, "nested", "c.csv"), "product,amount\nPad,3\n");
+    const whole = await loadData(ctx, { source: plain, name: "whole" });
+    expect(whole).toMatchObject({ tables: [{ name: "whole", rowCount: 3 }], warnings: [] });
+    expect((await runSql(ctx, { sql: "SELECT product FROM whole ORDER BY amount" })).rows).toEqual([["Pen"], ["Ink"], ["Pad"]]);
+    expect((await loadData(ctx, { source: `${plain}/a*.csv`, name: "top" })).tables[0]).toMatchObject({ rowCount: 1 });
+    if (process.platform !== "win32") expect((await loadData(ctx, { source: fileUrl("localhost", join(plain, "a.csv")), kind: "url", name: "addressed" })).tables[0]).toMatchObject({ rowCount: 1 });
+    expect((await runSql(ctx, { sql: `SELECT count(*) >= 2 FROM read_csv(${sq(plain)})` })).rows).toEqual([[true]]);
   });
 
   it("refuse a read whose path is not a plain string, since it cannot be checked", async () => {

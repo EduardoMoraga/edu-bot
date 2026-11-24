@@ -1,9 +1,9 @@
 // Security: a bot's local data tools read files with the app's own rights, so a connection's database file, a folder
 // allowed for connections and the app's data folder are refused there; a named connection reads only its allowed tables.
-// Every other file stays readable, as it is from the bot's terminal. Known open risks: a symbolic link to one of these
-// places inside a folder loaded whole is not followed here, and a folder loaded whole is searched for hard links only
-// through its first FOLDER_LINK_SEARCH entries.
-import { globSync, opendirSync, realpathSync, statSync, type BigIntStats } from "node:fs";
+// Every other file stays readable, as it is from the bot's terminal. Every file a folder or a pattern opens is checked,
+// through symbolic links and hard links, and a folder or pattern too large to check is refused. Known open risk: a file
+// swapped between this check and DuckDB's read is not seen.
+import { opendirSync, realpathSync, statSync, type BigIntStats } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -19,6 +19,7 @@ const GLOB = /[*?[\]{}]/;
 const REMOTE = /^[a-z][a-z0-9+.-]*:\/\//i;
 
 export const PROTECTED_FILE_SENTENCE = "That file belongs to a data connection or to Edu Bot itself; read it through a named connection (data_sql with on) instead.";
+export const TOO_MANY_FILES_SENTENCE = "That folder or pattern holds more files than Edu Bot can check (10,000). Name a smaller folder or a narrower pattern.";
 export const UNCHECKED_FILES_SENTENCE = "Edu Bot could not check which files this statement opens. Load files with data_load first, or name each file as a plain 'path' string, and check the syntax.";
 
 export interface ProtectedPlaces {
@@ -56,7 +57,7 @@ export function protectedPlaces(dataDir: string, connections: Pick<ConnectionSto
 }
 
 const PROTECTED_LINK_SEARCH = 100_000;
-const FOLDER_LINK_SEARCH = 10_000;
+export const CHECKED_FILES_MAX = 10_000;
 
 const fileId = (stat: BigIntStats): string => `${stat.dev}:${stat.ino}`;
 
@@ -106,15 +107,12 @@ function protectedFileIds(places: ProtectedPlaces): Set<string> | "unknown" {
   return result;
 }
 
-/** Whether `path`, or a file in the folder `path`, is a hard link of a protected file. */
+/** Whether the file `path` is a hard link of a protected file. */
 function sharesProtectedFile(path: string, places: ProtectedPlaces): boolean {
   const stat = statOf(path);
-  const candidates = new Set<string>();
-  if (stat?.isFile() && stat.nlink > 1n) candidates.add(fileId(stat));
-  else if (stat?.isDirectory()) collectLinkedFiles(path, [], { left: FOLDER_LINK_SEARCH }, candidates);
-  if (!candidates.size) return false;
+  if (!stat?.isFile() || stat.nlink <= 1n) return false;
   const ids = protectedFileIds(places);
-  return ids === "unknown" || [...candidates].some((id) => ids.has(id));
+  return ids === "unknown" || ids.has(fileId(stat));
 }
 
 function overlaps(path: string, places: ProtectedPlaces): boolean {
@@ -123,6 +121,58 @@ function overlaps(path: string, places: ProtectedPlaces): boolean {
   if (isInside(places.dataDir, path)) return true;
   if (isInside(path, places.dataDir) && !places.botFolders.some((folder) => isInside(path, folder))) return true;
   return sharesProtectedFile(path, places);
+}
+
+/** Whether opening exactly `file`, through any symbolic link, reads a protected place. */
+export function opensProtected(file: string, places: ProtectedPlaces): boolean {
+  return overlaps(realPath(file), places);
+}
+
+export interface FolderListing { files: string[]; links: string[] }
+
+/** The regular files and the symbolic links under `folder`, which are never followed; null when the folder holds more
+ * than `budget.left` entries. */
+export function listFolder(folder: string, budget = { left: CHECKED_FILES_MAX }): FolderListing | null {
+  const listing: FolderListing = { files: [], links: [] };
+  const pending = [folder];
+  for (let current = pending.pop(); current !== undefined; current = pending.pop()) {
+    let entries;
+    try { entries = opendirSync(current); } catch { continue; }
+    try {
+      for (let entry = entries.readSync(); entry; entry = entries.readSync()) {
+        if (budget.left-- <= 0) return null;
+        const path = join(current, entry.name);
+        if (entry.isSymbolicLink()) listing.links.push(path);
+        else if (entry.isDirectory()) pending.push(path);
+        else if (entry.isFile()) listing.files.push(path);
+      }
+    } finally {
+      entries.closeSync();
+    }
+  }
+  return listing;
+}
+
+export type ReadVerdict = "open" | "protected" | "too-many";
+
+/** A folder read whole: every file in it, and in every folder a symbolic link in it leads to. */
+function folderVerdict(folder: string, places: ProtectedPlaces): ReadVerdict {
+  const budget = { left: CHECKED_FILES_MAX };
+  const seen = new Set<string>();
+  const pending = [folder];
+  for (let current = pending.pop(); current !== undefined; current = pending.pop()) {
+    if (seen.has(current)) continue;
+    seen.add(current);
+    const listing = listFolder(current, budget);
+    if (!listing) return "too-many";
+    if (listing.files.some((file) => overlaps(file, places))) return "protected";
+    for (const link of listing.links) {
+      const target = realPath(link);
+      if (overlaps(target, places)) return "protected";
+      if (statOf(target)?.isDirectory()) pending.push(target);
+    }
+  }
+  return "open";
 }
 
 const LOCAL_HOSTS = new Set(["", "localhost", "127.0.0.1", "[::1]"]);
@@ -140,25 +190,34 @@ function fileUrlPaths(address: string): string[] | null {
   }
 }
 
-function reachesProtected(local: string, places: ProtectedPlaces): boolean {
-  const expanded = local === "~" || local.startsWith("~/") ? join(homedir(), local.slice(1)) : local;
-  if (overlaps(realPath(expanded), places)) return true;
-  if (!GLOB.test(expanded)) return false;
-  let matches: string[];
-  try { matches = globSync(expanded.replace(/\\/g, "/")); } catch { return true; }
-  return matches.some((match) => overlaps(realPath(match), places));
+/** The files a pattern matches, as DuckDB itself expands it; null when there are more than CHECKED_FILES_MAX. */
+export type ExpandPattern = (pattern: string) => Promise<string[] | null>;
+
+async function localVerdict(typed: string, locals: string[], places: ProtectedPlaces, expand: ExpandPattern): Promise<ReadVerdict> {
+  for (const local of locals) {
+    const real = realPath(local === "~" || local.startsWith("~/") ? join(homedir(), local.slice(1)) : local);
+    if (overlaps(real, places)) return "protected";
+    if (statOf(real)?.isDirectory()) {
+      const verdict = folderVerdict(real, places);
+      if (verdict !== "open") return verdict;
+    }
+  }
+  if (!locals.some((local) => GLOB.test(local))) return "open";
+  const matches = await expand(typed);
+  if (!matches) return "too-many";
+  return matches.some((match) => opensProtected(match, places)) ? "protected" : "open";
 }
 
-/** Whether reading `path` (a file, a folder read whole, or a glob) could reach a protected place. Remote addresses
- * pass; a `file:` address that names another computer does not. */
-export function readsProtected(path: string, places: ProtectedPlaces): boolean {
+/** What reading `path` (a file, a folder read whole, or a pattern) in a statement reaches. Remote addresses are open; a
+ * `file:` address that names another computer is not. */
+export async function readVerdict(path: string, places: ProtectedPlaces, expand: ExpandPattern): Promise<ReadVerdict> {
   const trimmed = path.trim();
   if (/^file:/i.test(trimmed)) {
     const paths = fileUrlPaths(trimmed);
-    return paths === null || paths.some((local) => reachesProtected(local, places));
+    return paths === null ? "protected" : localVerdict(trimmed, paths, places, expand);
   }
-  if (REMOTE.test(trimmed)) return false;
-  return reachesProtected(trimmed, places);
+  if (REMOTE.test(trimmed)) return "open";
+  return localVerdict(trimmed, [trimmed], places, expand);
 }
 
 /** The query whose reads a statement makes: the SELECT inside CREATE … AS and EXPLAIN [ANALYZE]. */
