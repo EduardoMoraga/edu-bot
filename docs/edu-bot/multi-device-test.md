@@ -13,7 +13,7 @@ No se toca `cheil-sofland` (es de otra persona), ni `C:\Cheil`, ni datos de Chei
 
 ## Estado
 
-**Preparada, falta correrla.** Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza
+**En curso.** H2 a H5 esperan que el Mac mini comparta. El resto está **preparado, falta correrlo**. Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza
 mi llave SSH y FFM no tiene SSH. Los comandos de abajo son para Edu Git; los pasos con las manos son para Eduardo.
 
 ## Lo que ya revisé (desde omarchy, 24-11)
@@ -49,14 +49,30 @@ Lo que dice el código (revisado, sin cambios):
 | # | Chequeo | Resultado |
 | --- | --- | --- |
 | H1 | Edu Bot 0.1.0 abierto, servidor en `127.0.0.1:8799` | pendiente |
-| H2 | **Tus otros ordenadores** encendido: dice `Listo en https://…ts.net` (o `http://…:8799`) | pendiente |
-| H3 | Desde omarchy: `/.well-known/openmausbot/environment` responde por Tailscale | pendiente |
-| H4 | Seguridad: `Host: evil.example.com` da 421; `/api/bots` sin sesión da 403 | pendiente |
-| H5 | `:8799` escucha solo en loopback y Tailscale, nunca en `*:8799` | pendiente |
+| H2 | **Tus otros ordenadores** encendido: dice `Listo en https://…ts.net` (o `http://…:8799`) | **No listo** (24-11, 16:59 UTC): el Mac mini no comparte nada. Ver "Intentos H2 a H5" |
+| H3 | Desde omarchy: `/.well-known/openmausbot/environment` responde por Tailscale | **Falla por ahora**: `curl: (7) Failed to connect to mac-mini-de-eduardomoraga.tail9f9734.ts.net:443` (y `:8799`) |
+| H4 | Seguridad: `Host: evil.example.com` da 421; `/api/bots` sin sesión da 403 | pendiente: necesita H3 |
+| H5 | `:8799` escucha solo en loopback y Tailscale, nunca en `*:8799` | pendiente: necesita H3 |
 | H6 | FFM aparece en **Emparejados** (como "Chrome on Windows") y en `GET /api/auth/sessions` | pendiente |
 | H7 | Un bot del home lista la carpeta de prueba de FFM | pendiente |
 | H8 | Un bot del home ve la pantalla de FFM (captura) y abre Chrome en FFM | pendiente |
 | H9 | El teléfono aparece en la lista de teléfonos del home | pendiente |
+
+### Intentos H2 a H5 (desde omarchy, que está en la misma red local que el Mac mini, `192.168.68.55`)
+
+**24-11, 16:59 UTC.** El Mac mini está en línea en Tailscale (`tailscale ping`: 100 ms, directo por
+`192.168.68.61`). En `100.90.146.38` el puerto 22 está abierto. Los puertos 80, 443, 5173, 8799, 8800, 8810, 8811 y
+8443 rechazan la conexión (`Connection refused`). Quiere decir que Edu Bot no está abierto, o que **Tus otros
+ordenadores** está apagado. Faltan los pasos 1 a 3 de Eduardo en el Mac mini.
+
+Queda una vigilancia en omarchy: cuando el Mac mini abra 443 u 8799, corre sola estos chequeos y los anoto aquí.
+
+- H3: `GET /.well-known/openmausbot/environment` y `/api/health` sin sesión, por `https://<nombre>` y
+  `http://<nombre>:8799`.
+- H4: `Host: evil.example.com` y `Host: 127.0.0.1:8799` deben dar 421; `/api/bots`, `/api/auth/sessions` y
+  `POST /api/auth/pairing` sin sesión deben dar 403 o 401.
+- H5: `http://192.168.68.61:8799` (red local, sin Tailscale) no debe responder. Con certificados HTTPS,
+  `http://100.90.146.38:8799` tampoco debe responder (el servidor queda solo en loopback detrás de `tailscale serve`).
 
 ## Resultados: FFM-EDUARDOMORAGA (segundo computador)
 
