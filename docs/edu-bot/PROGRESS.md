@@ -11,8 +11,8 @@ Hecho = verificado. Cada línea dice cómo se probó.
 | M2 | Memoria Edu en cada bot, con aprobaciones | Hecho (PR #7, #8, #9, #10, 22-11) |
 | M3 | Organización, áreas y bots en archivos | Hecho (PR #13 a #17, 22-11) |
 | M4 | Conector SQL, permisos por bot, registro de auditoría, conectores, Antigravity | Hecho (PR #19 a #26, 22-11) |
-| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | En curso (PR #28 fusionado) |
-| M6 | Auditoría final con dos proveedores, inglés y español completos | Pendiente |
+| M5 | CI en 3 sistemas, instaladores, README, versión 0.1.0 | Listo; v0.1.0 en espera (ver M6) |
+| M6 | Auditoría final con dos proveedores, inglés y español completos | En curso |
 
 ## M0: salud del repo
 
@@ -181,6 +181,27 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   Cloud, el servicio de Composio de MausBot, links de descarga de upstream). Explica cómo abrir la app sin firma.
 - [ ] M5-3: publicar la versión v0.1.0.
 
+## M6: revisión final, inglés y español, prueba en la app real
+
+- [x] Español completo (#32, Agy; Grok auditó 2 rondas): 11.543 de 11.543 textos. Los textos que la persona ve
+  dicen Edu Bot (se mantienen el crédito a OpenMausBot y la app del teléfono MausBot).
+- [x] Prueba en la app real en inglés y español (#33, Claude; Grok auditó 3 rondas): 57 pantallas, arreglos de
+  textos en inglés que quedaban, capturas nuevas del README. El plan de perfiles ahora vale en cualquier idioma.
+- [ ] Auditoría final (Fable 5.2): 4 graves y 4 importantes. Arreglos en curso (Fable): seguridad en #35
+  (un bot podía aprobar su propia nota de Edu, las herramientas de datos leían cualquier archivo, un token de
+  edu-cloud quedaba visible para el bot, dar acceso sin la huella del plan) y textos (comando de Edu en el README,
+  errores del servidor en inglés, restos de "OpenMausBot", `/api/health` y el log del servidor).
+- **Urgente antes de publicar v0.1.0** (pedido de Eduardo, 23-11, tras probar en su MacBook):
+  1. Conectar herramientas en pocos clics y con palabras simples: Gmail y Calendar, Notion, tu servidor MCP,
+     GitHub, Slack.
+  2. Quitar "Grok Bot" de lo que se ve (es una función heredada para mudarse desde la app Grok Bot de xAI;
+     se oculta). El proveedor de modelos Grok no se toca.
+  3. Arreglar los permisos de "Usar este computador" en macOS (Accesibilidad y Grabación de pantalla).
+  4. Pantalla de bienvenida: 3 líneas simples sobre qué hace Edu Bot y un primer paso útil.
+  La v0.1.0 no se publica hasta tener estos 4 resueltos y probados en la app.
+- La v0.1.0 ya tiene instaladores armados (Mac en máquinas Intel, porque GitHub no daba máquinas Mac ARM). Queda
+  como borrador privado. Se rehará con todo lo anterior.
+
 ## Cómo trabajamos
 
 - Límites de uso (pedido 22-11): si se acaba el límite semanal de Claude, no me detengo en silencio:
@@ -294,3 +315,5 @@ Edu Bot funciona sin ellas, pero serían más seguras. Detalle en `~/Projects/ed
    la app (el README explica cómo abrirla igual). Para Mac: Apple Developer ID (USD 99 al año) y sus secretos
    `MAC_CERT_P12_BASE64`, `MAC_CERT_PASSWORD` y los de notarización. Para Windows: un certificado de firma de código
    (`WIN_CSC_LINK`). No es urgente.
+7. **Probar los permisos de Mac (2 minutos).** Nadie más tiene un Mac. Cuando esté el arreglo de "Usar este computador",
+   te dejo aquí los pasos exactos para probarlo en tu MacBook.
