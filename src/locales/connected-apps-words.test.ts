@@ -13,8 +13,6 @@ const NO_KEY_FLOW = [
   "connectors.setupNeeded",
   "connectors.setup.step1",
   "connectors.setup.openComposio",
-  "connectors.setup.step2",
-  "connectors.setup.step3",
   "connectors.setup.pasteKey",
   "connectors.tile.needsKey",
   "connectors.empty.noKeyDesc",

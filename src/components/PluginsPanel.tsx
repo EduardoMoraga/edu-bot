@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Loader2, RefreshCw, Search, Server, TriangleAlert, X } from "lucide-react";
-import { api, type Bot, type InstanceInfo } from "@/state/store";
+import { ChevronDown, ChevronRight, Link, Loader2, Mail, MessagesSquare, RefreshCw, Search, Server, TriangleAlert, X } from "lucide-react";
+import { api, type Bot, type ConfigStatus, type InstanceInfo } from "@/state/store";
 import { useStoreDispatch, useStoreSelector } from "@/state/store-select";
 import { cn } from "@/lib/cn";
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
@@ -44,7 +44,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { ServiceIcon, type ToolkitCard } from "./ServiceIcon"; import { AppsSection } from "./AppsSection";
 import { AppTile, tileStanding, useTileActions } from "./AppTile";
 import { useAppTileWindow } from "./app-tile-window";
-import { ComposioKeySteps, ConnectedEmptyWithoutKey } from "./AppsKeySetup";
+import { AppsStartHere, ComposioKeySteps, ConnectedEmptyWithoutKey, StartTile } from "./AppsKeySetup";
 import { appCatalogMemory, loadAppCatalog, onAppCatalog, type AppCatalog, type CatalogPagination, type ConnectorSetup } from "@/lib/app-catalog-cache";
 export { ServiceIcon, type ToolkitCard } from "./ServiceIcon";
 
@@ -310,6 +310,9 @@ export function PluginsPanel() {
 
   const { suggestions, picking, pick } = useSuggestedApps(cards !== null && configured && inventoryPhase === "ready", `${cardsRefresh}:${Object.keys(status).filter((slug) => status[slug]?.connected).sort().join()}`);
   const [disconnecting, setDisconnecting] = useState<{ slug: string; label: string; account: ConnectorAccount } | null>(null); disconnectingRef.current = disconnecting;
+  const [moreApps, setMoreApps] = useState(false);
+  const [addingMcp, setAddingMcp] = useState(0);
+  const keyField = useRef<HTMLInputElement>(null);
 
   const openConnectUrl = async (url: string) => {
     if (opening.current) return;
@@ -447,6 +450,18 @@ export function PluginsPanel() {
   const listEmpty = cards !== null && allShown.length === 0 && !nativeCardsShown && sections.length <= 1;
   const connectedEmptyWithoutKey = needsKey && !remoteClient && listEmpty && listing === "connected";
   const mcpFirst = needsKey && filter === "all" && category === null && !searching;
+  const keySaved = (config: ConfigStatus) => {
+    dispatch({ type: "configStatus", config });
+    void loadAppCatalog().catch(() => {});
+  };
+  const setUpKey = () => {
+    setMoreApps(true);
+    requestAnimationFrame(() => {
+      keyField.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+      keyField.current?.focus({ preventScroll: true });
+    });
+  };
+  const hostedCards = { onConnections: setHostedConnected, onServers: setMcpServers };
   const connectedCards = useMemo(() => (cards ?? []).filter((card) => hasActiveConnection(status[card.slug])), [cards, status]);
   const botLists = useMemo(() => {
     const cached = (find: (slug: string) => Bot[]) => {
@@ -618,8 +633,28 @@ export function PluginsPanel() {
           ) : (
             <SavedKeysReset notice />
           )}
+          {mcpFirst && (
+            <AppsStartHere>
+              <McpServersPanel hostedCards={{ ...hostedCards, shown: (id) => HOSTED_MCP_APPS.some((app) => app.id === id && "featured" in app) }} refreshKey={cardsRefresh} />
+              <StartTile id="own-mcp" glyph={Link} label={t("apps.start.ownServer")} line={t("apps.start.ownServerLine")} action={t("apps.start.add")} onAction={() => setAddingMcp((count) => count + 1)} />
+              {!remoteClient && <StartTile id="google" glyph={Mail} label={t("apps.start.google")} line={t("apps.start.needsKey")} action={t("apps.start.setUp")} onAction={setUpKey} />}
+              {!remoteClient && <StartTile id="slack" glyph={MessagesSquare} label="Slack" line={t("apps.start.needsKey")} action={t("apps.start.setUp")} onAction={setUpKey} />}
+            </AppsStartHere>
+          )}
+          {mcpFirst && renderMcpSection()}
+          {mcpFirst && (
+            <button type="button" data-apps-more aria-expanded={moreApps} onClick={() => setMoreApps((open) => !open)}
+              className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl bg-control/50 px-4 py-3 text-start text-[14px] font-medium leading-5 text-ink hover:bg-raised-hover">
+              <span className="min-w-0">
+                {t("apps.start.more")}
+                <span className="block text-[13px] font-normal text-ink-secondary">{t("apps.start.moreHelp")}</span>
+              </span>
+              <ChevronDown size={16} aria-hidden="true" className={cn("shrink-0 transition-transform", moreApps && "rotate-180")} />
+            </button>
+          )}
+          <div data-apps-catalog className={mcpFirst && !moreApps ? "hidden" : "contents"}>
           {setupNotice?.key === "connectors.setupNeeded" ? (
-            filter !== "mcp" && !connectedEmptyWithoutKey && <ComposioKeySteps onPasteKey={pasteKey} />
+            filter !== "mcp" && !connectedEmptyWithoutKey && <ComposioKeySteps fieldRef={keyField} onSaved={keySaved} />
           ) : setupNotice && filter !== "mcp" && (
             <div
               className={cn(
@@ -642,7 +677,6 @@ export function PluginsPanel() {
               </button>
             </div>
           )}
-          {mcpFirst && renderMcpSection()}
           {configured && !remoteClient && source === "curated" && mode === "self-hosted" && filter !== "mcp" && (
             <div className="mb-3 text-[12px] text-ink-secondary">
               {t("connectors.featuredBefore")}{" "}
@@ -740,7 +774,7 @@ export function PluginsPanel() {
                   </>
                 )}
               >
-                <McpServersPanel hostedCards={{ shown: (id) => !inCategoryView && shownHosted.has(id), onConnections: setHostedConnected, onServers: setMcpServers, ...(filter === "connected" ? { ownServers: { shown: ownServerShown, manage: () => chooseFilter("mcp") } } : {}) }} refreshKey={cardsRefresh} />
+                {!mcpFirst && <McpServersPanel hostedCards={{ ...hostedCards, shown: (id) => !inCategoryView && shownHosted.has(id), ...(filter === "connected" ? { ownServers: { shown: ownServerShown, manage: () => chooseFilter("mcp") } } : {}) }} refreshKey={cardsRefresh} />}
                 <div data-native-card="x" className={showX && !inCategoryView ? "contents" : "hidden"}><XCard refreshKey={cardsRefresh} onConnection={setXConnected} /></div>
                 <div data-native-card="email" className={showEmail && !inCategoryView ? "contents" : "hidden"}><EmailCard refreshKey={cardsRefresh} onConnection={setEmailConnected} /></div>
                 <div data-native-card="postiz" className={postizHere ? "contents" : "hidden"}><PostizCard refreshKey={cardsRefresh} onConnection={setPostizConnected} /></div>
@@ -749,6 +783,7 @@ export function PluginsPanel() {
             </div>
           )}
 
+          </div>
           {filter !== "connected" && category === null && !mcpFirst && renderMcpSection()}
         </div>
         <ConfirmDialog open={disconnecting !== null} layer="z-[60]" tone="danger" title={t("connectors.disconnect")} confirmLabel={t("connectors.disconnect")}
@@ -774,7 +809,7 @@ export function PluginsPanel() {
         data-apps-mcp-section={mcpFirst ? "first" : "last"}
         className={cn(filter === "all" && (mcpFirst ? "mb-8 border-b border-hairline/30 pb-6" : "mt-8 border-t border-hairline/30 pt-6"), filter === "mcp" && "pt-1")}
       >
-        <McpServersPanel embedded hideHosted={filter === "all"} />
+        <McpServersPanel embedded hideHosted={filter === "all"} adding={addingMcp} />
       </div>
     );
   }

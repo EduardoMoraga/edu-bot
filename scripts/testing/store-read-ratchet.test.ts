@@ -59,7 +59,6 @@ const READS: Record<string, number> = {
   "src/components/ForkPanel.tsx": 1,
   "src/components/FrameBarPinnedPages.tsx": 1,
   "src/components/GoalRunCard.tsx": 1,
-  "src/components/GrokMoveDialog.tsx": 1,
   "src/components/GroupCallView.tsx": 1,
   "src/components/GroupView.tsx": 2,
   "src/components/HelperIntro.tsx": 1,

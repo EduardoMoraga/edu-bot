@@ -108,11 +108,13 @@ export interface HostedCardsProps {
 
 /** `hostedCards`: render the one-click card of each hosted MCP app (one instance, one server load, one sign-in at a time)
  * instead of the server list. `hideHosted`: leave hosted apps' servers (and Postiz's) out of the list, since their cards show them. */
-export function McpServersPanel({ embedded = false, hostedCards, hideHosted = false, refreshKey = 0 }: {
+export function McpServersPanel({ embedded = false, hostedCards, hideHosted = false, refreshKey = 0, adding = 0 }: {
   embedded?: boolean;
   hostedCards?: HostedCardsProps;
   hideHosted?: boolean;
   refreshKey?: number;
+  /** Each new number opens the Add form and brings it into view. */
+  adding?: number;
 } = {}) {
   const { state: store, dispatch } = useStore();
   const botName = (id: string) => store.bots?.find((bot) => bot.id === id)?.name ?? id;
@@ -141,6 +143,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
   const [loadError, setLoadError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
   const mounted = useRef(true);
+  const section = useRef<HTMLElement>(null);
   const hostedOf = (server: McpServerListing) => isRemoteMcpListing(server) ? hostedMcpApp(server) : undefined;
   const connections = useMemo(() => servers && hostedConnections(servers), [servers]);
   const onConnections = hostedCards?.onConnections;
@@ -264,6 +267,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
     if (added.length) closeEditor();
     for (const name of added) {
       const result = await connect(name, true);
+      if (mounted.current) section.current?.querySelector(`[data-mcp-server="${name}"]`)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
       const server = latest.find((each) => each.name === name);
       if (result.auth === "required" && server && added.length === 1 && mounted.current) await signIn(server);
     }
@@ -499,6 +503,16 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
     }
   };
 
+  useEffect(() => {
+    if (!adding) return;
+    openEditor("new");
+    const frame = requestAnimationFrame(() => {
+      section.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+      section.current?.querySelector<HTMLElement>("textarea, input")?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [adding]);
+
   const editingServer = editing && editing !== "new" ? servers?.find((server) => server.name === editing) : undefined;
 
   function renderPasteBack(server: McpServerListing) {
@@ -646,6 +660,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
 
   return (
     <section
+      ref={section}
       data-mcp-servers
       aria-labelledby="mcp-servers-title"
       className={embedded ? "" : "min-h-0 flex-1 overflow-y-auto px-6 pb-7 pt-5 sm:px-8"}
@@ -713,7 +728,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
               const canSignIn = isRemoteMcpListing(server) && !server.runsOn
                 && (auth === "needs-sign-in" || result?.auth === "required" || ((Boolean(hosted) || Boolean(server.oauth)) && auth !== "signed-in"));
               return (
-                <div key={server.name} data-hosted-server={hosted?.id} className="rounded-2xl border border-hairline/50 bg-card px-4 py-4 sm:px-5">
+                <div key={server.name} data-mcp-server={server.name} data-hosted-server={hosted?.id} className="rounded-2xl border border-hairline/50 bg-card px-4 py-4 sm:px-5">
                   <div data-mcp-row className="flex flex-wrap items-center gap-3">
                     <div className={cn("flex size-10 shrink-0 items-center justify-center rounded-xl", server.enabled ? "bg-success/10 text-success" : "bg-raised text-ink-secondary")}>
                       {hosted ? <HostedMcpIcon app={hosted} /> : isRemoteMcpListing(server) ? <Globe size={19} /> : <ServerCog size={19} />}

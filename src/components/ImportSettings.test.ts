@@ -16,21 +16,18 @@ const apps = (overrides: Partial<AiAppsImportViewProps> = {}) => text(renderToSt
 })));
 
 describe("Settings → Import", () => {
-  it("draws From your AI apps and the one button for moving from Grok Bot, and opens nothing until it is pressed", () => {
+  it("draws From your AI apps and nothing about moving from another assistant app", () => {
     const value = { state: { config: {} }, dispatch: vi.fn() } as never;
     const markup = renderToStaticMarkup(createElement(StoreContext.Provider, { value }, createElement(ImportSettings, {
       client: { detect: vi.fn(() => new Promise<SetupDetection>(() => {})), apply: vi.fn() },
     })));
     expect(markup).toContain('data-import-section="apps"');
-    expect(markup).toContain('data-import-section="grok"');
+    expect(markup).not.toContain('data-import-section="grok"');
     const shown = text(markup);
     expect(shown).toContain("From your AI apps");
     expect(shown).toContain("Claude Code, Codex, Cursor, Claude Desktop, Gemini, Hermes Agent and OpenClaw");
     expect(shown).toContain("Tools arrive switched off; logins and history are never read.");
-    expect(shown).toContain("Move from Grok Bot");
-    expect(markup).toContain("data-grok-move-open");
-    expect(markup).not.toContain("data-grok-move=");
-    expect(markup.indexOf('data-import-section="grok"')).toBeLessThan(markup.indexOf('data-import-section="apps"'));
+    expect(shown).not.toMatch(/grok ?bot/i);
   });
 
   it("offers the welcome step's rows, with its counts, sources and switched-off note", () => {

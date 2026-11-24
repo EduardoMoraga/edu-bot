@@ -68,6 +68,7 @@ Nothing here is contacted until you use the feature named in the last column.
 | Host | What | When |
 | --- | --- | --- |
 | `backend.composio.dev`, and the logo addresses its catalog names | Connected apps (OAuth grants) and their icons | Only with your own Composio key, or a broker you run (`OMB_COMPOSIO_BROKER_URL`) |
+| `mcp.notion.com`, `mcp.linear.app`, `mcp.atlassian.com`, `api.githubcopilot.com` | The service's own MCP server, with your sign-in or token | Only after you press Connect on that tool in Apps |
 | `autoconfig.thunderbird.net`, `autoconfig.<your domain>`, `<your domain>/.well-known/autoconfig` | Mail server settings for your address | When you add an email account |
 | `github.com/bitwarden/clients/releases` | The Bitwarden CLI | When you connect Bitwarden |
 | `vault.bitwarden.com`, `vault.bitwarden.eu`, or your own server | Your Bitwarden vault | When you connect Bitwarden and a bot uses a saved login |

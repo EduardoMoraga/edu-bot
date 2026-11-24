@@ -7,7 +7,6 @@ import { setLocale } from "@/lib/i18n";
 vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
 vi.mock("@/components/EngineLibrary", () => ({ engineReady: () => true }));
 const { otherDialogOpen, useOtherDialogOpen } = await import("./notice-dialogs");
-const { GrokMovePopup } = await import("./GrokMovePopup");
 const { Spotlight } = await import("./onboarding/Spotlight");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -18,7 +17,7 @@ const mount = async (element: ReturnType<typeof createElement>) => {
   roots.push(root);
   await act(async () => { root.render(element); });
 };
-const showPopup = () => mount(createElement(GrokMovePopup, { onDone: done }));
+const showPopup = () => mount(createElement("div", { role: "dialog", "data-updates-consent-popup": "" }));
 
 beforeEach(() => { setLocale("en"); roots = []; done.mockClear(); });
 afterEach(async () => { for (const root of roots) await act(async () => root.unmount()); document.body.replaceChildren(); vi.useRealTimers(); });

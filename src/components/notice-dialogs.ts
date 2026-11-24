@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { GROK_MOVE_POPUP } from "./GrokMovePopup";
 import { NEW_LOOK_NOTICE } from "./NewLookNotice";
 import { SIMPLE_MODE_PROMPT } from "./SimpleModePrompt";
 import { UPDATES_CONSENT_POPUP } from "./UpdatesConsent";
@@ -7,7 +6,7 @@ import { UPDATES_CONSENT_POPUP } from "./UpdatesConsent";
 export { useDesktopNotices } from "./desktop-notices";
 
 const OTHER_DIALOGS = '[role="dialog"], [role="alertdialog"], [aria-modal="true"], [data-tour-card], [data-cloud-setup-ready]';
-const QUEUE_POPUPS = [GROK_MOVE_POPUP, UPDATES_CONSENT_POPUP, SIMPLE_MODE_PROMPT, NEW_LOOK_NOTICE].join(", ");
+const QUEUE_POPUPS = [UPDATES_CONSENT_POPUP, SIMPLE_MODE_PROMPT, NEW_LOOK_NOTICE].join(", ");
 /** A first run's own screens on a Cloud: its welcome, its first ask and a team's welcome to a new member. */
 const FIRST_SCREENS = "[data-cloud-welcome], [data-cloud-intent], [data-team-welcome]";
 

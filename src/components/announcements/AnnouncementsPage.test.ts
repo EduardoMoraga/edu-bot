@@ -11,7 +11,6 @@ const f = vi.hoisted(() => ({ found: null as unknown as Announcements, dispatch:
 vi.mock("./use-announcements", () => ({ useAnnouncements: () => f.found }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ state: f.state, dispatch: f.dispatch }), api: vi.fn() }));
 vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
-vi.mock("../lazy-screens", () => ({ GrokMoveDialog: () => createElement("div", { "data-grok-move-dialog": "" }) }));
 vi.mock("@/lib/announcement-history", async original => ({ ...await original<typeof import("@/lib/announcement-history")>(), rememberNoticeSeen: f.remembered }));
 const { AnnouncementsPage } = await import("./AnnouncementsPage");
 
@@ -48,8 +47,8 @@ describe("Announcements", () => {
     f.found = found(desktop);
     await open();
     expect(document.querySelector("h1")?.textContent).toBe("Announcements");
-    expect(rows().map(row => row.dataset.announcementItem)).toEqual([card.id, "grok-move-2026-11", "cloud-trial-intro-v1"]);
-    expect(rows()[1]?.querySelector("time")?.getAttribute("datetime")).toBe("2026-11-04T00:00:00.000Z");
+    expect(rows().map(row => row.dataset.announcementItem)).toEqual([card.id, "cloud-trial-intro-v1"]);
+    expect(rows()[1]?.querySelector("time")?.getAttribute("datetime")).toBe("2026-10-09T00:00:00.000Z");
   });
 
   it("each button does what its own notice did", async () => {
@@ -70,14 +69,6 @@ describe("Announcements", () => {
     f.found = found(browser, { unread: true });
     await open();
     expect(markRead).toHaveBeenCalledTimes(1);
-  });
-
-  it("a popup's row opens the popup again, outside the notice queue; closing it marks it seen when it wasn't", async () => {
-    f.found = found(browser);
-    await open();
-    await click(rows().find(row => row.dataset.announcementItem === "grok-move-2026-11")?.querySelector("button"));
-    await click(document.querySelector("[data-grok-move-popup] [data-primary]"));
-    expect(document.querySelector("[data-grok-move-dialog]"), "Let's start opens the move, as from the popup").not.toBeNull();
   });
 
   it("shows a card's words in the person's language", async () => {

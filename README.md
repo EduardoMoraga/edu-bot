@@ -35,7 +35,7 @@ The app does not update itself. Download the newer installer from Releases and i
 
 1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are in **Settings → AI → Providers**.
 2. Create a bot with **New bot**.
-3. Connect apps with your own Composio project key (it starts with `ak_`), or add your own MCP servers. With no key, Apps tells you the steps. See [Connect apps](docs/composio.md) and [your own MCP servers](docs/custom-mcp-servers.md).
+3. Open Apps. Press Connect on Notion, Linear or Atlassian and sign in in your browser. For GitHub, paste a token. For your own MCP server, paste its link. Gmail, Google Calendar and Slack need your own Composio project key (it starts with `ak_`): Apps asks for it under More apps. See [Connect apps](docs/composio.md) and [your own MCP servers](docs/custom-mcp-servers.md).
 4. In Settings, turn on **Advanced mode**, or search for **Data**. Then add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. A bot reads only the tables you allow.
 
 ## Edu memory

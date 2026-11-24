@@ -45,9 +45,9 @@ vi.mock("./McpServersPanel", async () => {
   const { HOSTED_MCP_APPS } = await import("@/lib/hosted-mcp-apps");
   const none = Object.fromEntries(HOSTED_MCP_APPS.map((app) => [app.id, false]));
   return {
-    McpServersPanel: ({ embedded, hostedCards }: { embedded?: boolean; hostedCards?: { onConnections?: (value: Record<string, boolean>) => void } }) => {
+    McpServersPanel: ({ embedded, hostedCards, adding = 0 }: { embedded?: boolean; adding?: number; hostedCards?: { onConnections?: (value: Record<string, boolean>) => void } }) => {
       if (hostedCards?.onConnections) queueMicrotask(() => hostedCards.onConnections!(none));
-      return embedded ? createElement("div", { "data-mcp-list": "" }) : null;
+      return embedded ? createElement("div", { "data-mcp-list": "", "data-adding": String(adding) }) : null;
     },
   };
 });
@@ -55,6 +55,10 @@ vi.mock("./XCard", () => ({ X_CARD_SEARCH: "x", XCard: ({ onConnection }: { onCo
 vi.mock("./PostizCard", () => ({ PostizCard: ({ onConnection }: { onConnection: (value: boolean) => void }) => { queueMicrotask(() => onConnection(false)); return null; } }));
 vi.mock("./EmailCard", () => ({ EmailCard: ({ onConnection }: { onConnection: (value: boolean) => void }) => { queueMicrotask(() => onConnection(false)); return null; } }));
 vi.mock("./Avatar", () => ({ BotAvatar: () => null }));
+vi.mock("./keys/key-save", async (load) => ({
+  ...await load<typeof import("./keys/key-save")>(),
+  saveCredential: vi.fn(async () => ({ composio: { configured: true } })),
+}));
 vi.mock("./keys/key-focus", async (load) => {
   const actual = await load<typeof import("./keys/key-focus")>();
   return { ...actual, openKeySettings: vi.fn(actual.openKeySettings) };
@@ -64,6 +68,7 @@ const { PluginsPanel } = await import("./PluginsPanel");
 const { StoreSourceContext } = await import("@/state/store-context");
 const { t } = await import("@/lib/i18n");
 const { openKeySettings } = await import("./keys/key-focus");
+const { saveCredential } = await import("./keys/key-save");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -109,6 +114,7 @@ beforeEach(() => {
   document.body.append(host);
   fixture.dispatched = [];
   vi.mocked(openKeySettings).mockClear();
+  vi.mocked(saveCredential).mockClear();
 });
 afterEach(async () => {
   await act(async () => root?.unmount());
@@ -117,19 +123,49 @@ afterEach(async () => {
 });
 
 describe("Apps with no Composio key", () => {
-  it("shows three plain steps with one Paste key action that opens the key's field", async () => {
+  it("leads with the tools that need no key: the official servers, the person's own server, then the ones that need a key", async () => {
     await open(NO_KEY);
+    const start = host.querySelector("[data-apps-start]")!;
+    expect(start.querySelector("h3")?.textContent).toBe(t("apps.start.title"));
+    expect([...start.querySelectorAll("[data-start-tile]")].map((tile) => tile.getAttribute("data-start-tile"))).toEqual(["own-mcp", "google", "slack"]);
+    expect(before(start, host.querySelector('[data-apps-mcp-section="first"]')!)).toBe(true);
+    expect(before(start, host.querySelector("[data-apps-more]")!)).toBe(true);
+    expect(host.querySelector("[data-apps-more]")?.getAttribute("aria-expanded"), "Composio is advanced: closed until asked for").toBe("false");
+    expect(host.querySelector("[data-apps-catalog]")?.className).toBe("hidden");
+  });
+
+  it("Set up on a tool that needs a key opens the two steps, and the key is saved right there", async () => {
+    await open(NO_KEY);
+    await click(host.querySelector('[data-start-tile="google"] button')!);
+    expect(host.querySelector("[data-apps-more]")?.getAttribute("aria-expanded")).toBe("true");
+    expect(host.querySelector("[data-apps-catalog]")?.className).toBe("contents");
     const steps = host.querySelector("[data-apps-key-steps]")!;
-    expect(steps.querySelectorAll("li")).toHaveLength(3);
+    expect(steps.querySelectorAll("li")).toHaveLength(2);
     expect(steps.textContent).toContain(t("connectors.setup.step1"));
-    expect(steps.textContent).toContain(t("connectors.setup.step2"));
-    expect(steps.textContent).toContain(t("connectors.setup.step3"));
+    expect(steps.textContent).toContain(t("connectors.setup.pasteHere"));
     expect(steps.querySelector("a")?.getAttribute("href")).toBe("https://dashboard.composio.dev");
 
-    await click(steps.querySelector("[data-apps-paste-key]")!);
-    expect(fixture.dispatched).toContainEqual({ type: "togglePlugins", open: false });
-    expect(fixture.dispatched).toContainEqual({ type: "toggleAppSettings", open: true, section: "connections" });
-    expect(openKeySettings).toHaveBeenCalledWith("composio");
+    const field = steps.querySelector<HTMLInputElement>("[data-apps-key-field]")!;
+    const fill = async (text: string) => {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, text);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await click(steps.querySelector("[data-apps-save-key]")!);
+    };
+    await fill("not-a-key");
+    expect(steps.querySelector('[role="alert"]')?.textContent).toBe(t("connectors.setup.wrongKey"));
+    expect(saveCredential).not.toHaveBeenCalled();
+    await fill(" ak_fixture ");
+    expect(saveCredential).toHaveBeenCalledExactlyOnceWith("composio", "ak_fixture", false);
+    expect(fixture.dispatched).toContainEqual({ type: "configStatus", config: { composio: { configured: true } } });
+  });
+
+  it("Add on Your own MCP server opens the Add form in the list below", async () => {
+    await open(NO_KEY);
+    expect(host.querySelector("[data-mcp-list]")?.getAttribute("data-adding")).toBe("0");
+    await click(host.querySelector('[data-start-tile="own-mcp"] button')!);
+    expect(host.querySelector("[data-mcp-list]")?.getAttribute("data-adding")).toBe("1");
   });
 
   it("says on each app why it can't connect yet, instead of a greyed-out button", async () => {
@@ -145,7 +181,7 @@ describe("Apps with no Composio key", () => {
     const mcp = host.querySelector('[data-apps-mcp-section="first"]')!;
     expect(mcp.querySelector("[data-mcp-list]")).not.toBeNull();
     expect(before(mcp, host.querySelector("[data-apps-grid]")!)).toBe(true);
-    expect(before(host.querySelector("[data-apps-key-steps]")!, mcp)).toBe(true);
+    expect(before(mcp, host.querySelector("[data-apps-key-steps]")!), "the Composio steps come last").toBe(true);
   });
 
   it("puts the matching apps above MCP servers while the person searches", async () => {

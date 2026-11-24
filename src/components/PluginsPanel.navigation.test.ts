@@ -567,7 +567,7 @@ describe("Apps pop-up", () => {
 
   const MCP_SERVERS = 24, SUGGESTIONS = 28;
   const headings = (html: string) => [...html.matchAll(/<h3 id="[^"]*"[^>]*>([^<]*)/g)].map((match) => match[1]);
-  const tiles = (html: string) => [...html.matchAll(/data-app-tile="([^"]*)"/g)].map((match) => match[1]).filter((slug) => !HOSTED_MCP_APPS.some((app) => app.id === slug));
+  const tiles = (html: string) => [...html.matchAll(/data-app-tile="([^"]*)"/g)].map((match) => match[1]);
   const server = (name: string, extra: Record<string, unknown> = {}) => ({ name, type: "http", url: `https://${name}.example/mcp`, headerKeys: [], enabled: true, ...extra });
   const suggestedAction = (tree: Node[]) => tree.find((node) => node.props.id === "apps-section-suggested")!.props.viewAll as { label: string; onClick: () => void } | undefined;
 

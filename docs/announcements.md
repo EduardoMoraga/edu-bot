@@ -155,12 +155,12 @@ that use it.
   in the browser, in the desktop app's own record for every page its window shows (My Cloud's included), and in the
   workspace's record. On a Team Cloud the workspace record is the whole team's, so there it uses only the first two.
 - **One card on screen, through the notice queue.** A remote card comes after everything else in
-  `src/lib/notices.ts`'s queue that is due: the Grok Bot move, the What's new popup, the product-updates question, bots
+  `src/lib/notices.ts`'s queue that is due: the What's new popup, the product-updates question, bots
   in two places, the Cloud trial and account notices, and the built-in sponsor and partner offers; only the GitHub star comes
   after it. Like the built-in sponsor card it may also follow the launch's first notice in the same launch, once that
   notice is closed, after the product-updates question and the built-in sponsor card, so it reaches people on their next
   launch rather than some later one. It never replaces a card still on screen, and never goes ahead of a notice someone
-  has to act on (the Grok Bot move, a trial's notice, the account's card), even one left for a later launch: it waits for
+  has to act on (a trial's notice, the account's card), even one left for a later launch: it waits for
   that launch and follows it there.
 - **At most one remote card a launch**, and **at most one `sponsor` card in any 7 days** per person (counted from the day
   one was shown).
