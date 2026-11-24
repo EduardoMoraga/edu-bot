@@ -134,12 +134,17 @@ describe("a bot's local data tools", () => {
     expect(await ctx.database.listTables()).toEqual([]);
   });
 
-  it("refuse a file: address of another computer, and read an open file by its address", async () => {
+  it("refuse a file: address of another computer", async () => {
     const ctx = await context("elsewhere");
     for (const host of ["example.com", "192.168.1.5", "localhost.example.com"]) {
       const sql = `SELECT * FROM read_text(${sq(fileUrl(host, join(other, "ok.csv")))})`;
       expect(await refusal(runSql(ctx, { sql })), sql).toBe(PROTECTED_FILE_SENTENCE);
     }
+  });
+
+  // DuckDB 1.5 on Windows opens no `file:` address that pathToFileURL writes (a drive letter, `%7E` for a short name).
+  it.skipIf(process.platform === "win32")("read an open file by its file: address", async () => {
+    const ctx = await context("address-open");
     expect((await runSql(ctx, { sql: `SELECT product FROM read_csv(${sq(fileUrl("", join(other, "ok.csv")))})` })).rows).toEqual([["Pencil"]]);
   });
 
