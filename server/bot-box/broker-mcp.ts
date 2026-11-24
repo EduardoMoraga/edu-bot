@@ -1,4 +1,4 @@
-// A URL MCP server's secret headers stay with the broker: the turn's server list points the engine at
+// A URL MCP server's secret headers stay with the broker, boxed or not: the turn's server list points the engine at
 // `http://127.0.0.1:<broker>/b/<token>/mcp-<name>` with no headers, and the broker adds them for the server's real
 // address. The token is bound to the conversation and reused for its later turns while the servers are the same, so a
 // long-lived engine process keeps its MCP sessions (the driver's launch key stays the same); it slides with each turn
@@ -29,7 +29,7 @@ export function mcpGrantName(name: string): string {
 /** Test seam: forget every remembered token. */
 export function forgetBrokeredMcp(): void { remembered.clear(); }
 
-/** The turn's custom servers with every URL server's headers moved to the broker; unchanged when the broker is off.
+/** The turn's custom servers with every URL server's headers moved to the broker; unchanged when no broker is running.
  * `appFor`: the connected app a sign-in refusal points to instead, for a server sent no credentials (broker-mcp-refusal.ts). */
 export function brokerRemoteMcp(
   custom: Record<string, McpServerSpec>,

@@ -9,6 +9,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { brokerRemoteMcp, forgetBrokeredMcp } from "../bot-box/broker-mcp.ts";
+import { openLoopbackCredentialBroker } from "../bot-box/broker.ts";
 
 import { createEduCloud, EDU_CLOUD_RELAY_PATH } from "../edu-cloud.ts";
 import type { ProviderInstance, RuntimeEvent } from "../contracts.ts";
@@ -335,6 +337,23 @@ describe("CodexDriver turns (fake app-server)", () => {
     expect(recorder.events.some((e) => e.type === "runtime.error")).toBe(false);
     expect(readFileSync(join(scratch, "skills-retry-damaged"), "utf8")).toBe("2");
   }, 30_000);
+
+  it("on a desktop install a url server's secret headers stay with the credential broker", async () => {
+    const broker = await openLoopbackCredentialBroker();
+    try {
+      const custom = brokerRemoteMcp({ docs: { type: "http", url: "https://docs.example/mcp", headers: { Authorization: "Bearer tok-desktop-secret" } } }, { botId: "b1", threadId: "desktop-broker" }, broker);
+      const dump = join(scratch, "desktop-broker.json"); process.env.FAKE_CODEX_DUMP = dump;
+      await create({ environment: { HOME: scratch, CODEX_HOME: join(scratch, ".codex") } });
+      await instance.adapter.sendTurn({ threadId: "desktop-broker", text: "Fixture", integrations: { custom } });
+      await recorder.until((event) => event.type === "turn.completed");
+      const seen = readFileSync(dump, "utf8");
+      expect(seen).not.toContain("tok-desktop-secret");
+      expect(seen).toContain(`http://127.0.0.1:${broker.port}/b/omb_t0_`);
+    } finally {
+      forgetBrokeredMcp();
+      await broker.close();
+    }
+  });
 
   it("gates raw custom identities before mount renaming and disables ambient MCP servers", async () => {
     const dump = join(scratch, "scope-mcp.json"); process.env.FAKE_CODEX_DUMP = dump;

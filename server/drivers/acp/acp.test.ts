@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { brokerRemoteMcp, forgetBrokeredMcp } from "../../bot-box/broker-mcp.ts";
+import { openLoopbackCredentialBroker } from "../../bot-box/broker.ts";
 
 import { ensureDirs, NATIVE_DIR } from "../../config.ts";
 import { BUILT_IN_DATA_SYSTEM_PROMPT } from "../../data/instructions.ts";
@@ -1474,6 +1476,25 @@ describe("ACP turns (fake CLI)", () => {
       expect(proxied(seen.mcpServers.find((server: { name: string }) => server.name === "legacy"))).toEqual(remoteServers.legacy);
     } finally {
       delete process.env.FAKE_ACP_MCP_TRANSPORTS;
+    }
+  });
+
+  it("on a desktop install a url server's secret headers stay with the credential broker", async () => {
+    const broker = await openLoopbackCredentialBroker();
+    try {
+      const custom = brokerRemoteMcp({ docs: remoteServers.docs }, { botId: "b1", threadId: "t-desktop-broker" }, broker);
+      await create();
+      const dump = join(scratch, "desktop-broker.json");
+      process.env.FAKE_ACP_DUMP = dump;
+      await instance.adapter.sendTurn({ threadId: "t-desktop-broker", text: "go", integrations: { custom } });
+      await recorder.until((event) => event.type === "turn.completed");
+      const text = readFileSync(dump, "utf8");
+      expect(text).not.toContain("tok-docs");
+      const docs = JSON.parse(text).mcpServers.find((server: { name: string }) => server.name === "docs");
+      expect(proxied(docs)).toEqual({ type: "http", url: expect.stringMatching(new RegExp(`^http://127\\.0\\.0\\.1:${broker.port}/b/omb_t0_[a-f0-9]{48}/mcp-docs$`)), headers: {} });
+    } finally {
+      forgetBrokeredMcp();
+      await broker.close();
     }
   });
 

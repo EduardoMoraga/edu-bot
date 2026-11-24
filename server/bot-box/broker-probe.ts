@@ -1,7 +1,7 @@
 // The MCP Settings Test reaches a URL server the way a bot's turn does. Where turns are boxed, a turn's engine never holds
 // a server's headers: it asks the credential broker at a grant made for its conversation (server/bot-box/broker-mcp.ts),
 // and the broker adds the headers and forwards. So the test asks the broker too, through its socket, with a grant made
-// the same way and revoked as soon as the test ends. Where turns aren't boxed, bots and the test both go direct.
+// the same way and revoked as soon as the test ends. Where turns aren't boxed the test goes direct.
 import { randomUUID } from "node:crypto";
 import type { Agent } from "undici";
 
@@ -16,7 +16,7 @@ const PROBE_GRANT_TTL_MS = 2 * 60_000;
 /** What the broker answers when the server's address didn't answer it, as a direct test sees a refused connection. */
 const UNREACHED = new Set(['{"error":"upstream_unreachable"}', '{"error":"bad_upstream"}']);
 
-/** The broker as a turn's engine reaches it, or null where turns aren't boxed and so reach servers directly. */
+/** The broker as a boxed turn's engine reaches it, or null where turns aren't boxed. */
 export function brokerPath(box: { broker(): BrokerPath["broker"] | null; brokerSocket(): string | null }): BrokerPath | null {
   const broker = box.broker(), socketPath = box.brokerSocket();
   return broker && socketPath ? { broker, socketPath } : null;

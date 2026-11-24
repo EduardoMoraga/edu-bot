@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { BotBox, BoxRunner, BOX_EGRESS_PORT, flyApiPrivate, writeSeccompFile } from "./box.ts";
+import { BotBox, BoxRunner, BOX_BROKER_PORT, BOX_EGRESS_PORT, flyApiPrivate, writeSeccompFile } from "./box.ts";
 import { processStart, seesProcess } from "./box-probe.ts";
 import { procHidepid } from "./hidepid.ts";
 import { visibleInBox } from "./plan.ts";
@@ -130,7 +130,10 @@ describe("BotBox", () => {
     const lines: string[] = [];
     expect((await box.start({ dataDir: temp(), home: temp(), port: 8799, denyEnv: new Set(), env: {}, log: (line) => lines.push(line) })).box).toBe("off");
     expect(box.wrap({ command: "claude", args: [], env: {} })).toBeNull();
-    expect(box.report()).toMatchObject({ box: "off", reason: "not-cloud", checks: null, bridge: null, boxed: 0, refused: { egress: 0, harness: 0 }, broker: { on: false, tokens: 0, forwarded: 0, refused: 0, unbrokered: [] }, hardening: { seccomp: "off", denied: 0 } });
+    expect(box.report()).toMatchObject({ box: "off", reason: "not-cloud", checks: null, bridge: null, boxed: 0, refused: { egress: 0, harness: 0 }, broker: { on: true, tokens: 0, forwarded: 0, refused: 0, unbrokered: [] }, hardening: { seccomp: "off", denied: 0 } });
+    expect(box.broker()?.port).toBeGreaterThan(1023);
+    expect(box.broker()?.port).not.toBe(BOX_BROKER_PORT);
+    expect(box.brokerSocket()).toBeNull();
     expect(lines).toEqual(["bot box: off (not-cloud)"]);
     expect(existsSync(join(dirs[0]!, "box"))).toBe(false);
   });

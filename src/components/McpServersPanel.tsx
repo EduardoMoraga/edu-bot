@@ -428,7 +428,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
     const name = existing?.name ?? hostedServerName(app, servers);
     forgetProbe(name);
     try {
-      const entry = { type: "http", url: app.url, headers: { [HOSTED_KEY_HEADER]: `Bearer ${key}` }, enabled: false };
+      const entry = { type: "http", url: app.url, vaultHeaders: { [HOSTED_KEY_HEADER]: { scheme: "Bearer", value: key } }, enabled: false };
       listed((await api(existing ? `/api/mcp/servers/${name}` : "/api/mcp/servers", {
         method: existing ? "PUT" : "POST",
         body: JSON.stringify(existing ? entry : { name, ...entry }),

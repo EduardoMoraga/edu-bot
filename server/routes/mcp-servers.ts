@@ -5,6 +5,7 @@ import { McpOAuthError, McpSignInError, mcpCallbackOrigin } from "../mcp-oauth.t
 import { isRemoteMcpServer, mcpServerBody, mcpServerNotFound, mcpServerServes, parseMcpServerMutation, parseMcpServersImport, parseStoredMcpServer, type StoredMcpServer } from "../mcp-registry.ts";
 import type { McpProbeResult } from "../mcp-probe.ts";
 import { isVaultItemId } from "../vault/mcp-keys.ts";
+import { placeholderItems, pointerHeaders, typedHeaderKeys, type McpHeaderKeys, type TypedHeaderKey } from "../vault/mcp-header-keys.ts";
 import { personKey } from "../person-key.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { toolBudgetOf } from "../tool-budgets.ts";
@@ -46,6 +47,8 @@ export interface McpServerRouteDeps extends Pick<McpConfigDeps, "cfg" | "session
   /** Whoever may change servers here owns every Vault item (not a Team Cloud or a hosted workspace), so a server arriving
    * in a move may be given the items its `vault:<id>` keys name. */
   ownsVault?(): boolean;
+  /** Where a key typed for a URL server's header is kept (`vaultHeaders`), so config.json holds only its pointer. */
+  headerKeys?: McpHeaderKeys;
   /** Who added a server and what Test found, for the team's connections (server/host/connection-health-host.ts). */
   connectionHealth?: {
     added(kind: "mcp", name: string, email: string | null): void;
@@ -77,6 +80,26 @@ export function createMcpServerRoutes(deps: McpServerRouteDeps): RouteHandler {
   const answer = (res: Parameters<typeof json>[0], send: typeof json, result: McpConfigResult) => "body" in result
     ? send(res, result.status, withServerDetails(result.body))
     : send(res, result.status, { error: result.error, ...userErrorFields(result), ...(result.code ? { code: result.code } : {}) });
+  const withHeaders = (fields: Record<string, unknown>, added: Record<string, string>): Record<string, unknown> => {
+    if (!Object.keys(added).length) return fields;
+    const headers = fields.headers && typeof fields.headers === "object" && !Array.isArray(fields.headers) ? fields.headers as Record<string, unknown> : {};
+    return { ...fields, headers: { ...headers, ...added } };
+  };
+  /** The request's fields with each typed key's header set to a pointer to `items`. */
+  const withPointers = (fields: Record<string, unknown>, keys: readonly TypedHeaderKey[], items: readonly string[]) => withHeaders(fields, pointerHeaders(keys, items));
+  const grantedItems = (body: unknown, typed: readonly string[]): string[] | undefined => {
+    const moved = vaultKeysOf(body, ownsVault());
+    return typed.length ? [...(moved ?? []), ...typed] : moved;
+  };
+  /** The keys typed in a request, and its fields. Where whoever changes servers does not own every Vault item (a Team
+   * Cloud, a hosted workspace) a typed key stays a plain header value, as any header typed in the form is. */
+  const typedKeys = (body: unknown, fields: Record<string, unknown>): { ok: true; keys: TypedHeaderKey[]; fields: Record<string, unknown> } | { ok: false; error: string } => {
+    const typed = typedHeaderKeys((body as { vaultHeaders?: unknown } | null)?.vaultHeaders);
+    if (!typed.ok) return typed;
+    if (ownsVault() && deps.headerKeys) return { ...typed, fields };
+    const plain = Object.fromEntries(typed.keys.map((key) => [key.header, `${key.scheme ? `${key.scheme} ` : ""}${key.value}`]));
+    return { ok: true, keys: [], fields: withHeaders(fields, plain) };
+  };
   return async ({ req, res, path, method, auth, json, readBody }) => {
     if (method === "GET" && path === "/api/mcp/servers") {
       return json(res, 200, withServerDetails(mcpServerResponse()));
@@ -180,11 +203,23 @@ export function createMcpServerRoutes(deps: McpServerRouteDeps): RouteHandler {
       }
       const body = await readBody(req);
       const name = typeof body?.name === "string" ? body.name : "";
-      const parsed = parseMcpServerMutation(name, mcpServerBody(body));
+      const typed = typedKeys(body, mcpServerBody(body));
+      if (!typed.ok) return json(res, 400, { error: typed.error });
+      const { fields } = typed;
+      const checked = parseMcpServerMutation(name, withPointers(fields, typed.keys, placeholderItems(typed.keys)));
+      if (!checked.ok) return json(res, 400, { error: checked.error });
+      if (typed.keys.length && !isRemoteMcpServer(checked.server)) return json(res, 400, { error: "A key in a header needs a server with a URL." });
+      if (typed.keys.length && Object.hasOwn(cfg.mcpServers ?? {}, name)) return json(res, 409, { error: "An MCP server with that name already exists." });
+      const items = deps.headerKeys?.save(name, typed.keys) ?? [];
+      const parsed = parseMcpServerMutation(name, withPointers(fields, typed.keys, items));
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       const placed = deps.place ? await deps.place(parsed.server, auth) : { ok: true as const, server: parsed.server };
-      if (!placed.ok) return json(res, 409, { error: placed.error });
-      const added = config.add(name, placed.server, vaultKeysOf(body, ownsVault()));
+      if (!placed.ok) {
+        deps.headerKeys?.remove(items);
+        return json(res, 409, { error: placed.error });
+      }
+      const added = config.add(name, placed.server, grantedItems(body, items));
+      if (added.status >= 300) deps.headerKeys?.remove(items);
       if (added.status < 300) deps.connectionHealth?.added("mcp", name, auth.kind === "session" ? auth.session.email ?? null : null);
       return answer(res, json, added);
     }
@@ -220,7 +255,9 @@ export function createMcpServerRoutes(deps: McpServerRouteDeps): RouteHandler {
       }
       const name = mcpServerRoute[1]!;
       if (method === "DELETE") {
+        const typedKeysOfServer = deps.headerKeys?.madeFor(name) ?? [];
         const removed = config.remove(name);
+        if (removed.status < 300) deps.headerKeys?.remove(typedKeysOfServer);
         if (removed.status < 300) deps.connectionHealth?.removed("mcp", name);
         return answer(res, json, removed);
       }
@@ -236,10 +273,17 @@ export function createMcpServerRoutes(deps: McpServerRouteDeps): RouteHandler {
         }
         return answer(res, json, key === "enabled" ? config.setEnabled(name, body.enabled) : config.setApps(name, body.apps));
       }
-      const { vaultKeys: _keys, ...fields } = (body ?? {}) as Record<string, unknown>;
-      const parsed = parseMcpServerMutation(name, fields, existing.server);
+      const { vaultKeys: _keys, vaultHeaders: _typed, ...sent } = (body ?? {}) as Record<string, unknown>;
+      const typed = typedKeys(body, sent);
+      if (!typed.ok) return json(res, 400, { error: typed.error });
+      const { fields } = typed;
+      const checked = parseMcpServerMutation(name, withPointers(fields, typed.keys, placeholderItems(typed.keys)), existing.server);
+      if (!checked.ok) return json(res, 400, { error: checked.error });
+      if (typed.keys.length && !isRemoteMcpServer(checked.server)) return json(res, 400, { error: "A key in a header needs a server with a URL." });
+      const items = deps.headerKeys?.save(name, typed.keys) ?? [];
+      const parsed = parseMcpServerMutation(name, withPointers(fields, typed.keys, items), existing.server);
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
-      return answer(res, json, config.replace(name, parsed.server, vaultKeysOf(body, ownsVault())));
+      return answer(res, json, config.replace(name, parsed.server, grantedItems(body, items)));
     }
     return PASS;
   };

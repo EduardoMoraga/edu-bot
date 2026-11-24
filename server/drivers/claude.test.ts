@@ -5,6 +5,8 @@ import { homedir, tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { brokerRemoteMcp, forgetBrokeredMcp } from "../bot-box/broker-mcp.ts";
+import { openLoopbackCredentialBroker } from "../bot-box/broker.ts";
 
 import { createEduCloud, EDU_CLOUD_RELAY_PATH } from "../edu-cloud.ts";
 import { DATA_DIR, ensureDirs, instanceConfigs, NATIVE_DIR, type AppConfig } from "../config.ts";
@@ -2039,6 +2041,29 @@ describe("ClaudeDriver turns (fake CLI)", () => {
     const upstream = JSON.parse(docs.env.OMB_GATE_UPSTREAM);
     expect(upstream.args[0]).toContain("mcp-remote-proxy");
     expect(upstream.env).not.toHaveProperty("OMB_REMOTE_MCP_DIRECTORY");
+  });
+
+  it.each([
+    ["with every tool", undefined],
+    ["with chosen tools", { allow: ["native:*", "mcp:docs:*"] }],
+  ])("on a desktop install a url server's secret headers stay with the credential broker, %s", async (_name, toolScope) => {
+    const broker = await openLoopbackCredentialBroker();
+    try {
+      const threadId = `t-desktop-broker-${toolScope ? "scoped" : "open"}`;
+      const custom = brokerRemoteMcp({ docs: { type: "http", url: "https://docs.example/mcp", headers: { Authorization: "Bearer tok-desktop-secret" } } }, { botId: "b1", threadId }, broker);
+      await create();
+      const dump = join(scratch, `${threadId}.json`);
+      process.env.FAKE_CLAUDE_DUMP = dump;
+      await instance.adapter.sendTurn({ threadId, text: "hi", ...(toolScope ? { toolScope } : {}), integrations: { custom } });
+      await recorder.until((e) => e.type === "turn.completed");
+      const seen = readFileSync(dump, "utf8");
+      expect(seen).not.toContain("tok-desktop-secret");
+      expect(seen).toContain(`http://127.0.0.1:${broker.port}/b/omb_t0_`);
+      if (!toolScope) expect(JSON.parse(seen).mcpConfig.mcpServers.docs).toMatchObject({ type: "http", headers: {} });
+    } finally {
+      forgetBrokeredMcp();
+      await broker.close();
+    }
   });
 
   it("preserves only the selected account's auth settings in a private file", async () => {
