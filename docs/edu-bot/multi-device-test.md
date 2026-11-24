@@ -13,10 +13,139 @@ No se toca `cheil-sofland` (es de otra persona), ni `C:\Cheil`, ni datos de Chei
 
 ## Estado
 
-**En curso.** Edu Bot 0.1.0 ya está instalado y abierto en el Mac mini y en FFM. H2 a H5 esperan que el Mac mini
-comparta (pasos 1 a 3 de Eduardo). El resto está **preparado, falta correrlo**.
+**Cambio de plan (24-11, 15:27 hora de Chile).** Eduardo está en FFM, no en el Mac mini. Hoy se prueba **FFM
+como home** con el teléfono **S24 Ultra**. Ver la sección "Hoy: FFM como home y el S24". El emparejamiento del
+Mac mini con FFM queda para cuando Eduardo esté en el Mac mini.
 
-Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza mi llave SSH y FFM no tiene SSH. Los comandos de abajo son para Edu Git; los pasos con las manos son para Eduardo.
+Desde este computador (omarchy) no tengo acceso a los equipos: el Mac mini rechaza mi llave SSH y FFM no tiene SSH.
+Los comandos son para Edu Git; los pasos con las manos son para Eduardo.
+
+## Hoy: FFM como home y el S24
+
+| Equipo | Rol | Tailscale |
+| --- | --- | --- |
+| FFM-EDUARDOMORAGA | **home** (Edu Bot 0.1.0 ya instalado) | `ffm-eduardomoraga.tail9f9734.ts.net` (100.124.16.12) |
+| S24 Ultra de Eduardo | teléfono (Android) | `s24-ultra-de-eduardo.tail9f9734.ts.net` (100.104.237.32) |
+
+**Cuidado, es el PC de trabajo de Cheil:**
+
+- La pantalla: antes de probar, cierra o minimiza todo lo de Cheil. El bot ve lo que haya en pantalla.
+- Chrome: **no** uses el perfil **Mi Chrome** en FFM. Ese perfil le da al bot tu Chrome real, con tus sesiones
+  de trabajo abiertas. Chrome se prueba solo con la pantalla, en una página neutra (`example.com`).
+- La carpeta: solo `%USERPROFILE%\EduBotPrueba`. Nunca `C:\Cheil`.
+
+### Lo que vi desde omarchy (24-11, 18:29 UTC)
+
+- FFM responde en Tailscale, pero **por relé** (`via DERP(sao)`, 123 ms, `direct connection not established`).
+  Funciona, solo que es más lento. Probablemente la red de la oficina bloquea la conexión directa.
+- Los puertos 443, 8799, 18799 y 8810 de FFM **no contestan** (`Connection timed out`). Es lo esperado mientras
+  **Tus otros ordenadores** siga apagado.
+- El `HTTP/2 502` que se veía antes en el 443 ya no aparece.
+- **Riesgo**: si después de encender **Tus otros ordenadores** siguen sin contestar, el sospechoso es el
+  Firewall de Windows. En un PC de empresa no se puede cambiar sin admin. Los comandos de (c) lo revisan.
+
+### (a) Emparejar el S24 con FFM: pasos para Eduardo
+
+**En el S24:**
+1. Abre la app **Tailscale**. Debe decir **Connected**.
+2. Instala la app **MausBot** desde Google Play. Edu Bot usa la app de teléfono de MausBot. Si no la encuentras,
+   anótalo y para aquí.
+
+**En FFM:**
+1. Abre Edu Bot.
+2. Ve a **Ajustes**. Busca "otros ordenadores". Enciende **Tus otros ordenadores**. Espera "Listo en …".
+   Esto enciende también Tailscale dentro de la app.
+3. En la misma página (**Teléfono y dispositivos**), pulsa **Vincular un teléfono**.
+4. Sale un **código QR** y un **código de 6 dígitos**. El código dura **2 minutos**.
+
+**En el S24, con la app MausBot:**
+1. Escanea el **QR** de la pantalla de FFM. Es lo más fácil.
+2. Si el QR no funciona, elige **Other ways to connect** (otras formas de conectar) y escribe:
+   - Dirección: `http://ffm-eduardomoraga.tail9f9734.ts.net:8810`
+   - Código: los 6 dígitos de FFM. Si pasaron 2 minutos, pide otro en FFM.
+3. Confirma el nombre del computador. Debe decir **Tailscale connection**.
+4. Abre un bot y escribe "hola". Debe contestar.
+
+Anota el texto exacto de cualquier error.
+
+### (b) El bot usa la carpeta, la pantalla y Chrome de FFM
+
+Antes: el bot necesita un motor con sesión iniciada en FFM, por ejemplo Claude o Codex. Los comandos de (c) lo
+revisan. Si no hay ninguno, inicia sesión en **Ajustes → IA → Proveedores**.
+
+**Carpeta:**
+1. Abre un bot. Ve a lo que puede usar. En **Carpeta de trabajo**, pulsa **Elegir…** y elige
+   `C:\Users\<tu usuario>\EduBotPrueba`. Guarda.
+2. Empieza una **tarea nueva** (la carpeta vale desde la tarea nueva).
+3. Escribe: "Lista los archivos de tu carpeta de trabajo y lee hola.txt".
+4. Debe nombrar `hola.txt` y decir "prueba multi-dispositivo …".
+
+**Pantalla:**
+1. Cierra o minimiza todo lo de Cheil.
+2. En el panel **Pantalla** del bot, en **Trabaja en**, elige **Este equipo**.
+3. Si aparece "El control de pantalla no está corriendo en este PC", pulsa **Iniciar control de pantalla**.
+   Si dice que Seguridad de Windows lo detuvo, copia el texto y para aquí: no lo permitas con admin.
+4. Escribe: "Toma una captura de mi pantalla y dime qué ves".
+
+**Chrome (con la pantalla, sin Mi Chrome):**
+1. Escribe: "Abre Google Chrome y entra a example.com. Dime el título de la página".
+2. Debe abrir Chrome en la pantalla de FFM y decir "Example Domain".
+
+| # | Chequeo | Resultado |
+| --- | --- | --- |
+| L1 | **Tus otros ordenadores** dice "Listo en …" (anota la dirección) | pendiente |
+| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | pendiente |
+| L3 | El bot lista `EduBotPrueba` y lee `hola.txt` | pendiente |
+| L4 | Control de pantalla corre en FFM | pendiente |
+| L5 | El bot toma una captura de la pantalla de FFM | pendiente |
+| L6 | El bot abre Chrome en FFM y lee el título de `example.com` | pendiente |
+| P1 | **Vincular un teléfono** muestra QR y código de 6 dígitos | pendiente |
+| P2 | La app MausBot del S24 empareja (QR o dirección + código) y dice **Tailscale connection** | pendiente |
+| P3 | El S24 ve los bots y chats de FFM | pendiente |
+| P4 | "hola" desde el S24 llega y el bot responde | pendiente |
+| P5 | El S24 aparece en la lista de teléfonos de FFM | pendiente |
+
+### (c) Comandos para Edu Git en FFM (PowerShell normal, sin admin, solo lectura)
+
+**Antes de empezar** (pega toda la salida):
+
+```powershell
+$ts = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
+if (-not $ts) { $ts = "C:\Program Files\Tailscale\tailscale.exe" }
+"tailscale CLI: $ts"
+& $ts status --self
+& $ts serve status
+Get-Process | Where-Object ProcessName -like "Edu Bot*" | Select-Object ProcessName, Id
+Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+  Where-Object LocalPort -in 443,8799,8800,8810,8811,18799,28799 |
+  Select-Object LocalAddress, LocalPort, OwningProcess, @{n="Proceso";e={(Get-Process -Id $_.OwningProcess).ProcessName}}
+foreach ($p in 8799,18799,28799) { try { "${p}: " + (Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://127.0.0.1:$p/api/health").Content } catch { "${p}: sin respuesta" } }
+Get-Command claude, codex, agy, gemini -ErrorAction SilentlyContinue | Select-Object Name, Source
+Get-ChildItem "$env:USERPROFILE\EduBotPrueba"
+Get-NetConnectionProfile | Select-Object InterfaceAlias, NetworkCategory
+Get-NetFirewallProfile -ErrorAction SilentlyContinue | Select-Object Name, Enabled, DefaultInboundAction
+Get-NetFirewallRule -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like "*Edu Bot*" -or $_.DisplayName -like "*Tailscale*" } |
+  Select-Object DisplayName, Enabled, Direction, Action, Profile
+```
+
+Si algún comando da "Acceso denegado", anótalo y sigue.
+
+**Después de que Eduardo encienda Tus otros ordenadores** (repite el bloque de arriba y además):
+
+```powershell
+& $ts serve status
+Get-ChildItem "$env:APPDATA\Edu Bot\logs" -ErrorAction SilentlyContinue
+Get-Content "$env:APPDATA\Edu Bot\logs\server.log" -Tail 40 -ErrorAction SilentlyContinue
+```
+
+**Después de emparejar el S24:**
+
+```powershell
+foreach ($p in 8799,18799,28799) { try { "${p}: " + (Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 "http://127.0.0.1:$p/api/auth/sessions").Content } catch { "${p}: sin respuesta" } }
+```
+
+Desde omarchy, cuando FFM diga "Listo en …", corro yo los chequeos de L2 (identidad, `Host` falso y
+`/api/bots` sin sesión).
 
 ## Lo que ya revisé (desde omarchy, 24-11)
 
@@ -50,7 +179,7 @@ Lo que dice el código (revisado, sin cambios):
 
 | # | Chequeo | Resultado |
 | --- | --- | --- |
-| H1 | Edu Bot 0.1.0 abierto, servidor en `127.0.0.1:8799` | **A medias** (Edu Git, 14:07 Chile): no estaba instalado. Se instaló el `.dmg` de la v0.1.0 y se abrió; el proceso corre. A los 10 s **no escuchaba en 8799**. Falta ver en qué puerto queda |
+| H1 | Edu Bot 0.1.0 abierto, servidor en `127.0.0.1:8799` | **OK** (Edu Git, 14:58 Chile): escucha solo en `127.0.0.1:8799`, `:8800` y `:64199`. Health: `app: openmausbot`, `product: Edu Bot`, `version: 0.1.0`, doctor 9 chequeos, 0 problemas. (A los 10 s del primer arranque todavía no escuchaba.) |
 | H2 | **Tus otros ordenadores** encendido: dice `Listo en https://…ts.net` (o `http://…:8799`) | **No listo** (24-11, 16:59 UTC): el Mac mini no comparte nada. Ver "Intentos H2 a H5" |
 | H3 | Desde omarchy: `/.well-known/openmausbot/environment` responde por Tailscale | **Falla por ahora**: `curl: (7) Failed to connect to mac-mini-de-eduardomoraga.tail9f9734.ts.net:443` (y `:8799`) |
 | H4 | Seguridad: `Host: evil.example.com` da 421; `/api/bots` sin sesión da 403 | pendiente: necesita H3 |
@@ -77,6 +206,9 @@ lsof -nP -iTCP -sTCP:LISTEN | grep -iE 'edu|electron|node' | head
 for p in 8799 18799 28799; do printf '%s: ' $p; curl -s -m 3 http://127.0.0.1:$p/api/health; echo; done
 tail -n 40 ~/Library/Logs/"Edu Bot"/server.log
 ```
+
+Edu Git (14:58) no encontró `server.log` en `~/Library/Application Support/Edu Bot` ni en `~/.edubot`. La app lo
+escribe en la carpeta de logs del sistema: `~/Library/Logs/Edu Bot/server.log`.
 
 ### Intentos H2 a H5 (desde omarchy, que está en la misma red local que el Mac mini, `192.168.68.55`)
 
