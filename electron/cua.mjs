@@ -1,4 +1,4 @@
-// Packaged: an embedded cua-driver daemon, so macOS TCC grants attribute to OpenMausBot; dev attaches to CuaDriver.app.
+// An embedded cua-driver daemon, so macOS TCC grants attribute to this app. A dev run with no staged driver attaches to CuaDriver.app.
 // Agents use the stdio MCP proxy, which executes nothing; the host-owned daemon does.
 
 import { app, ipcMain } from "electron";
@@ -18,6 +18,7 @@ import { createHelperRestarts, followLinuxConnection } from "./cua-restart.mjs";
 import { watchDriver } from "./cua-watch.mjs";
 import { missingPermissions } from "./lent-screen-failures.mjs";
 import { APP_ID } from "./app-identity.mjs";
+import { resolveDriver } from "./cua-driver-path.mjs";
 
 const { localOnly } = localOriginModule;
 
@@ -170,18 +171,21 @@ export function resolveWindowsDriver() {
   return null;
 }
 
+function driver() {
+  return resolveDriver({
+    env: process.env,
+    packaged: app.isPackaged,
+    platform: process.platform,
+    arch: process.arch,
+    resourcesPath: process.resourcesPath,
+    appPath: app.getAppPath(),
+    windowsInstalled: WIN_INSTALLED_DRIVERS,
+    exists: fs.existsSync,
+  });
+}
+
 export function resolveDriverBinary() {
-  if (process.env.CUA_DRIVER_PATH) return process.env.CUA_DRIVER_PATH;
-  if (app.isPackaged) {
-    const bundled = path.join(process.resourcesPath, "cua-driver" + (process.platform === "win32" ? ".exe" : ""));
-    if (fs.existsSync(bundled)) return bundled;
-  }
-  if (process.platform === "darwin" && fs.existsSync(INSTALLED_DRIVER)) return INSTALLED_DRIVER;
-  if (process.platform === "win32") {
-    const staged = path.join(app.getAppPath(), "dist-native", "cua-win32-x64", "cua-driver.exe");
-    return fs.existsSync(staged) ? staged : resolveWindowsDriver();
-  }
-  return null;
+  return driver().binary;
 }
 
 export function resolveEmbeddedDriverBinary(binary) {
@@ -328,16 +332,14 @@ export async function startCua({ attempt = 0 } = {}) {
   startupAbort?.abort();
   startupAbort = new AbortController();
   const { signal } = startupAbort;
-  const binary = resolveDriverBinary();
+  const { binary, embedded: wantEmbedded } = driver();
   if (!binary) {
     return persistAndNotify({
       mode: "unavailable",
-      reason: "cua-driver binary not found",
+      reason: app.isPackaged ? "cua-driver binary not found" : "cua-driver binary not found; run `pnpm dev:desktop`, which downloads it",
     });
   }
 
-  const wantEmbedded =
-    process.platform === "win32" || app.isPackaged || process.env.OPENMAUSBOT_CUA_EMBEDDED === "1";
   let nextConnection;
 
   if (wantEmbedded) {

@@ -30,6 +30,7 @@ export function MacLocalControl() {
   const hidden = useSyncExternalStore(subscribeHidden, readHidden, readHidden);
   const reason = capabilities.localComputer.available ? null : capabilities.localComputer.message;
   const permissionMessage = macCuaPermissionMessage(missingMacCuaPermissions(reason));
+  const devRun = capabilities.host.packaged ? null : t("computer.mac.permission.devRun");
   const [pending, setPending] = useState(false);
   const [awaitingGrant, setAwaitingGrant] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +88,7 @@ export function MacLocalControl() {
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="text-[14px] leading-5 text-ink">{t("computer.mac.allowTitle")}</div>
           <p className="text-[12px] leading-4 text-ink-secondary">{permissionMessage ?? t("computer.mac.permission.generic")}</p>
+          {devRun && <p data-mac-dev-run="" className="text-[12px] leading-4 text-ink-secondary">{devRun}</p>}
           {error && <p role="alert" className="text-[12px] leading-4 text-danger">{error}</p>}
           <div className="mt-1 flex flex-wrap items-center gap-2">
             {permissionMessage && reason && <MacCuaRecoveryActions reason={reason} />}
@@ -112,6 +114,7 @@ export function MacLocalControl() {
           <p className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
             {permissionMessage ?? t("computer.mac.permission.generic")}
           </p>
+          {devRun && <p data-mac-dev-run="" className="mt-1 text-[13px] leading-5 text-ink-secondary">{devRun}</p>}
           {reason && <details className="mt-2 text-[12px] text-ink-secondary"><summary className="cursor-pointer">{t("computer.mac.permission.driverDetail")}</summary><p className="mt-1 break-words">{reason}</p></details>}
           {error && (
             <div className="mt-2 flex gap-1.5 text-[12px] text-danger">

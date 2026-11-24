@@ -5521,6 +5521,7 @@
   "computer.mac.permission.requiredOne": "{app} necesita el permiso {permission} para usar este equipo. Concédelo en Ajustes del Sistema → Privacidad y seguridad y luego reinicia {app}.",
   "computer.mac.permission.requiredBoth": "{app} necesita los permisos de Grabación de pantalla y Accesibilidad para usar este equipo. Concédelos en Ajustes del Sistema → Privacidad y seguridad y luego reinicia {app}.",
   "computer.mac.permission.generic": "El control del equipo local no está listo. {app} necesita Accesibilidad y Grabación de pantalla para usar este Mac. Revisa «Detalles del controlador» o Ajustes del Sistema y luego haz clic en «Retry».",
+  "computer.mac.permission.devRun": "Esta es una ejecución de desarrollo. En Ajustes del Sistema la app aparece como Electron, o como la terminal desde la que la iniciaste. Permite esa.",
   "computer.windows.title": "El control de pantalla no está corriendo en este PC",
   "computer.windows.body": "Los bots de aquí y de la nube no pueden usar las apps ni la pantalla de este PC hasta que esté activo.",
   "computer.windows.blocked": "Puede que Seguridad de Windows lo haya detenido. Permítelo en Seguridad de Windows → Historial de protección, o reinstala {app}.",

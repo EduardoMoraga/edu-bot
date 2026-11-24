@@ -16159,7 +16159,8 @@
       "secretCard.target.metaApiKey.description": "157d505fb10d8b161905999dbe77a2dbbf83d3bfb14b57f5a126b3c68446c18e",
       "secretCard.target.deepseekApiKey.label": "d2885c59cd6f6973c998d8d47d56967577edec2f38b14d60b5a7fc11b83037a3",
       "secretCard.target.deepseekApiKey.description": "35761feb9e3ac440ce634bcd5aa82be9c93bc8df1cc39fea60a5f18058583b74",
-      "secretCard.pasteYour": "119fcdb52330f81df2d8de06e8cc128fb1449a75187c5e97258484b938bb3792"
+      "secretCard.pasteYour": "119fcdb52330f81df2d8de06e8cc128fb1449a75187c5e97258484b938bb3792",
+      "computer.mac.permission.devRun": "a6ba3be09e985ddddef62c5671851922830458185d48e5edd41a3883c96ce6a9"
     },
     "fr": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -43863,7 +43864,8 @@
       "secretCard.target.metaApiKey.label": "2da08ff43c0265a0d2c800c315d7e774ea599cdc8d67cc77d6ffdb348b16312b",
       "secretCard.target.metaApiKey.description": "157d505fb10d8b161905999dbe77a2dbbf83d3bfb14b57f5a126b3c68446c18e",
       "secretCard.target.deepseekApiKey.label": "d2885c59cd6f6973c998d8d47d56967577edec2f38b14d60b5a7fc11b83037a3",
-      "secretCard.target.deepseekApiKey.description": "35761feb9e3ac440ce634bcd5aa82be9c93bc8df1cc39fea60a5f18058583b74"
+      "secretCard.target.deepseekApiKey.description": "35761feb9e3ac440ce634bcd5aa82be9c93bc8df1cc39fea60a5f18058583b74",
+      "computer.mac.permission.devRun": "a6ba3be09e985ddddef62c5671851922830458185d48e5edd41a3883c96ce6a9"
     },
     "zh": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",

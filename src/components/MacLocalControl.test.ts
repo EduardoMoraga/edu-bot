@@ -4,12 +4,13 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 
 const fixture = vi.hoisted(() => ({
   localComputer: { available: false, message: "Accessibility required; grant access in System Settings" } as DesktopCapabilities["localComputer"],
+  packaged: true,
 }));
 vi.stubGlobal("window", {
   ogb: { platform: "darwin", permOpenSettings: vi.fn(), relaunch: vi.fn() },
 });
 vi.mock("./DesktopCapabilities", () => ({
-  useDesktopCapabilities: () => ({ capabilities: { host: { platform: "darwin" }, localComputer: fixture.localComputer }, ready: true }),
+  useDesktopCapabilities: () => ({ capabilities: { host: { platform: "darwin", packaged: fixture.packaged }, localComputer: fixture.localComputer }, ready: true }),
 }));
 
 const { MacLocalControl } = await import("./MacLocalControl");
@@ -24,6 +25,15 @@ describe("Mac local computer status", () => {
     expect(markup).not.toContain("Open Screen Recording Settings");
     expect(markup).toContain("Driver detail");
     expect(markup).toContain(">Not now</button>");
+    expect(markup, "the installed app is listed under its own name").not.toContain("data-mac-dev-run");
+  });
+
+  it("says in a development run which entry to allow in System Settings", () => {
+    fixture.packaged = false;
+    const markup = renderToStaticMarkup(createElement(MacLocalControl));
+    fixture.packaged = true;
+    expect(markup).toContain("data-mac-dev-run");
+    expect(markup).toContain("the app is listed as Electron, or as the terminal you started it from");
   });
 
   it("does not turn a missing reason into a claimed permission diagnosis", () => {

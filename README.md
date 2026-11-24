@@ -78,7 +78,7 @@ pnpm install
 
 Run `pnpm dev:server` in one terminal and `pnpm dev` in another. Leave both running.
 
-`pnpm dev:server` is the local server. `pnpm dev` is the app in a browser. `pnpm dev:desktop` opens the desktop window, and it needs both of those running.
+`pnpm dev:server` is the local server. `pnpm dev` is the app in a browser. `pnpm dev:desktop` opens the desktop window, and it needs both of those running. The first time, it downloads Electron if it is missing and, on macOS and Windows, the driver that lets bots use this computer. On a Mac, allow Electron (or the terminal you started it from) under Accessibility and Screen Recording.
 
 `pnpm lint` checks this checkout. [CI](docs/ci.md) says which tests run.
 
