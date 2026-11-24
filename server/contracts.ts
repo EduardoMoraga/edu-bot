@@ -384,6 +384,9 @@ export interface ProviderSnapshot {
   authenticationUnavailableReason?: string;
   state: "available" | "unavailable";
   reason?: string;
+  /** The catalog key the client translates `reason` by, with its parameters; `reason` stays the English. */
+  reasonKey?: string;
+  reasonParams?: Record<string, string>;
   authenticated?: boolean;
   /** The CLI path runs another program: it answered --version as something other than this engine's own CLI. */
   notEngineCli?: true;

@@ -31,7 +31,7 @@ function spec(logoutArgs?: readonly string[], overrides: Partial<DeviceSignIn> =
     homeEnv: "FAKE_PROVIDER_HOME",
     homeDir: ".fake-provider",
     loginArgs: ["login"],
-    install: "install hint",
+    install: { url: "https://example.com/install" },
     failure: () => "Fake sign-in did not finish.",
     signedIn: (env) => existsSync(join(env.FAKE_PROVIDER_HOME || join(env.HOME || env.USERPROFILE || "", ".fake-provider"), "auth.json")),
     ...(logoutArgs ? { logoutArgs } : {}),

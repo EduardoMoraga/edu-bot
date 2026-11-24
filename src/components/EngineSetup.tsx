@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Check, Copy, Download, ExternalLink, KeyRound, Loader2, LogIn, TerminalSquare, X } from "lucide-react";
 import { api, ApiError, type InstanceInfo, useStore } from "@/state/store";
 import { cn } from "@/lib/cn";
+import { engineReason } from "@/lib/engine-reason";
 import { t } from "@/lib/i18n";
 import { engineDisplayName } from "@/lib/engine-name";
 import { copyText } from "@/lib/copy-text";
@@ -173,7 +174,7 @@ function ServerEngineInstall({ instance, mode, command, quiet = false }: { insta
       const installed = (instances as InstanceInfo[] | undefined)?.find((candidate) => candidate.instanceId === instance.instanceId);
       if (instances) dispatch({ type: "instances", instances });
       if (installed?.snapshot.state !== "available") {
-        throw new Error(t("engineSetup.installNotVerified", { reason: installed?.snapshot.reason ?? t("engineSetup.noReason") }));
+        throw new Error(t("engineSetup.installNotVerified", { reason: (installed && engineReason(installed.snapshot)) ?? t("engineSetup.noReason") }));
       }
       setDone(true);
       await refreshModels(instance.instanceId).catch(() => {});
@@ -629,7 +630,7 @@ export function EngineSetup({
         {instance.snapshot.ollama
           ? <div className="mt-1 flex flex-col items-start gap-2"><OllamaStatusLine status={instance.snapshot.ollama} /><CheckEnginesAgain /></div>
           : <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
-              {instance.snapshot.authenticationUnavailableReason ?? instance.snapshot.reason ?? t("engineSetup.noReason")}
+              {instance.snapshot.authenticationUnavailableReason ?? engineReason(instance.snapshot) ?? t("engineSetup.noReason")}
             </p>}
       </div>
     );
@@ -655,11 +656,11 @@ export function EngineSetup({
       {instance.snapshot.state === "unavailable" && instance.snapshot.reason && !cloudReasonHidden && (quiet ? (
         <details data-engine-setup-reason className="mt-2 text-[12px] leading-4 text-ink-tertiary">
           <summary className="cursor-pointer select-none hover:text-ink-secondary">{t("engineSetup.details")}</summary>
-          <p className="mt-1 whitespace-pre-wrap">{instance.snapshot.reason}</p>
+          <p className="mt-1 whitespace-pre-wrap">{engineReason(instance.snapshot)}</p>
         </details>
       ) : (
         <p role="alert" className="mt-2 text-[12px] leading-relaxed text-danger">
-          {instance.snapshot.reason}
+          {engineReason(instance.snapshot)}
         </p>
       ))}
 

@@ -4,6 +4,7 @@ import type { RouteContext } from "../routes/table.ts";
 import { PASS } from "../routes/table.ts";
 import { ConnectionStore, type ConnectionVault } from "./connections.ts";
 import { syncConnectionGrants } from "./grants.ts";
+import { userError, userErrorFields } from "../user-errors.ts";
 
 export interface ConnectionRouteDeps {
   dataDir?: string;
@@ -17,11 +18,11 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
   const path = ctx.path;
   if (path !== "/api/data-connections" && !path.startsWith("/api/data-connections/")) return PASS;
   if (!deps.dataDir || !deps.vault) {
-    ctx.json(ctx.res, 503, { error: "Data connections are unavailable." });
+    ctx.json(ctx.res, 503, userError("serverError.dataConnection.unavailable"));
     return;
   }
   if (!ctx.auth.scopes.includes("admin")) {
-    ctx.json(ctx.res, 403, { error: "Only the owner can change data connections." });
+    ctx.json(ctx.res, 403, userError("serverError.dataConnection.ownerOnly"));
     return;
   }
   const store = new ConnectionStore(deps.dataDir, deps.vault);
@@ -36,7 +37,7 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
       if (!body) return;
       const type = body.type;
       if (type !== "postgres" && type !== "sqlite" && type !== "duckdb") {
-        ctx.json(ctx.res, 400, { error: "type must be postgres, sqlite or duckdb." });
+        ctx.json(ctx.res, 400, userError("serverError.dataConnection.type"));
         return;
       }
       ctx.json(ctx.res, 201, store.add({ name: String(body.name ?? ""), type, dsn: typeof body.dsn === "string" ? body.dsn : undefined, path: typeof body.path === "string" ? body.path : undefined }));
@@ -58,7 +59,7 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
     }
     const named = /^\/api\/data-connections\/([a-z][a-z0-9_]{0,31})(\/test)?$/.exec(path);
     if (!named || !NAME.test(named[1]!)) {
-      ctx.json(ctx.res, 404, { error: "No such data connection." });
+      ctx.json(ctx.res, 404, userError("serverError.dataConnection.notFound"));
       return;
     }
     if (named[2] === "/test" && method === "POST") {
@@ -72,10 +73,11 @@ export async function handleDataConnectionRoute(ctx: RouteContext, deps: Connect
       ctx.json(ctx.res, 200, { ok: true });
       return;
     }
-    ctx.json(ctx.res, 404, { error: "No such data connection." });
+    ctx.json(ctx.res, 404, userError("serverError.dataConnection.notFound"));
   } catch (error) {
-    const message = error instanceof Error ? error.message : "The connection could not be saved.";
-    ctx.json(ctx.res, 400, { error: containsRawDsn(message) ? NAMED_CONNECTION_SENTENCE : message });
+    const message = error instanceof Error ? error.message : "";
+    if (!message) return ctx.json(ctx.res, 400, userError("serverError.dataConnection.notSaved"));
+    ctx.json(ctx.res, 400, containsRawDsn(message) ? { error: NAMED_CONNECTION_SENTENCE } : { error: message, ...userErrorFields(error) });
   }
 }
 

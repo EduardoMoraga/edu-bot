@@ -78,7 +78,7 @@
   "pro.fromPrice": "Piani Edu Bot Cloud da {price}/mese + tasse.",
   "pro.seePlans": "Confronta i piani",
   "pro.reauthShort": "Accedi di nuovo per usare il Cloud su questo computer. Il piano non cambia.",
-  "pro.openCloudSettings": "Impostazioni di Edu Bot Cloud",
+  "pro.openCloudSettings": "Impostazioni del mio Cloud",
   "pro.settingsSummary": "Tiene bot e routine attivi 24/7, anche con questo computer spento.",
   "pro.disclaimer": "Edu Bot su questo computer resta gratuito e open source.",
   "notice.dismiss": "Non mostrare più",
@@ -7165,5 +7165,6 @@
   "botSettings.data.save": "Salva",
   "botSettings.data.saved": "Salvato.",
   "botSettings.data.allow": "Consenti",
-  "profiles.field.data": "connessioni dati"
+  "profiles.field.data": "connessioni dati",
+  "settings.data.connectionFailed": "Non è stato possibile salvare la connessione."
 }

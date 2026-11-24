@@ -10,6 +10,7 @@ import { registerStandaloneBinDirs, standaloneAssetFor, standaloneRunEnv } from 
 import { STANDALONE_RELEASES } from "./standalone-releases.ts";
 import { augmentedPath, findCliCandidates, registerPathDir, resetPathCache } from "./env-path.ts";
 import { botBox } from "./bot-box/box.ts";
+import { userErrorThrown } from "./user-errors.ts";
 import { execCli, killCliTree, spawnCli } from "./procs.ts";
 
 const MAX_OUTPUT = 64 * 1024;
@@ -232,7 +233,7 @@ export function runNpm(args: string[], env: NodeJS.ProcessEnv, cwd: string, time
     try {
       child = spawnCli("npm", args, { env, cwd, stdio: ["pipe", "pipe", "pipe"] });
     } catch {
-      rejectRun(new Error("npm could not start on this server. Install Node.js with npm for the user running Edu Bot, then try again."));
+      rejectRun(userErrorThrown("serverError.engine.npmCantStart"));
       return;
     }
     child.stdin.end();
@@ -246,18 +247,14 @@ export function runNpm(args: string[], env: NodeJS.ProcessEnv, cwd: string, time
     const timer = setTimeout(() => {
       timedOut = true;
       void killCliTree(child).then((stopped) => {
-        rejectRun(new Error(stopped
-          ? "The install took too long and was stopped. Check the server's network connection and try again."
-          : "The install took too long, but npm could not be confirmed stopped. Ask the server administrator to stop the install process before trying again."));
+        rejectRun(userErrorThrown(stopped ? "serverError.engine.installStopped" : "serverError.engine.installNotStopped"));
       });
     }, timeoutMs);
     timer.unref();
     child.once("error", (error: NodeJS.ErrnoException) => {
       if (timedOut) return;
       clearTimeout(timer);
-      rejectRun(new Error(error.code === "ENOENT"
-        ? "npm is not installed on this server. Install Node.js with npm for the user running Edu Bot, then try again."
-        : "npm could not start on this server. Check that Node.js is installed for the user running Edu Bot."));
+      rejectRun(userErrorThrown(error.code === "ENOENT" ? "serverError.engine.npmMissing" : "serverError.engine.npmNotStarted"));
     });
     child.once("close", (code) => {
       clearTimeout(timer);

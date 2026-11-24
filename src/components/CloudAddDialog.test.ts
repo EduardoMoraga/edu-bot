@@ -74,12 +74,12 @@ beforeEach(() => { vi.clearAllMocks(); setLocale("en"); });
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); setLocale("en"); });
 
 describe("each screen of the sheet says one thing and offers one next step", () => {
-  it("Choose: Edu Bot Cloud in a line, then one card per plan with only what sets it apart and its own button; Most popular on the Admin's recommended plan; the money and what every plan includes once", () => {
+  it("Choose: My Cloud in a line, then one card per plan with only what sets it apart and its own button; Most popular on the Admin's recommended plan; the money and what every plan includes once", () => {
     const { html, tree, handlers } = panel({ kind: "offer", offer: TRIAL, signedOut: true, notice: null });
     const card = (hours: number, max: number, voice: string, cpus: number, swap: number) => [`${hours} cloud desktop hours a month`, `10 GB storage, grows to ${max} GB`,
       `Voice replies: ${voice}`, "Always on, around the clock", "Cloud desktops: as many as your bots need", "Fair use: up to 15 at once", `${cpus} shared CPUs · ${cpus} GB memory`,
       `Plus ${swap} GB of swap`, "Daily backups, kept 14 days", "Start free trial"];
-    inOrder(text(html), ["Edu Bot Cloud", "Your bots, always on.", "Runs your bots 24/7 in the cloud, even when this computer is off.", "Compare plans", "Choose your plan",
+    inOrder(text(html), ["My Cloud", "Your bots, always on.", "Runs your bots 24/7 in the cloud, even when this computer is off.", "Compare plans", "Choose your plan",
       "Starter", "$15", "/month", "Your bots keep working with your laptop closed, at the lowest price.", ...card(100, 20, "about 30 minutes of speech a month", 2, 3),
       "Free for 7 days, then $15/month + tax",
       "Pro", "Most popular", "$49", "/month", "Your bots keep working 24/7, even when your laptop is closed.", ...card(300, 100, "about an hour of speech a month", 4, 4),

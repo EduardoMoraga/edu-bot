@@ -35,7 +35,7 @@
   "pro.seePlans": "Comparer les forfaits",
   "cloudBuy.includes": "Inclus dans tous les forfaits",
   "pro.reauthShort": "Reconnectez-vous pour utiliser le Cloud sur cet ordinateur. Votre forfait n'est pas concerné.",
-  "pro.openCloudSettings": "Paramètres Edu Bot Cloud",
+  "pro.openCloudSettings": "Paramètres de Mon Cloud",
   "pro.settingsSummary": "Vos bots et vos routines tournent 24 h/24, même quand cet ordinateur est éteint.",
   "pro.disclaimer": "Edu Bot sur cet ordinateur reste gratuit et open source.",
   "notice.dismiss": "Masquer définitivement",
@@ -2193,7 +2193,7 @@
   "place.view.ccAtOnce.short": "En cours d’utilisation",
   "place.view.localUnavailable.short": "Pas encore utilisable",
   "place.view.autoTeam.short": "Partagé",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "Mon Cloud",
   "settings.sendKey.title": "Envoyer les messages avec",
   "settings.sendKey.subtitle": "Choisissez Shift+Enter ou {key} pour qu'Enter passe plutôt à la ligne, pratique si votre méthode de saisie valide le texte avec Enter, comme pour le japonais. {key} envoie quel que soit votre choix. Sur cet appareil uniquement.",
   "notifications.status.problem": "Problème",
@@ -4005,5 +4005,6 @@
   "botSettings.data.save": "Enregistrer",
   "botSettings.data.saved": "Enregistré.",
   "botSettings.data.allow": "Autoriser",
-  "profiles.field.data": "connexions de données"
+  "profiles.field.data": "connexions de données",
+  "settings.data.connectionFailed": "La connexion n'a pas pu être enregistrée."
 }

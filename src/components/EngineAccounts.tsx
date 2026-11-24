@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Check, Loader2, MoreHorizontal, Plus } from "lucide-react";
 import { api, useStore, type InstanceInfo } from "@/state/store";
 import { useShowInstances } from "@/state/use-show-instances";
+import { engineReason } from "@/lib/engine-reason";
 import { t } from "@/lib/i18n";
 import { engineDisplayName } from "@/lib/engine-name";
 import { cn } from "@/lib/cn";
@@ -206,7 +207,7 @@ function AccountRow({ group, instance, signingIn, onSignIn, onSignInDone }: {
     ? account?.method === "api-key" ? t("accounts.apiKey") : [account?.email, account?.organization].filter(Boolean).join(" · ") || t("accounts.signedIn")
     : state === "signedOut" ? t("accounts.notSignedIn")
     : state === "unknown" ? t("accounts.unknown")
-    : instance.snapshot.reason ?? t("onboarding.engines.needsSetup");
+    : engineReason(instance.snapshot) ?? t("onboarding.engines.needsSetup");
 
   return (
     <li data-account={instance.instanceId} data-account-state={state} className="px-3 py-2.5">

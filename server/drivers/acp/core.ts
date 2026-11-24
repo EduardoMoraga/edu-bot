@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { PROVIDER_CREDENTIAL_ENV, stripControlPlaneEnv, WORKSPACE_CREDENTIAL_ENV } from "../../config.ts";
 import { openStartupModelCatalog } from "../../startup-model-catalog.ts";
 import { acpModelCatalog } from "./model-catalog.ts";
+import { cliProbeFailure, cliWithoutVersion } from "./probe-reason.ts";
 import { decodeInjectId } from "../local-inject.ts";
 import { DeviceAuthController, deviceAuthInstanceSurface, type DeviceSignIn } from "../device-auth.ts";
 import { AcpBrowserAuth, acpBrowserAuthInstanceSurface, type AcpBrowserSignInSpec } from "./browser-auth.ts";
@@ -1509,26 +1510,17 @@ export function createAcpDriver(support: AcpSupport): ProviderDriver<AcpConfig> 
       const snapshot = async (): Promise<ProviderSnapshot> => {
         const env = childEnv();
         if (support.snapshot) return support.snapshot(env, config, instanceId);
-        const probe = await new Promise<{ version?: string; reason?: string; other?: true }>((resolve) => {
+        const probe = await new Promise<{ version?: string; reason?: Pick<ProviderSnapshot, "reason" | "reasonKey" | "reasonParams">; other?: true }>((resolve) => {
           execCli(config.cli, ["--version"], { timeout: 8000, env }, (err, stdout, stderr) => {
             if (err) {
-              const failure = err as NodeJS.ErrnoException & { killed?: boolean };
-              const reason = failure.code === "ENOENT"
-                ? `\`${config.cli}\` isn't installed, or isn't on this app's PATH. Install it for the user running Edu Bot or use Set CLI, then check again.`
-                : failure.code === "EACCES" || failure.code === "EPERM"
-                  ? `\`${config.cli}\` isn't executable. Check its file permissions, then check again.`
-                  : failure.killed && failure.code == null
-                    ? `\`${config.cli}\` version check timed out after 8 seconds. Check it in a terminal on the server, then try again.`
-                    : `\`${config.cli}\` version check failed. Run it with --version on the server to diagnose the installation, then check again.`;
-              // Do not echo arbitrary CLI output or its environment into Settings.
-              resolve({ reason });
+              resolve({ reason: cliProbeFailure(config.cli, err as NodeJS.ErrnoException & { killed?: boolean }) });
               return;
             }
             const version = versionFromProbe(stdout, stderr);
-            resolve(!version ? { reason: `\`${config.cli}\` returned no version. Check the configured executable with --version, then try again.` } : support.cliVersion && !support.cliVersion.test(version) ? { reason: notThisCli(config.cli, support.displayName), other: true } : { version });
+            resolve(!version ? { reason: cliWithoutVersion(config.cli) } : support.cliVersion && !support.cliVersion.test(version) ? { reason: { reason: notThisCli(config.cli, support.displayName) }, other: true } : { version });
           });
         });
-        if (!probe.version) return { state: "unavailable", reason: probe.reason, ...(probe.other ? { notEngineCli: true } : {}) };
+        if (!probe.version) return { state: "unavailable", ...probe.reason, ...(probe.other ? { notEngineCli: true } : {}) };
         const authenticated = await support.isAuthenticated(env, config, instanceId, instanceEnvNames(input.environment, env)); return { state: "available", version: probe.version, authenticated, ...apiKeyAccount(env, support.credentialEnv, authenticated) };
       };
 

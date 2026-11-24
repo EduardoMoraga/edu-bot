@@ -5,7 +5,17 @@ own memory (`docs/memory.md`). The bot's `MEMORY.md` stays its working notes; th
 lessons, commitments and proposals, with Edu's claim bands (`verified`, `inferred`, `hypothesis`), and it is the same
 brain Edu's other tools read.
 
-Nothing needs to be set up: install Edu (`npm install -g edu-agent`) and the next turn of each bot has it.
+Nothing else needs to be set up: install Edu and the next turn of each bot has it. Edu is not on the npm registry; it
+needs Node.js 22 or newer, and its verified release file installs on a clean machine:
+
+```bash
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/edu-agent.tgz
+curl -fsSLO https://github.com/EduardoMoraga/edu/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS   # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+npm install -g ./edu-agent.tgz
+```
+
+On Windows, use the one-line installer in [Edu's quickstart](https://github.com/EduardoMoraga/edu#quickstart).
 
 ## What a bot gets
 

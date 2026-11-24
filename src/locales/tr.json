@@ -61,12 +61,12 @@
   "table.tooLarge": "Bu dosya uygulama içi önizleme için çok büyük (10 MB, 100.000 satır, 200 sütun veya 500.000 hücre). Tamamını görmek için orijinalini indirin.",
   "table.invalid": "Bu CSV/TSV dosyası tablo olarak okunamadı. Tırnak işaretlerini ve sütun sayılarını kontrol edin veya orijinalini indirin.",
   "table.loadFailed": "Bu tablo açılamadı. Bağlantınızı kontrol edip tekrar deneyin. UTF-8 CSV ve TSV dosyaları desteklenir.",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "Cloud'um",
   "pro.fromPrice": "Edu Bot Cloud planları aylık {price} + vergiden başlar.",
   "pro.seePlans": "Planları karşılaştır",
   "cloudBuy.includes": "Her plana dahil",
   "pro.reauthShort": "Cloud'u bu bilgisayarda kullanmak için tekrar giriş yapın. Planınız bundan etkilenmez.",
-  "pro.openCloudSettings": "Edu Bot Cloud ayarları",
+  "pro.openCloudSettings": "Cloud'um ayarları",
   "pro.settingsSummary": "Bu bilgisayar kapalıyken bile botlarınızı ve rutinlerinizi 7/24 çalışır durumda tutar.",
   "pro.disclaimer": "Bu bilgisayardaki Edu Bot ücretsiz ve açık kaynak kalır.",
   "notice.dismiss": "Kalıcı olarak kapat",
@@ -630,7 +630,7 @@
   "settings.noMatch": "“{query}” ile eşleşen hiçbir şey bulunamadı",
   "settings.section.general": "Genel",
   "settings.section.organization": "Organizasyon",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "Cloud'um",
   "cloudAccount.separate": "Kişisel Cloud hesabınız organizasyon girişinden ayrıdır.",
   "cloudAccount.desktopOnly": "Edu Bot Cloud'u bu bilgisayardaki yerel masaüstü uygulamasında kullanın.",
   "cloudAccount.loading": "Cloud hesabı yükleniyor…",
@@ -6098,5 +6098,6 @@
   "botSettings.data.save": "Kaydet",
   "botSettings.data.saved": "Kaydedildi.",
   "botSettings.data.allow": "İzin ver",
-  "profiles.field.data": "veri bağlantıları"
+  "profiles.field.data": "veri bağlantıları",
+  "settings.data.connectionFailed": "Bağlantı kaydedilemedi."
 }

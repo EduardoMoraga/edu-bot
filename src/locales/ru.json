@@ -73,11 +73,11 @@
   "table.tooLarge": "Файл слишком велик для предпросмотра в приложении (10 МБ, 100 000 строк, 200 столбцов или 500 000 ячеек). Скачайте оригинал, чтобы просмотреть его целиком.",
   "table.invalid": "Не удалось прочитать этот CSV/TSV как таблицу. Проверьте кавычки и число столбцов или скачайте оригинал.",
   "table.loadFailed": "Не удалось открыть эту таблицу. Проверьте подключение и повторите попытку. Поддерживаются файлы CSV и TSV в кодировке UTF-8.",
-  "pro.name": "Edu Bot Cloud",
+  "pro.name": "Моё облако",
   "pro.fromPrice": "Тарифы Edu Bot Cloud от {price}/мес. + налог.",
   "pro.seePlans": "Сравнить тарифы",
   "pro.reauthShort": "Войдите снова, чтобы использовать Cloud на этом компьютере. На ваш тариф это не повлияет.",
-  "pro.openCloudSettings": "Настройки Edu Bot Cloud",
+  "pro.openCloudSettings": "Настройки «Моё облако»",
   "pro.settingsSummary": "Ваши боты и сценарии работают круглосуточно, даже когда этот компьютер выключен.",
   "pro.disclaimer": "Edu Bot на этом компьютере остаётся бесплатным с открытым исходным кодом.",
   "notice.dismiss": "Больше не показывать",
@@ -925,7 +925,7 @@
   "settings.noMatch": "По запросу «{query}» ничего не найдено",
   "settings.section.general": "Общие",
   "settings.section.organization": "Организация",
-  "settings.section.cloudAccount": "Edu Bot Cloud",
+  "settings.section.cloudAccount": "Моё облако",
   "cloudAccount.separate": "Ваша личная учётная запись Cloud отделена от входа в организацию.",
   "cloudAccount.desktopOnly": "Используйте Edu Bot Cloud в локальном настольном приложении на этом компьютере.",
   "cloudAccount.loading": "Загрузка учётной записи Cloud…",
@@ -7353,5 +7353,6 @@
   "botSettings.data.save": "Сохранить",
   "botSettings.data.saved": "Сохранено.",
   "botSettings.data.allow": "Разрешить",
-  "profiles.field.data": "подключения к данным"
+  "profiles.field.data": "подключения к данным",
+  "settings.data.connectionFailed": "Не удалось сохранить подключение."
 }

@@ -420,6 +420,8 @@ export interface InstanceInfo extends InstanceEndpointInfo {
   snapshot: {
     state: "available" | "unavailable";
     reason?: string;
+    reasonKey?: string;
+    reasonParams?: Record<string, string>;
     authenticated?: boolean; /** The CLI path runs another program, not this engine's CLI. */ notEngineCli?: true;
     chatgptPlan?: boolean;
     /** Ready only through OpenCode's free no-login models: a backup, never "an AI already works". */

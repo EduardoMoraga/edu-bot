@@ -10,6 +10,7 @@ import { stripVTControlCharacters } from "node:util";
 import { deviceSignInPrompt, type DeviceSignInProvider } from "../../shared/device-sign-in.ts";
 import type { ProviderAuthenticationStart, ProviderAuthenticationStatus } from "../contracts.ts";
 import { killCliTree, spawnCli } from "../procs.ts";
+import { userErrorThrown } from "../user-errors.ts";
 
 const MAX_OUTPUT = 16_384;
 // Only the auth operation on a shared credential home is exclusive, never normal turns.
@@ -37,7 +38,8 @@ export interface DeviceSignIn {
   loginArgs: readonly string[];
   /** Set for every command of this sign-in, such as a CLI's switch that keeps it from opening a browser on the server. */
   env?: Readonly<Record<string, string>>;
-  install: string;
+  /** Where the CLI is installed from; `fromSettings` when Settings can also install it on a server with npm. */
+  install: { url: string; fromSettings?: true };
   /** One safe sentence for a failed login command; never the CLI's own words, which may carry tokens. */
   failure(output: string): string;
   /** Checked before a sign-in, so a working one is never replaced, and after it to confirm. */
@@ -255,11 +257,10 @@ export class DeviceAuthController {
     done(signedIn);
   }
 
-  private startFailure(error: NodeJS.ErrnoException): string {
+  private startFailure(error: NodeJS.ErrnoException): Error {
     const { product, install } = this.spec;
-    return error.code === "ENOENT"
-      ? `${product} is not installed on this server. ${install}`
-      : `${product} could not start on this server. Check the configured CLI path and its executable permissions.`;
+    if (error.code !== "ENOENT") return userErrorThrown("serverError.engine.cantStart", { product });
+    return userErrorThrown(install.fromSettings ? "serverError.engine.notInstalledOrSettings" : "serverError.engine.notInstalled", { product, url: install.url });
   }
 
   /** Callers see an exit code and a status-line match, never the output. */
@@ -294,7 +295,7 @@ export class DeviceAuthController {
       timer.unref();
       child.once("error", (error: NodeJS.ErrnoException) => {
         clearTimeout(timer);
-        rejectExec(new Error(this.startFailure(error)));
+        rejectExec(this.startFailure(error));
       });
       child.once("close", (code) => {
         clearTimeout(timer);
@@ -336,7 +337,7 @@ export class DeviceAuthController {
     };
     child.stdout.on("data", receive);
     child.stderr.on("data", receive);
-    child.once("error", (error: NodeJS.ErrnoException) => this.finish(flow, "failed", this.startFailure(error)));
+    child.once("error", (error: NodeJS.ErrnoException) => { const failure = this.startFailure(error); this.finish(flow, "failed", failure.message, failure); });
     child.once("close", (code) => {
       if (flow.child === child) flow.child = null;
       if (flow.status.phase === "waiting") done(code, stripVTControlCharacters(output));
@@ -344,7 +345,7 @@ export class DeviceAuthController {
     });
   }
 
-  private finish(flow: Flow, phase: Exclude<ProviderAuthenticationStatus["phase"], "waiting">, message?: string): void {
+  private finish(flow: Flow, phase: Exclude<ProviderAuthenticationStatus["phase"], "waiting">, message?: string, failure?: Error): void {
     const { product, account } = this.spec;
     if (flow.status.phase !== "waiting") return;
     clearTimeout(flow.startupTimer);
@@ -355,7 +356,7 @@ export class DeviceAuthController {
     };
     if (!flow.ready) {
       if (phase === "succeeded") flow.resolve({ ...flow.status, phase });
-      else flow.reject(new Error(message ?? `${account} sign-in did not finish.`));
+      else flow.reject(failure ?? new Error(message ?? `${account} sign-in did not finish.`));
     }
     flow.stopping = this.stopChild(flow.child).catch(() => false).then((stopped) => {
       const release = () => authenticatingHomes.delete(flow.homeKey);

@@ -49,7 +49,7 @@ const press = (label: string, Component = ProSettingsCard) => {
 
 it("for someone who may buy: what Cloud does, the Admin's lowest price and money-back; Start free trial and Compare plans both open the sheet, never the website", async () => {
   const html = await card(signedOut);
-  for (const text of ["Edu Bot Cloud", "Keeps your bots and routines running 24/7, even when this computer is off.", "Edu Bot Cloud plans from $15/month + tax.",
+  for (const text of ["My Cloud", "Keeps your bots and routines running 24/7, even when this computer is off.", "Edu Bot Cloud plans from $15/month + tax.",
     "14-day money-back on every plan.", "Edu Bot on this computer stays free and open source.", "Compare plans", "Start free trial", "Sign in to your Cloud plan"]) expect(html).toContain(text);
   for (const gone of ["OMB", "$89", "launch price", "New features first", "Get Pro", "MausBot Pro", "MausBot Cloud"]) expect(html).not.toContain(gone);
   press("Start free trial");
@@ -82,13 +82,13 @@ it("someone with a plan sees that plan and the way to it, never an offer, and Cl
     [{ status: "reauth-required", message: "expired", lastPlan: { tier: "max", active: true } }, "Sign in again to use the Cloud on this computer. Your plan is not affected."],
   ] as const) {
     const html = await card(state as CloudAccountState);
-    expect(html).toContain(text); expect(html).toContain("Edu Bot Cloud settings");
+    expect(html).toContain(text); expect(html).toContain("My Cloud settings");
     expect(html).not.toContain("Start free trial"); expect(html).not.toContain("$15");
   }
   expect(bridge.offer).not.toHaveBeenCalled();
   for (const state of [{ status: "unavailable" }, { status: "connecting" }, { status: "signed-out", message: "restoring" }] as CloudAccountState[]) expect(await card(state)).toBe("");
   await card(plan({ entitlement: paid("max") }));
-  press("Edu Bot Cloud settings");
+  press("My Cloud settings");
   expect(f.dispatch).toHaveBeenCalledWith({ type: "toggleAppSettings", open: true, section: "cloudAccount" });
 });
 

@@ -10,7 +10,7 @@ type ConnectionType = "postgres" | "sqlite" | "duckdb";
 interface PublicConnection { name: string; type: ConnectionType; readOnly: true; where: string }
 interface Listed { connections: PublicConnection[]; folders: string[] }
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : "The connection could not be saved.");
+const messageOf = (error: unknown) => (error instanceof Error ? error.message : t("settings.data.connectionFailed"));
 
 export function DataConnectionsSection() {
   const [listed, setListed] = useState<Listed | null>(null);
