@@ -114,7 +114,7 @@ export function MacLocalControl() {
           <p className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
             {permissionMessage ?? t("computer.mac.permission.generic")}
           </p>
-          {devRun && <p data-mac-dev-run="" className="mt-1 text-[13px] leading-relaxed text-ink-secondary">{devRun}</p>}
+          {devRun && <p data-mac-dev-run="" className="mt-1 text-[13px] leading-5 text-ink-secondary">{devRun}</p>}
           {reason && <details className="mt-2 text-[12px] text-ink-secondary"><summary className="cursor-pointer">{t("computer.mac.permission.driverDetail")}</summary><p className="mt-1 break-words">{reason}</p></details>}
           {error && (
             <div className="mt-2 flex gap-1.5 text-[12px] text-danger">
