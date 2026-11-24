@@ -424,8 +424,11 @@ limit, or half of it or more.
 
 Every engine except Claude Code reaches URL servers through OpenMausBot's own
 connector, the same one **Test** uses, so a server that passes Test works in
-chat too. On a Cloud whose bots run in their box, bots reach a URL server
-through the box's credential broker, and so does Test (docs/bot-box.md). Some servers refuse any handshake field they do not know, and the
+chat too. Bots reach a URL server through the credential broker, which keeps
+its headers (a sign-in token, a key) out of the engine's settings; on a Cloud
+whose bots run in their box, Test goes through it too (docs/bot-box.md). A key
+pasted on a hosted server's card (GitHub) is saved in the Vault, and
+`config.json` holds only its `vault:<id>` pointer. Some servers refuse any handshake field they do not know, and the
 engines' own MCP clients add such fields: a bot connecting by itself got "Tool
 not found" for every tool of a server that passed Test. Claude Code still
 connects by itself, since its handshake has only fields the MCP spec defines.
