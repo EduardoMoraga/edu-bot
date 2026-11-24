@@ -1,5 +1,6 @@
 import { readBotActivity } from "../activity.ts";
 import { ADMIN_ACTIVITY_CATEGORIES, activityBotFilter, activityCsv, activityEntries, flushAdminActivity, parseActivityWhat, readAdminActivityRange } from "../admin-activity.ts";
+import { PRODUCT_NAME } from "../../electron/app-identity.mjs";
 import { loadBrand } from "../brand.ts";
 import { browserEngineStatus, ensureChrome, installAgentBrowserBinary, resolveAgentBrowserBinary } from "../browser-engine.ts";
 import { DATA_DIR, EVENTS_DIR, NATIVE_DIR, instanceConfigs, type AppConfig } from "../config.ts";
@@ -55,7 +56,7 @@ export function createStatusRoutes(deps: StatusRouteDeps): RouteHandler {
     if (method === "GET" && path === "/api/health") {
       // The data checks of this version's first start (server/doctor/start.ts): counts and check names only.
       const doctor = doctorSummary();
-      return json(res, 200, { app: "openmausbot", ...(version ? { version } : {}), pid: process.pid, static: Boolean(STATIC_DIR), capabilities: {
+      return json(res, 200, { app: "openmausbot", product: PRODUCT_NAME, ...(version ? { version } : {}), pid: process.pid, static: Boolean(STATIC_DIR), capabilities: {
         guardedMessages: 1, guardedRequests: 1, guardedFullAccess: 1, guardedOnBehalfOf: 1,
         ...(sharedWorkspaceFullAccessEnabled() ? { sharedWorkspaceFullAccess: 1 } : {}),
       }, ...(deps.boxOn ? { box: deps.boxOn() ? "on" : "off" } : {}), ...(doctor ? { doctor } : {}) });

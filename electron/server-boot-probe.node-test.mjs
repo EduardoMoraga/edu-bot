@@ -287,7 +287,7 @@ test("a child that says it is listening gets the grace before it times out", asy
 
 test("the listening line is heard when stdout splits it across chunks", () => {
   const listening = listeningSignal();
-  listening.hear("boot… openmausbot ser");
+  listening.hear("boot… Edu Bot ser");
   assert.equal(listening.heard(), false);
   listening.hear("ver on http://127.0.0.1:8799\n");
   assert.equal(listening.heard(), true);
@@ -327,7 +327,7 @@ test("the listening line ends the wait between probes once; later waits run thei
     sleep: (ms) => new Promise((resolve) => {
       const wait = { ms, done: false, finish: () => { wait.done = true; resolve(); } };
       waits.push(wait);
-      if (waits.length === 1) listening.hear("openmausbot server on http://127.0.0.1:8799\n");
+      if (waits.length === 1) listening.hear("Edu Bot server on http://127.0.0.1:8799\n");
       if (waits.length === 2) queueMicrotask(() => queueMicrotask(wait.finish));
     }),
     fetchImpl: async () => {

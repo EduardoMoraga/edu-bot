@@ -1,6 +1,7 @@
 export const APP_ID: "io.github.eduardomoraga.edubot";
 export const DESKTOP_ENTRY_NAME: "io.github.eduardomoraga.edubot.desktop";
 export const PRODUCT_NAME: "Edu Bot";
+export const SERVER_LISTENING_LINE: "Edu Bot server on ";
 export const CLI_NAME: "edubot";
 export const DATA_DIR_NAME: ".edubot";
 export const COMPANION_DIR_NAME: ".edubot-companion";
