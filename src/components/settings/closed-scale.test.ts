@@ -64,6 +64,7 @@ const FILES = [
   "src/components/SkinPicker.tsx",
   "src/components/SwatchRadios.tsx",
   "src/components/ThreadCleanupSettings.tsx",
+  "src/components/ThemeEditor.tsx",
   "src/components/ThreadConcurrencySettings.tsx",
   "src/components/UsageSection.tsx",
   "src/components/usage/UsageInsights.tsx",

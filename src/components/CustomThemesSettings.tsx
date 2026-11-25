@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { themeCssProblem, THEME_LIMITS, type ThemeExport, type ThemeFile, type ThemeHistoryItem, type ThemeList } from "../../shared/theme";
+import type { ThemeExport, ThemeHistoryItem, ThemeList } from "../../shared/theme";
 import { t } from "@/lib/i18n";
 import { isMacPlatform } from "@/lib/keyboard-shortcuts";
 import { relativeTime } from "@/lib/memory";
 import { SKINS } from "@/lib/skins";
 import { chooseTheme, loadTheme, resetLook, safeLook, subscribeTheme, wornTheme } from "@/lib/theme/runtime";
 import { api } from "@/state/api";
-import { SETTINGS_INPUT, SettingRow, SettingsEmptyRow, SettingsField, SettingsFormFoot, SettingsGroup, SettingsRows } from "./SettingsPrimitives";
+import { SettingRow, SettingsEmptyRow, SettingsGroup, SettingsRows } from "./SettingsPrimitives";
+import { forgetEdits, hasUnsavedEdits, ThemeEditor } from "./ThemeEditor";
 
 const put = (body: unknown) => ({ method: "PUT", body: JSON.stringify(body) });
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -24,65 +25,6 @@ function download(name: string, data: unknown): void {
 }
 
 type Act = (work: () => Promise<unknown>) => Promise<void>;
-
-/** One theme opened: its name, two colours and its CSS, with what is done less often beside Save. */
-function ThemeEditor({ id, act, onClose, onDelete }: { id: string; act: Act; onClose: () => void; onDelete: () => void }) {
-  const [file, setFile] = useState<ThemeFile | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  useEffect(() => {
-    void api<{ theme: ThemeFile }>(`/api/themes/${id}`).then((answer) => setFile(answer.theme), (error: unknown) => setStatus(errorText(error)));
-  }, [id]);
-  if (!file) return <SettingsEmptyRow>{status ?? t("settings.customThemes.loading")}</SettingsEmptyRow>;
-  const problem = file.css ? themeCssProblem(file.css) : null;
-  const save = async () => {
-    setSaving(true);
-    try {
-      await api(`/api/themes/${id}`, put({ theme: { ...file, name: file.name.trim(), css: file.css || undefined } }));
-      setStatus(t("settings.customThemes.saved"));
-      await loadTheme();
-    } catch (error) {
-      setStatus(errorText(error));
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <div data-settings-block="theme-editor" className="flex flex-col gap-3 px-4 py-3">
-      <SettingsField label={t("settings.customThemes.name")}>
-        <input className={SETTINGS_INPUT} value={file.name} maxLength={60} onChange={(event) => setFile({ ...file, name: event.target.value })} />
-      </SettingsField>
-      <div className="flex flex-wrap gap-4">
-        {(["canvas", "accent"] as const).map((key) => (
-          <label key={key} className="flex items-center gap-2 text-[13px] text-ink">
-            <input type="color" className="size-7 cursor-pointer rounded-md bg-transparent" value={file[key] ?? (key === "canvas" ? "#121212" : "#1084fe")}
-              onChange={(event) => setFile({ ...file, [key]: event.target.value })} />
-            {t(key === "canvas" ? "settings.customThemes.canvas" : "settings.customThemes.accent")}
-            {file[key] && <button type="button" className="text-[12px] text-accent-text hover:underline" onClick={() => setFile({ ...file, [key]: undefined })}>{t("settings.customThemes.clear")}</button>}
-          </label>
-        ))}
-      </div>
-      <SettingsField label={t("settings.customThemes.css")} hint={problem ?? t("settings.customThemes.cssHint")}>
-        <textarea className={`${SETTINGS_INPUT} h-64 resize-y py-2 font-mono text-[12px]`} spellCheck={false} maxLength={THEME_LIMITS.cssChars}
-          aria-label={t("settings.customThemes.css")} value={file.css ?? ""} onChange={(event) => setFile({ ...file, css: event.target.value })} />
-      </SettingsField>
-      <SettingsFormFoot status={status}>
-        <div className="mr-auto flex flex-wrap gap-1.5">
-          <button type="button" className="ui-button ui-button-sm"
-            onClick={() => void act(() => api(`/api/themes/${id}/duplicate`, { method: "POST", body: JSON.stringify({ name: t("settings.customThemes.copyName", { name: file.name }).slice(0, 60) }) }))}>
-            {t("settings.customThemes.duplicate")}
-          </button>
-          <button type="button" className="ui-button ui-button-sm" onClick={() => void act(async () => download(`${id}.mausbot-theme.json`, await api(`/api/themes/${id}/export`)))}>
-            {t("settings.customThemes.export")}
-          </button>
-          <button type="button" className="ui-button ui-button-sm" data-danger="" onClick={onDelete}>{t("common.delete")}</button>
-        </div>
-        <button type="button" className="ui-button" onClick={onClose}>{t("common.cancel")}</button>
-        <button type="button" className="ui-button ui-button-primary" disabled={saving || Boolean(problem) || !file.name.trim()} onClick={() => void save()}>{t("common.save")}</button>
-      </SettingsFormFoot>
-    </div>
-  );
-}
 
 const SHOWN_CHANGES = 6;
 
@@ -164,6 +106,7 @@ export function CustomThemesSettings() {
   const remove = (id: string, name: string) => act(async () => {
     const kept = await api<ThemeExport>(`/api/themes/${id}/export`);
     await api(`/api/themes/${id}`, { method: "DELETE" });
+    forgetEdits(id);
     setEditing(null);
     await loadTheme();
     setStatus(<>{t("settings.customThemes.deleted", { name })}{" "}
@@ -186,10 +129,19 @@ export function CustomThemesSettings() {
         {list && !list.themes.length && <SettingsEmptyRow>{t("settings.customThemes.empty")}</SettingsEmptyRow>}
         {list?.themes.map((theme) => (
           editing === theme.id
-            ? <ThemeEditor key={theme.id} id={theme.id} act={act} onClose={() => { setEditing(null); void refresh(); }} onDelete={() => void remove(theme.id, theme.name)} />
+            ? <ThemeEditor key={theme.id} id={theme.id} onClose={() => { setEditing(null); void refresh(); }} foot={(file) => <>
+              <button type="button" className="ui-button ui-button-sm"
+                onClick={() => void act(() => api(`/api/themes/${theme.id}/duplicate`, { method: "POST", body: JSON.stringify({ name: t("settings.customThemes.copyName", { name: file.name }).slice(0, 60) }) }))}>
+                {t("settings.customThemes.duplicate")}
+              </button>
+              <button type="button" className="ui-button ui-button-sm" onClick={() => void act(async () => download(`${theme.id}.mausbot-theme.json`, await api(`/api/themes/${theme.id}/export`)))}>
+                {t("settings.customThemes.export")}
+              </button>
+              <button type="button" className="ui-button ui-button-sm" data-danger="" onClick={() => void remove(theme.id, theme.name)}>{t("common.delete")}</button>
+            </>} />
             : (
               <SettingRow key={theme.id} title={theme.name}
-                subtitle={worn === theme.id ? t("settings.customThemes.inUse") : theme.assets.length ? t("settings.customThemes.files", { count: theme.assets.length }) : undefined}>
+                subtitle={hasUnsavedEdits(theme.id) ? t("settings.customThemes.unsaved") : worn === theme.id ? t("settings.customThemes.inUse") : theme.assets.length ? t("settings.customThemes.files", { count: theme.assets.length }) : undefined}>
                 <div className="flex items-center gap-1.5">
                   <button type="button" className="ui-button" onClick={() => setEditing(theme.id)}>{t("settings.customThemes.edit")}</button>
                   {worn === theme.id

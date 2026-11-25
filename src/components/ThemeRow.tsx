@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { SKINS, THEME_SKINS, applySkinChoice, readSkinChoice, subscribeSkin, type SkinChoice } from "@/lib/skins";
+import { SKINS, THEME_SKINS, readSkinChoice, subscribeSkin, type SkinChoice } from "@/lib/skins";
+import { chooseSkinChoice } from "@/lib/theme/runtime";
 import { SettingRow } from "./SettingsPrimitives";
 
 const THEMES = [
@@ -29,7 +30,7 @@ export function ThemeRow({ simple = false }: { simple?: boolean }) {
             type="button"
             role="radio"
             aria-checked={choice === theme.choice}
-            onClick={() => applySkinChoice(theme.choice)}
+            onClick={() => chooseSkinChoice(theme.choice)}
             className={simple
               ? cn("h-6 rounded-full px-2.5 text-[13px] transition-colors", choice === theme.choice ? "bg-ink/[0.12] text-ink" : "text-ink-secondary hover:text-ink")
               : cn("rounded-full px-3 py-1 text-[13px] font-medium transition-colors", choice === theme.choice ? "bg-raised text-ink shadow-sm" : "text-ink-secondary hover:text-ink")}

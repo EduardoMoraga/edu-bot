@@ -146,8 +146,8 @@ function ThemePickerRow({ open, onToggle }: { open: boolean; onToggle: () => voi
 }
 
 export function AppearancePage() {
-  const { ctx, place, go, anchor } = useSettingsShell();
-  const [themes, setThemes] = useState(anchor === "themes");
+  const { ctx, place, go } = useSettingsShell();
+  const [themes, setThemes] = useState(true);
   return <>
     <SettingsGroup label={t("settings.appearance.look")} block="look">
       <SettingsRows>
@@ -163,11 +163,11 @@ export function AppearancePage() {
       <SettingsRows>
         {!ctx.client && <ToolCallsRow />}
         {ctx.advanced && <RunCardRow />}
-        {ctx.advanced && <ChatWidthRow />}
-        {ctx.advanced && <FontRow />}
+        <ChatWidthRow />
+        <FontRow />
       </SettingsRows>
     </SettingsGroup>
-    {/* Simple keeps the Look card and Tool calls; the window's layout is Advanced. */}
+    {/* Simple keeps the Look and Chat cards; the window's layout is Advanced. */}
     {ctx.advanced && <SettingsGroup label={t("settings.appearance.layout")} block="appearance">
       <SettingsRows>
         <ChromeRailRow />

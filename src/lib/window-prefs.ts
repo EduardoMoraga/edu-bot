@@ -14,7 +14,8 @@ import { choosePlaceColor } from "./place-look";
 import { setShowRunCard, showRunCard } from "./run-card-preferences";
 import { readSendKey, setSendKey } from "./send-key";
 import { loadPinnedCircles, loadSidebarToolsLayout, loadUniversalPins, setPinnedCircles, setSidebarToolsLayout, setUniversalPins } from "./sidebar-preferences";
-import { applySkinChoice, readSkinChoice } from "./skins";
+import { readSkinChoice } from "./skins";
+import { chooseSkinChoice } from "./theme/runtime";
 import { setShowThreads, showThreads } from "./thread-preferences";
 import { readColorUserBubbles, setColorUserBubbles } from "./user-bubble-preference";
 import { latestWebPanels, setWebPanels } from "./web-panel-preferences";
@@ -36,7 +37,7 @@ const route = (name: CompanionRoute): { read(): unknown; write(on: boolean): unk
 
 // Called, never referenced at load: many tests mock these modules with only the exports they use.
 const PREFS: { [I in WindowPrefId]: Pref<I> } = {
-  "appearance.skin": { read: () => readSkinChoice(), write: (choice) => applySkinChoice(choice) },
+  "appearance.skin": { read: () => readSkinChoice(), write: (choice) => chooseSkinChoice(choice) },
   "appearance.advanced": { read: () => readAdvancedMode(), write: (on) => setAdvancedMode(on) },
   "appearance.font": { read: () => readFont(), write: (font) => applyFont(font) },
   "appearance.chatWidth": { read: () => readChatWidth(), write: (width) => applyChatWidth(width) },
