@@ -5784,7 +5784,6 @@
   "settings.simple.billing.plan": "Plan",
   "settings.simple.group.typing": "Dil ve yazma",
   "settings.simple.language.partial": "Uygulamanın şimdilik yalnızca bir kısmı çevrildi.",
-  "settings.simple.themes.followHint": "Bilgisayarını izler: aydınlıkta Daylight, karanlıkta Midnight.",
   "settings.talk.aria": "Her uygulamadan Edu ile konuş",
   "settings.talk.failed": "Değiştirilemedi. Tekrar dene.",
   "settings.talk.keyAria": "Konuşma kısayolu",
@@ -5860,7 +5859,6 @@
   "settings.simple.billing.included": "Bu ayın dahil kullanımı",
   "settings.simple.billing.summary": "Bu ayın dahil kullanımının %{percent} kadarı",
   "settings.simple.billing.used": "kullanıldı",
-  "settings.skin.dressUp.title": "Botlarımı giydir",
   "server.cloudComputer.replaced": "{name} botunun bulut bilgisayarı yanıt vermeyi bıraktı, bu yüzden Edu Bot onu yenisiyle değiştirdi. Yalnızca eski bilgisayarda olan dosyalar artık yok.",
   "server.cloudComputer.restarted": "{name} botunun bulut bilgisayarı yanıt vermeyi bıraktı, bu yüzden Edu Bot onu yeniden başlattı. Yeniden yanıt veriyor; üzerinde açık olan programlar kapatıldı.",
   "server.cloudComputer.capped": "{name} botunun bulut bilgisayarı değiştirildikten sonraki bir saat içinde yine yanıt vermeyi bıraktı, bu yüzden Edu Bot onu olduğu gibi bıraktı. Bilgisayar panelindeki Bilgisayarı değiştir bir kez daha dener.",
@@ -6094,5 +6092,6 @@
   "botSettings.data.saved": "Kaydedildi.",
   "botSettings.data.allow": "İzin ver",
   "profiles.field.data": "veri bağlantıları",
-  "settings.data.connectionFailed": "Bağlantı kaydedilemedi."
+  "settings.data.connectionFailed": "Bağlantı kaydedilemedi.",
+  "settings.simple.themes.followPair": "Bilgisayarını izler: aydınlıkta {light}, karanlıkta {dark}."
 }

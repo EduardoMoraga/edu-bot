@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -95,6 +95,20 @@ describe("theme store", () => {
     expect(skin!.look).toEqual({ id: null, skin: "midnight" });
     expect(edited!.file?.accent).toBe("#00ff88");
     expect(made!.file?.accent).toBe("#ff2bd6");
+  });
+
+  it("still reads a theme and a look history saved on a skin that no longer ships", () => {
+    const { store, dataDir } = fixture();
+    store.change("owner", { saves: [{ id: "spooky", file: { name: "Spooky", accent: "#ff7f1f" } }], wear: "spooky" });
+    store.change("owner", { wear: null, skin: "midnight" });
+    const saved = (name: string) => join(dataDir, "themes", (readdirSync(join(dataDir, "themes"), { recursive: true }) as string[]).find((file) => file.endsWith(name))!);
+    writeFileSync(saved("theme.json"), JSON.stringify({ name: "Spooky", skin: "halloween", accent: "#ff7f1f" }));
+    writeFileSync(saved("history.json"), readFileSync(saved("history.json"), "utf8").replaceAll('"midnight"', '"diwali"'));
+    expect(store.read("owner", "spooky")).toEqual({ name: "Spooky", accent: "#ff7f1f" });
+    expect(store.list("owner").themes.map((theme) => theme.id)).toEqual(["spooky"]);
+    expect(store.history("owner").map(({ index, look }) => ({ index, look }))).toEqual([{ index: 1, look: { id: null } }, { index: 2, look: { id: "spooky" } }]);
+    expect(isRefusal(store.restore("owner", 1))).toBe(false);
+    expect(store.list("owner").active).toBe("spooky");
   });
 
   it("keeps the last 30 changes and refuses to go back further", () => {

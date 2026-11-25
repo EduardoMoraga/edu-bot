@@ -1381,8 +1381,6 @@
   "settings.profile.learned.from": "da {name}",
   "settings.profile.learned.remove": "Rimuovi",
   "settings.profile.learned.error": "Impossibile aggiornare Su di me. Riprova.",
-  "settings.skin.dressUp.title": "Vesti i miei bot",
-  "settings.skin.dressUp.subtitle": "Ogni bot si traveste per la festa finché questo tema è attivo. L'aspetto di sempre torna quando cambi tema.",
   "settings.chatWidth.title": "Larghezza della chat",
   "settings.chatWidth.subtitle": "Quanto possono allargarsi le bolle dei messaggi su questa macchina. Ampia e Larghezza piena usano di più una finestra grande.",
   "settings.chatWidth.aria": "Larghezza della chat",
@@ -3389,7 +3387,6 @@
   "botPanel.avatar.tabUpload": "Carica",
   "botPanel.avatar.reset": "Reimposta",
   "botPanel.avatar.face": "Faccia",
-  "botPanel.avatar.costume": "Vestito da {name} mentre l'aspetto {skin} è attivo",
   "botPanel.avatar.drop": "Trascina qui un'immagine, oppure scegline una",
   "botPanel.avatar.types": "PNG, JPEG, GIF o WebP · fino a 10 MB",
   "botPanel.avatar.shape": "Forma",
@@ -6853,7 +6850,6 @@
   "settings.simple.billing.plan": "Piano",
   "settings.simple.group.typing": "Lingua e digitazione",
   "settings.simple.language.partial": "Per ora è tradotta solo una parte dell'app.",
-  "settings.simple.themes.followHint": "Segue il computer: Daylight quando è chiaro, Midnight quando è buio.",
   "settings.talk.aria": "Parla con Edu da qualsiasi app",
   "settings.talk.failed": "Impossibile modificarlo. Riprova.",
   "settings.talk.keyAria": "Scorciatoia per parlare",
@@ -7161,5 +7157,6 @@
   "botSettings.data.saved": "Salvato.",
   "botSettings.data.allow": "Consenti",
   "profiles.field.data": "connessioni dati",
-  "settings.data.connectionFailed": "Non è stato possibile salvare la connessione."
+  "settings.data.connectionFailed": "Non è stato possibile salvare la connessione.",
+  "settings.simple.themes.followPair": "Segue il computer: {light} quando è chiaro, {dark} quando è buio."
 }

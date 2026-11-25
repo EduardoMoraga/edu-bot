@@ -3524,7 +3524,6 @@
   "settings.simple.billing.plan": "प्लान",
   "settings.simple.group.typing": "भाषा और टाइपिंग",
   "settings.simple.language.partial": "अभी ऐप का केवल कुछ हिस्सा ही अनुवादित है।",
-  "settings.simple.themes.followHint": "आपके कंप्यूटर के अनुसार: उजाले में Daylight, अँधेरे में Midnight।",
   "settings.talk.aria": "किसी भी ऐप से Edu से बात करें",
   "settings.talk.failed": "इसे बदला नहीं जा सका। फिर से कोशिश करें।",
   "settings.talk.keyAria": "बात करने का शॉर्टकट",
@@ -3622,7 +3621,6 @@
   "settings.simple.billing.included": "इस महीने का शामिल इस्तेमाल",
   "settings.simple.billing.summary": "इस महीने के शामिल इस्तेमाल का {percent}%",
   "settings.simple.billing.used": "इस्तेमाल हुआ",
-  "settings.skin.dressUp.title": "मेरे बॉट्स को सजाएँ",
   "server.cloudComputer.replaced": "{name} का क्लाउड कंप्यूटर जवाब नहीं दे रहा था, इसलिए Edu Bot ने उसे नए कंप्यूटर से बदल दिया। जो फ़ाइलें सिर्फ़ पुराने कंप्यूटर पर थीं, वे अब नहीं रहीं।",
   "server.cloudComputer.restarted": "{name} का क्लाउड कंप्यूटर जवाब नहीं दे रहा था, इसलिए Edu Bot ने उसे फिर से चालू किया। अब वह फिर जवाब दे रहा है; उस पर खुले प्रोग्राम बंद हो गए।",
   "server.cloudComputer.capped": "{name} का क्लाउड कंप्यूटर बदले जाने के एक घंटे के अंदर फिर से जवाब देना बंद कर गया, इसलिए Edu Bot ने उसे वैसे ही छोड़ दिया। कंप्यूटर पैनल में कंप्यूटर बदलें एक बार और कोशिश करता है।",
@@ -3856,5 +3854,6 @@
   "botSettings.data.saved": "सहेजा गया।",
   "botSettings.data.allow": "अनुमति",
   "profiles.field.data": "डेटा कनेक्शन",
-  "settings.data.connectionFailed": "कनेक्शन सहेजा नहीं जा सका।"
+  "settings.data.connectionFailed": "कनेक्शन सहेजा नहीं जा सका।",
+  "settings.simple.themes.followPair": "आपके कंप्यूटर के अनुसार: उजाले में {light}, अँधेरे में {dark}।"
 }

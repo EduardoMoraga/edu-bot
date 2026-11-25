@@ -1467,8 +1467,6 @@
   "settings.theme.system": "시스템",
   "settings.theme.light": "밝게",
   "settings.theme.dark": "어둡게",
-  "settings.skin.dressUp.title": "봇 꾸미기",
-  "settings.skin.dressUp.subtitle": "이 스킨을 쓰는 동안 봇마다 축제 의상을 입어요. 스킨을 바꾸면 원래 모습으로 돌아와요.",
   "settings.chatWidth.title": "채팅 너비",
   "settings.chatWidth.subtitle": "이 기기에서 말풍선이 얼마나 넓어질 수 있는지 정해요. 넓게와 전체 너비는 큰 창을 더 많이 써요.",
   "settings.chatWidth.aria": "채팅 너비",
@@ -3730,7 +3728,6 @@
   "botPanel.avatar.face": "표정",
   "botPanel.avatar.halloween": "핼러윈",
   "botPanel.avatar.more": "더 많은 모습",
-  "botPanel.avatar.costume": "{skin} 스킨을 쓰는 동안 {name} 복장",
   "botPanel.avatar.drop": "여기에 사진을 끌어다 놓거나 선택하세요",
   "botPanel.avatar.types": "PNG, JPEG, GIF, WebP · 최대 10MB",
   "botPanel.avatar.shape": "모양",
@@ -7543,7 +7540,6 @@
   "settings.savedSteps.title": "AI 없이 컴퓨터 작업 반복하기",
   "settings.section.vault": "보관함",
   "settings.simple.group.typing": "언어 및 입력",
-  "settings.simple.themes.followHint": "컴퓨터를 따름: 밝을 때는 Daylight, 어두울 때는 Midnight.",
   "settings.theme.lightOrDark": "라이트 또는 다크",
   "settings.userBubbles.simpleTitle": "내 메시지에 봇 색상 사용",
   "sidebar.account.moving": "내 클라우드로 이동 중…",
@@ -7821,5 +7817,6 @@
   "botSettings.data.saved": "저장됨.",
   "botSettings.data.allow": "허용",
   "profiles.field.data": "데이터 연결",
-  "settings.data.connectionFailed": "연결을 저장하지 못했습니다."
+  "settings.data.connectionFailed": "연결을 저장하지 못했습니다.",
+  "settings.simple.themes.followPair": "컴퓨터를 따름: 밝을 때는 {light}, 어두울 때는 {dark}."
 }

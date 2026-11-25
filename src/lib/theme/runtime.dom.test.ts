@@ -24,7 +24,7 @@ afterEach(() => {
 
 // The real skins set --code-color-scheme per skin; this stands in for them so paint() reads the worn skin's mode.
 const skinModes = document.createElement("style");
-skinModes.textContent = ':root[data-skin="daylight"] { --code-color-scheme: light; } :root[data-skin="midnight"] { --code-color-scheme: dark; }';
+skinModes.textContent = ':root:is([data-skin="daylight"], [data-skin="meadow"]) { --code-color-scheme: light; } :root:is([data-skin="midnight"], [data-skin="edu-night"]) { --code-color-scheme: dark; }';
 document.head.append(skinModes);
 
 async function wear(theme: ThemeFile, skinChoice: string) {
@@ -51,7 +51,19 @@ it("still wears the theme's own skin when it has no block for the other mode", a
   expect(await wear({ name: "Night", skin: "midnight", dark: bothModes.dark }, "daylight")).toBe("midnight");
   expect(await wear({ name: "Night", canvas: "#121212" }, "daylight")).toBe("midnight");
   expect(await wear({ name: "Plain", accent: "#d97757" }, "midnight")).toBe("midnight");
-  expect(await wear({ name: "Spooky", skin: "halloween", ...bothModes }, "daylight")).toBe("halloween");
+  expect(await wear({ name: "Teal", skin: "lagoon", ...bothModes }, "daylight")).toBe("lagoon");
+});
+
+it("wears a theme saved on a skin that no longer ships over the skin its colours call for", async () => {
+  const { themeFileSchema } = await import("../../../shared/theme");
+  const saved = (theme: Record<string, unknown>) => themeFileSchema.parse(theme);
+  expect(await wear(saved({ name: "Spooky", skin: "halloween", ...bothModes }), "daylight")).toBe("daylight");
+  expect(await wear(saved({ name: "Spooky", skin: "diwali", canvas: "#110d16" }), "daylight")).toBe("midnight");
+  values.set("omb-theme", JSON.stringify({ id: "spooky", theme: { name: "Spooky", skin: "halloween", accent: "#ff7f1f" } }));
+  vi.resetModules();
+  const runtime = await import("./runtime");
+  runtime.startTheme();
+  expect(runtime.wornTheme()).toEqual({ id: "spooky", theme: { name: "Spooky", accent: "#ff7f1f" } });
 });
 
 it("follows the system's light or dark change while a theme with both blocks is worn", async () => {
@@ -67,9 +79,9 @@ it("follows the system's light or dark change while a theme with both blocks is 
   const skins = await import("../skins");
   runtime.startTheme();
   skins.applySkinChoice("system");
-  expect(document.documentElement.dataset.skin).toBe("midnight");
+  expect(document.documentElement.dataset.skin).toBe("edu-night");
   expect(appColor()).toBe("#121212");
-  for (const [nowDark, skin, canvas] of [[false, "daylight", "#ffffff"], [true, "midnight", "#121212"]] as const) {
+  for (const [nowDark, skin, canvas] of [[false, "meadow", "#ffffff"], [true, "edu-night", "#121212"]] as const) {
     dark = nowDark;
     for (const listener of onChange) listener();
     expect(document.documentElement.dataset.skin).toBe(skin);

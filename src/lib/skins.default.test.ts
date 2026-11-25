@@ -41,27 +41,51 @@ afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("default skin", () => {
   it("opens a fresh install following the computer's light or dark setting, in Simple mode, and keeps following it", async () => {
-    expect(await boot()).toEqual({ skin: "daylight", advanced: false, stored: "system" });
+    expect(await boot()).toEqual({ skin: "meadow", advanced: false, stored: "system" });
     values.set("omb-installed", "2026-10-17T00:00:00.000Z");
     os.dark = true;
-    expect(await boot()).toEqual({ skin: "midnight", advanced: false, stored: "system" });
+    expect(await boot()).toEqual({ skin: "edu-night", advanced: false, stored: "system" });
   });
 
-  it("switches between Daylight and Midnight when the computer does, while following it", async () => {
+  it("switches between Edu and Edu Night when the computer does, while following it", async () => {
     await boot();
     setOsDark(true);
-    expect(document.documentElement.dataset.skin).toBe("midnight");
+    expect(document.documentElement.dataset.skin).toBe("edu-night");
     setOsDark(false);
-    expect(document.documentElement.dataset.skin).toBe("daylight");
+    expect(document.documentElement.dataset.skin).toBe("meadow");
+  });
+
+  it("keeps an install that followed the computer before the Edu pair on Daylight and Classic", async () => {
+    values.set("omb-skin", "system");
+    values.set("omb-installed", "2026-10-17T00:00:00.000Z");
+    expect(await boot()).toMatchObject({ skin: "daylight", stored: "system" });
+    setOsDark(true);
+    expect(document.documentElement.dataset.skin).toBe("midnight");
+    expect(await boot()).toMatchObject({ skin: "midnight", stored: "system" });
+    const { ThemeRow } = await import("@/components/ThemeRow");
+    const { chooseSkinChoice } = await import("./theme/runtime");
+    chooseSkinChoice("daylight");
+    expect(renderToStaticMarkup(createElement(ThemeRow))).toMatch(/aria-checked="true"[^>]*>Light</);
+    chooseSkinChoice("system");
+    expect(document.documentElement.dataset.skin).toBe("midnight");
+  });
+
+  it.each(["halloween", "diwali"])("moves a saved %s skin to the Edu look that follows the computer", async (retired) => {
+    values.set("omb-skin", retired);
+    values.set("omb-installed", "2026-10-17T00:00:00.000Z");
+    values.set("omb-halloween-dress", "1");
+    expect(await boot()).toMatchObject({ skin: "meadow", stored: "system" });
+    os.dark = true;
+    expect(await boot()).toMatchObject({ skin: "edu-night", stored: "system" });
   });
 
   it("stops following the computer once someone picks a skin", async () => {
     await boot();
     const skins = await import("./skins");
-    skins.applySkin("meadow");
+    skins.applySkin("lagoon");
     setOsDark(true);
-    expect(document.documentElement.dataset.skin).toBe("meadow");
-    expect(values.get("omb-skin")).toBe("meadow");
+    expect(document.documentElement.dataset.skin).toBe("lagoon");
+    expect(values.get("omb-skin")).toBe("lagoon");
   });
 
   it("keeps an install that ran before in Midnight when nobody picked a skin", async () => {
@@ -91,7 +115,7 @@ describe("default skin", () => {
     const [{ SkinPicker }, { ThemeRow }] = await Promise.all([import("@/components/SkinPicker"), import("@/components/ThemeRow")]);
     const picker = renderToStaticMarkup(createElement(SkinPicker));
     const pressed = [...picker.matchAll(/aria-pressed="true"[\s\S]*?<div class="text-\[13px\] font-medium text-ink">([^<]+)</g)].map(([, name]) => name);
-    expect(pressed).toEqual(["Midnight"]);
+    expect(pressed).toEqual(["Edu Night"]);
     const theme = renderToStaticMarkup(createElement(ThemeRow));
     expect([...theme.matchAll(/aria-checked="true"[^>]*>([^<]+)</g)].map(([, label]) => label)).toEqual(["System"]);
   });

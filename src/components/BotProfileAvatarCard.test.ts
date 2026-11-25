@@ -49,7 +49,7 @@ describe("BotProfileAvatarCard body picker", () => {
     }
   });
 
-  it("offers each festival's bodies in their own row", () => {
+  it("offers each pack of carved bodies in its own row", () => {
     const markup = renderCard(makeBot({ mascotBody: "jalebi" }));
 
     expect(markup).toContain(">Halloween<");

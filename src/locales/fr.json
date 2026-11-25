@@ -3670,7 +3670,6 @@
   "settings.simple.billing.plan": "Forfait",
   "settings.simple.group.typing": "Langue et saisie",
   "settings.simple.language.partial": "Seule une partie de l'app est traduite pour l'instant.",
-  "settings.simple.themes.followHint": "Suit votre ordinateur : Daylight quand il fait clair, Midnight quand il fait sombre.",
   "settings.talk.aria": "Parler à Edu depuis n'importe quelle app",
   "settings.talk.failed": "Impossible de modifier ceci. Réessayez.",
   "settings.talk.keyAria": "Raccourci pour parler",
@@ -3768,7 +3767,6 @@
   "settings.simple.billing.included": "Utilisation incluse ce mois-ci",
   "settings.simple.billing.summary": "{percent} % de l'utilisation incluse ce mois-ci",
   "settings.simple.billing.used": "utilisé",
-  "settings.skin.dressUp.title": "Déguiser mes bots",
   "server.cloudComputer.replaced": "L'ordinateur cloud de {name} ne répondait plus, alors Edu Bot l'a remplacé par un nouveau. Les fichiers qui n'étaient que sur l'ancien ordinateur sont perdus.",
   "server.cloudComputer.restarted": "L'ordinateur cloud de {name} ne répondait plus, alors Edu Bot l'a redémarré. Il répond de nouveau ; les programmes qui y étaient ouverts ont été fermés.",
   "server.cloudComputer.capped": "L'ordinateur cloud de {name} a de nouveau cessé de répondre moins d'une heure après avoir été remplacé, alors Edu Bot l'a laissé tel quel. Remplacer l'ordinateur, dans le panneau de l'ordinateur, réessaie une fois.",
@@ -4002,5 +4000,6 @@
   "botSettings.data.saved": "Enregistré.",
   "botSettings.data.allow": "Autoriser",
   "profiles.field.data": "connexions de données",
-  "settings.data.connectionFailed": "La connexion n'a pas pu être enregistrée."
+  "settings.data.connectionFailed": "La connexion n'a pas pu être enregistrée.",
+  "settings.simple.themes.followPair": "Suit votre ordinateur : {light} quand il fait clair, {dark} quand il fait sombre."
 }

@@ -64,14 +64,16 @@ describe("skin overlay chrome", () => {
     expect(isKnownSkin("pop")).toBe(true);
   });
 
-  it("paints Halloween's plum ground behind the caption buttons", () => {
-    expect(skinChrome("halloween")).toEqual({ color: "#110d16", symbolColor: "#c2b3cc" });
-    expect(isKnownSkin("halloween")).toBe(true);
+  it("paints Edu Night's green-black ground behind the caption buttons", () => {
+    expect(skinChrome("edu-night")).toEqual({ color: "#0f1311", symbolColor: "#b4beb7" });
+    expect(isKnownSkin("edu-night")).toBe(true);
+    expect(skinIsLight("edu-night")).toBe(false);
   });
 
-  it("paints Diwali's indigo ground behind the caption buttons", () => {
-    expect(skinChrome("diwali")).toEqual({ color: "#100d1f", symbolColor: "#cdbfdc" });
-    expect(isKnownSkin("diwali")).toBe(true);
+  it("falls back to the default chrome for a skin an earlier version shipped", () => {
+    expect(isKnownSkin("halloween")).toBe(false);
+    expect(isKnownSkin("diwali")).toBe(false);
+    expect(skinChrome("halloween")).toEqual(SKIN_CHROME[DEFAULT_SKIN]);
   });
 
   it("paints Aurora's near-black ground behind the caption buttons", () => {

@@ -105,7 +105,7 @@ describe("mascotBody", () => {
     });
   });
 
-  it.each(["pumpkin", "laddu"])("accepts the festival body %s", (mascotBody) => {
+  it.each(["pumpkin", "laddu"])("accepts the carved body %s", (mascotBody) => {
     expect(parseBotProfilePatch({ mascotBody } as never, true)).toEqual({
       ok: true,
       patch: { mascotBody },

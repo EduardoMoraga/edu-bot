@@ -4020,7 +4020,6 @@
   "settings.simple.billing.plan": "Plan",
   "settings.simple.group.typing": "Sprache und Tippen",
   "settings.simple.language.partial": "Erst ein Teil der App ist übersetzt.",
-  "settings.simple.themes.followHint": "Folgt deinem Computer: Daylight, wenn es hell ist, Midnight, wenn es dunkel ist.",
   "settings.talk.aria": "Mit Edu aus jeder App sprechen",
   "settings.talk.failed": "Das ging nicht. Versuch es noch einmal.",
   "settings.talk.keyAria": "Tastenkürzel zum Sprechen",
@@ -4118,7 +4117,6 @@
   "settings.simple.billing.included": "Inklusive Nutzung in diesem Monat",
   "settings.simple.billing.summary": "{percent} % der inklusiven Nutzung in diesem Monat",
   "settings.simple.billing.used": "genutzt",
-  "settings.skin.dressUp.title": "Meine Bots verkleiden",
   "server.cloudComputer.replaced": "Der Cloud-Computer von {name} hat nicht mehr reagiert, deshalb hat Edu Bot ihn durch einen neuen ersetzt. Dateien, die nur auf dem alten Computer lagen, sind weg.",
   "server.cloudComputer.setAside": "Der Cloud-Computer von {name} hat nicht mehr reagiert, deshalb hat Edu Bot ihm einen neuen gegeben. Der alte bleibt mit seinen Dateien bis {date} in Einstellungen → Desktops & Browser → Desktops erhalten und wird danach gelöscht.",
   "server.cloudComputer.noRoom": "Der Cloud-Computer von {name} reagiert nicht mehr, und der Tarif hat keinen Platz für einen neuen Computer daneben. Edu Bot hat ihn deshalb mit seinen Dateien behalten und versucht weiter, ihn zurückzuholen. „Computer neu starten“ im Computer-Bereich versucht es sofort noch einmal.",
@@ -4373,5 +4371,6 @@
   "botSettings.data.saved": "Gespeichert.",
   "botSettings.data.allow": "Erlauben",
   "profiles.field.data": "Datenverbindungen",
-  "settings.data.connectionFailed": "Die Verbindung konnte nicht gespeichert werden."
+  "settings.data.connectionFailed": "Die Verbindung konnte nicht gespeichert werden.",
+  "settings.simple.themes.followPair": "Folgt deinem Computer: {light}, wenn es hell ist, {dark}, wenn es dunkel ist."
 }

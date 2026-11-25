@@ -1,4 +1,4 @@
-import { SKIN_IDS } from "../../shared/app-settings";
+import { SKIN_IDS, isRetiredSkin } from "../../shared/app-settings";
 import { paintAuroraField } from "./aurora-field";
 import { hasPriorRun } from "./prior-run";
 import { windowPrefChanged } from "./window-pref-changes";
@@ -13,29 +13,34 @@ export type Skin = {
 };
 
 export const SKINS: readonly Skin[] = [
-  { id: "midnight", name: "Midnight", tagline: "The original. Cool and dark." },
+  { id: "meadow", name: "Edu", tagline: "Fresh white with a calm green. The Edu Bot look." },
+  { id: "edu-night", name: "Edu Night", tagline: "The Edu Bot look after dark. Deep green-black with the same calm green." },
+  { id: "midnight", name: "Classic", tagline: "The original. Cool and dark." },
   { id: "atelier", name: "Atelier", tagline: "Daylight on paper, warm and quiet." },
   { id: "foundry", name: "Foundry", tagline: "Night shift. Dark, warm, lit in brass." },
   { id: "lagoon", name: "Lagoon", tagline: "Cool daylight. Porcelain and deep teal." },
   { id: "graphite", name: "Graphite", tagline: "Quiet charcoal and softened steel blue." },
   { id: "linen", name: "Linen", tagline: "Clean daylight with a restrained navy accent." },
   { id: "dusk", name: "Dusk", tagline: "Muted plum after dark, calm and low-key." },
-  { id: "daylight", name: "Daylight", tagline: "Midnight in reverse. Near-white, ink-black bubbles." },
-  { id: "meadow", name: "Meadow", tagline: "Fresh white with a calm green. The Edu Bot look." },
+  { id: "daylight", name: "Daylight", tagline: "Classic in reverse. Near-white, ink-black bubbles." },
   { id: "pop", name: "Pop", tagline: "Cream paper, thick ink outlines, hard shadows. Chunky and cheerful." },
-  { id: "halloween", name: "Halloween", tagline: "Plum after dark, lit in pumpkin orange. Bats optional." },
-  { id: "diwali", name: "Diwali", tagline: "Indigo night, lit in marigold and diya gold. Fireworks optional." },
   { id: "aurora", name: "Aurora", tagline: "Near-black, crossed by a band of green light. Glass on top." },
 ];
 
-/** "system" follows the OS between the light and dark skins below; anything else pins one skin. */
+/** "system" follows the OS between a light and a dark skin; anything else pins one skin. */
 export type SkinChoice = SkinId | "system";
-export const THEME_SKINS = { light: "daylight", dark: "midnight" } as const satisfies Record<"light" | "dark", SkinId>;
+type ThemeSkins = Readonly<Record<"light" | "dark", SkinId>>;
+/** What System, Light and Dark wear on an install that starts with this version. */
+export const THEME_SKINS = { light: "meadow", dark: "edu-night" } as const satisfies ThemeSkins;
+/** What they wore before the Edu pair; an install from then keeps them, so its look does not change under it. */
+export const CLASSIC_THEME_SKINS = { light: "daylight", dark: "midnight" } as const satisfies ThemeSkins;
 
 export const DEFAULT_SKIN_CHOICE: SkinChoice = "system";
 export const PRIOR_INSTALL_SKIN: SkinId = "midnight";
 
 const KEY = "omb-skin";
+const PAIR_KEY = "omb-theme-skins";
+const PAIRS = { edu: THEME_SKINS, classic: CLASSIC_THEME_SKINS } as const;
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 function isSkinId(value: unknown): value is SkinId {
@@ -56,7 +61,7 @@ function systemPrefersDark(): boolean {
 
 export function resolveSkin(choice: SkinChoice, prefersDark = systemPrefersDark()): SkinId {
   if (choice !== "system") return choice;
-  return prefersDark ? THEME_SKINS.dark : THEME_SKINS.light;
+  return themeSkins()[prefersDark ? "dark" : "light"];
 }
 
 // With storage blocked the localStorage getter itself throws, and `typeof` alone doesn't shield it.
@@ -68,11 +73,27 @@ function getStore(): Storage | undefined {
   }
 }
 
+/** The pair this install's System, Light and Dark wear, settled once: the Edu pair for a new install or one whose saved
+ * skin was retired, the classic pair for any other install that ran before. */
+export function themeSkins(): ThemeSkins {
+  try {
+    const store = getStore();
+    const settled = store?.getItem(PAIR_KEY);
+    if (settled === "edu" || settled === "classic") return PAIRS[settled];
+    const pair = hasPriorRun(store) && !isRetiredSkin(store?.getItem(KEY)) ? "classic" : "edu";
+    store?.setItem(PAIR_KEY, pair);
+    return PAIRS[pair];
+  } catch {
+    return THEME_SKINS;
+  }
+}
+
 export function readSkinChoice(): SkinChoice {
   try {
     const store = getStore();
     const stored = store?.getItem(KEY);
     if (isSkinChoice(stored)) return stored;
+    if (isRetiredSkin(stored)) return DEFAULT_SKIN_CHOICE;
     return hasPriorRun(store) ? PRIOR_INSTALL_SKIN : DEFAULT_SKIN_CHOICE;
   } catch {
     return PRIOR_INSTALL_SKIN;
@@ -128,6 +149,7 @@ export function wearSkin(value: unknown): void {
 }
 
 export function applySkinChoice(choice: SkinChoice): void {
+  themeSkins();
   try {
     getStore()?.setItem(KEY, choice);
   } catch {

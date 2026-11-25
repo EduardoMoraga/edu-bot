@@ -68,12 +68,25 @@ describe("skins", () => {
     expect(PRIOR_INSTALL_SKIN).toBe("midnight");
   });
 
-  it("follows the computer between Daylight and Midnight by default", () => {
+  it("follows the computer between Edu and Edu Night by default", () => {
     expect(DEFAULT_SKIN_CHOICE).toBe("system");
-    expect(THEME_SKINS).toEqual({ light: "daylight", dark: "midnight" });
-    expect(resolveSkin("system", false)).toBe("daylight");
-    expect(resolveSkin("system", true)).toBe("midnight");
-    expect(resolveSkin("meadow", true)).toBe("meadow");
+    expect(THEME_SKINS).toEqual({ light: "meadow", dark: "edu-night" });
+    expect(resolveSkin("system", false)).toBe("meadow");
+    expect(resolveSkin("system", true)).toBe("edu-night");
+    expect(resolveSkin("midnight", false)).toBe("midnight");
+  });
+
+  it("shows Meadow as Edu, its dark half as Edu Night and Midnight as Classic, the Edu pair first", () => {
+    expect(SKINS.slice(0, 3).map((skin) => [skin.id, skin.name])).toEqual([["meadow", "Edu"], ["edu-night", "Edu Night"], ["midnight", "Classic"]]);
+    expect(css).toMatch(/\[data-skin="edu-night"\] \{[^}]*--code-color-scheme: dark;/);
+  });
+
+  it("offers no festival skin and keeps none of their styles", () => {
+    expect(SKIN_IDS).toEqual(["midnight", "atelier", "foundry", "lagoon", "graphite", "linen", "dusk", "daylight", "meadow", "pop", "edu-night", "aurora"]);
+    expect(SKINS.map((skin) => skin.name)).not.toEqual(expect.arrayContaining(["Halloween"]));
+    expect(SKINS.map((skin) => skin.name)).not.toEqual(expect.arrayContaining(["Diwali"]));
+    expect(css).not.toMatch(/halloween|diwali/i);
+    expect(Object.keys(en).filter((key) => /^skins\.tagline\.(halloween|diwali)$|dressUp/.test(key))).toEqual([]);
   });
 
   it("keeps Meadow's own bubble light, in the page's ink", () => {
@@ -89,16 +102,6 @@ describe("skins", () => {
     expect(css).toMatch(/@scope \(\[data-skin="pop"\]\) to \(\[data-skin\]\)\s*\{\s*\.bg-bubble-user\s*\{/);
     expect(css).toMatch(/@scope \(\[data-skin="pop"\]:not\(\[data-skin-preview\]\)\) to \(\[data-skin\]\)/);
   });
-
-  it.each([["halloween", "Halloween"], ["diwali", "Diwali"]] as const)(
-    "adds the %s festival skin after Pop, with its atmosphere kept off the picker miniature",
-    (id, name) => {
-      expect(SKIN_IDS.slice(10, 12)).toEqual(["halloween", "diwali"]);
-      expect(SKINS.find((s) => s.id === id)?.name).toBe(name);
-      expect(css).toMatch(new RegExp(`@scope \\(\\[data-skin="${id}"\\]:not\\(\\[data-skin-preview\\]\\)\\) to \\(\\[data-skin\\]\\)\\s*\\{\\s*main\\.bg-app\\s*\\{`));
-      expect(css).toMatch(new RegExp(`@media \\(prefers-reduced-motion: reduce\\)\\s*\\{\\s*\\[data-skin="${id}"\\] main\\.bg-app::before`));
-    },
-  );
 
   it("adds Aurora last, dark, with its light field kept off the picker miniature", () => {
     expect(SKIN_IDS.at(-1)).toBe("aurora");

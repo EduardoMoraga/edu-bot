@@ -3,14 +3,13 @@ import { ChevronDown, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { bodyName, colorName, festivalName } from "@/lib/mascot-names";
+import { bodyName, bodyPackName, colorName } from "@/lib/mascot-names";
 import type { LocaleKey } from "@/locales";
 import { colorSwatch, MAUS_COLOR_LABEL, MAUS_COLOR_NAMES, PICKABLE_STATES, type MausState } from "@/lib/mascot";
 import { type Bot } from "@/state/store";
 import { mayRename, useTeamPeople } from "@/state/team-people";
 import { PICKABLE_MASCOT_BODY_IDS } from "../../../shared/mascot-bodies";
-import { botBodyId, FESTIVAL_IDS, FESTIVALS, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
-import { useFestivalDress, wornBody } from "@/lib/festival-dress";
+import { BODY_PACK_IDS, BODY_PACKS, botBodyId, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
 import { MausAvatar } from "../Avatar";
 import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
@@ -73,10 +72,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
   const team = useTeamPeople();
   const othersToMatch = bots.filter((other) => other.id !== bot.id && (botBodyId(other.mascotBody)) !== body
     && (team ? mayRename(other, team) : !state.config?.team));
-  const festival = useFestivalDress();
-  const costume = wornBody(bot.mascotBody, bot.color, festival);
-  const [moreLooks, setMoreLooks] = useState(() => Boolean(festival) || isCarvedBody(body) || Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
-  const dressedAs = festival && costume !== body && isCarvedBody(costume) ? bodyName(costume) : null;
+  const [moreLooks, setMoreLooks] = useState(() => isCarvedBody(body) || Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
   const bodyButton = (id: BotBodyId, name: string) => (
     <button
       key={id}
@@ -188,16 +184,11 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             </button>
             {moreLooks && (
               <div data-avatar-more-looks>
-                {FESTIVAL_IDS.map((id) => (
+                {BODY_PACK_IDS.map((id) => (
                   <div key={id}>
-                    <div className="flex flex-wrap items-baseline gap-x-2 px-1 pb-1.5 pt-2 text-[12px] text-ink-tertiary">
-                      <span>{festivalName(id)}</span>
-                      {id === festival && dressedAs && (
-                        <span data-avatar-costume>{t("botPanel.avatar.costume", { name: dressedAs, skin: festivalName(id) })}</span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5" data-festival-bodies={id}>
-                      {FESTIVALS[id].bodies.map((bodyId) => bodyButton(bodyId, bodyName(bodyId)))}
+                    <div className="px-1 pb-1.5 pt-2 text-[12px] text-ink-tertiary">{bodyPackName(id)}</div>
+                    <div className="grid grid-cols-5 gap-1.5" data-body-pack={id}>
+                      {BODY_PACKS[id].map((bodyId) => bodyButton(bodyId, bodyName(bodyId)))}
                     </div>
                   </div>
                 ))}
