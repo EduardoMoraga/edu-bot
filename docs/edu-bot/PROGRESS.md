@@ -229,7 +229,18 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   funcionando. Texto: "Usa tu Claude Code. Inicia sesión con `claude auth login`", sin logo.
   Para que decidas después: Codex, Grok, OpenCode Go y Antigravity todavía leen su inicio de sesión para mostrar su
   uso (cada uno solo habla con su propia empresa). Lista exacta: [comentario en #57](https://github.com/EduardoMoraga/edu-bot/pull/57#issuecomment-7157888058).
-- [ ] **Ahora: tus equipos por Tailscale**, PR 1 de 4 ("Mis equipos").
+- [x] **Mis equipos** (#59, 25-11; Claude Opus, Grok auditó 2 rondas hasta PASS). En Ajustes → Teléfono y
+  dispositivos ves tus equipos de Tailscale y cuáles tienen Edu Bot abierto. Solo muestra, no conecta nada.
+  Prueba real desde omarchy: cheil-sofland no aparece; FFM y el MacBook Pro contestan con Edu Bot 0.1.0; el Mac mini
+  está en línea pero sin Edu Bot abierto.
+- [x] **v0.2.0 publicada** (25-11): https://github.com/EduardoMoraga/edu-bot/releases/tag/v0.2.0
+  Trae el pulido, Claude como en T3 Code, Mis equipos y **la app se actualiza sola en Windows y Linux** (en Mac
+  todavía no, falta la firma de Apple). Desde la 0.1.0 hay que instalarla a mano una vez. Probé la actualización
+  en Linux: pasa de una versión vieja a la 0.2.0 en el mismo lugar. GitHub falló al armar el borrador; subí yo los
+  mismos archivos que hizo CI, revisados con SHA256SUMS.
+- [ ] **Ahora: v0.3.0, temas, diseño, marca propia y README** (pedido 25-11). Plan en 5 PRs, unos 5 a 7 días:
+  [plan-v0.3.0.md](plan-v0.3.0.md). Primero: los temas cambian con un clic.
+- [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
   Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
