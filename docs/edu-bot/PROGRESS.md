@@ -217,6 +217,11 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 
 - [ ] **Pulido de conectores y conexiones remotas** (rama `polish/connectors-remote`, Claude Fable; luego auditoría
   de Grok). Sin funciones nuevas.
+- [ ] **En cola, justo después del pulido: Claude como en T3 Code** (decisión de Eduardo, 25-11). Cada persona
+  instala Claude Code y hace `claude auth login`. Edu Bot solo lanza el `claude` oficial y **nunca lee ni guarda
+  tokens**: se quita de `server/plan-usage.ts` la lectura del token (archivo `.credentials.json` y llavero de macOS)
+  y la consulta a `api.anthropic.com/api/oauth/usage`. Los límites salen solo de lo que imprime el CLI, o no se
+  muestran. PR chico, aparte del plan de equipos.
 - [ ] **En cola, después del pulido:** tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
   Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
