@@ -219,7 +219,7 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   de Grok). Sin funciones nuevas.
 - [ ] **En cola, después del pulido:** tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
-  Tiene 2 preguntas para ti al final.
+  Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
 - [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
 
 ## Cómo trabajamos
