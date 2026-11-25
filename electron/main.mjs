@@ -2351,7 +2351,10 @@ ipcMain.handle("routines:keep-awake", localOnly("routines:keep-awake", async (_e
   rememberRoutineWake(app.getPath("userData"), Boolean(enabled));
   return routineWake.poll();
 }));
-phoneLinkRoutes.install(ipcMain, localOnly); createTailnetComputers({ fetch: (...args) => session.defaultSession.fetch(...args) }).install(ipcMain, localOnly);
+phoneLinkRoutes.install(ipcMain, localOnly);
+// Node's fetch, not session.defaultSession.fetch: on Electron 43 the session sends these tailnet probes through a
+// configured system HTTP proxy, which would then see and could answer them.
+createTailnetComputers({ fetch: globalThis.fetch }).install(ipcMain, localOnly);
 ipcMain.handle("companion:pairing", localOnly("companion:pairing", (_event, open, expectedToken) => {
   const refusal = open ? managedRemoteAccessRefusal() : null;
   if (refusal) throw new Error(refusal);
