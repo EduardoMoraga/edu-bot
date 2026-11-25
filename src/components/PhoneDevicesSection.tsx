@@ -21,7 +21,7 @@ import { revealPhonePairing, takePairOnOpen } from "../lib/phone-pairing";
 import { showTunnelRetiredNotice } from "../lib/phone-link";
 import { PhonesList } from "./PhonesList";
 import { PairedPhones } from "./PairedPhones";
-import { TailnetComputers } from "./TailnetComputers";
+import { MyComputers, TailnetComputers } from "./TailnetComputers";
 import { AlwaysOnHomeSection } from "./AlwaysOnHomeSection";
 import { RemoteAccessCheckRow } from "./RemoteAccessCheck";
 import { LearnMore, SettingRow, SettingsFoldRow, SettingsGroup, SettingsLinkRow, SettingsRows, Switch } from "./SettingsPrimitives";
@@ -525,6 +525,7 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
         </SettingsGroup>
       )}
       <TailnetComputers c={c} state={state} blocked={managedBy} simple={simple} status={tailscaleStatus} />
+      <MyComputers />
       <PhonesList />
       {(c.error || state.error) && <div className="px-4 text-[12px] leading-4 text-danger">{c.error ?? state.error}</div>}
     </div>

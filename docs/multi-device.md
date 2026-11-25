@@ -34,6 +34,21 @@ phone app. On the computer, choose **Settings → Phone & devices → Pair a pho
 code that lasts two minutes. The phone connects on the same Wi-Fi or through Tailscale, and opens the home it paired
 with. See [ios-companion.md](ios-companion.md).
 
+## See your own computers
+
+**Settings → Phone & devices → My computers** lists your other computers on Tailscale and says, for each, whether it
+has Edu Bot open (with its version), is online without Edu Bot, or is off. This computer is not in the list.
+
+- Only your own devices count: the same Tailscale user as this computer, in the same tailnet, with no tags. Nodes
+  someone shared into your tailnet, and devices of other people in it, are never listed.
+- It only looks. Nothing is paired, shared or connected from the list, and no other computer learns anything new: each
+  one is asked the same public question **Connect to a server** asks (`/.well-known/openmausbot/environment`), over
+  Tailscale only.
+- A computer shows Edu Bot only while **Your other computers** is on there, since that switch is what lets other
+  computers reach it.
+- The list is read when you open it and every minute while it stays open, and never in the background. It needs
+  Tailscale's command-line tool on this computer.
+
 ## What the other computer lends
 
 When a computer connects to a home that is yours alone, it asks once: **Let <home> use this computer?** **Allow**

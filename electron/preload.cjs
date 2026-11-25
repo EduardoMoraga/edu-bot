@@ -291,6 +291,7 @@ const bridge = {
     refreshTailscale: () => ipcRenderer.invoke("companion:refresh-tailscale"),
     setTailscale: (on) => ipcRenderer.invoke("companion:tailscale", on === true),
     setTailscaleComputers: (on) => ipcRenderer.invoke("companion:tailscale-computers", on === true),
+    tailnetComputers: () => ipcRenderer.invoke("companion:tailnet-computers"),
     setRoute: (route, on) => ipcRenderer.invoke("companion:route", String(route), on === true),
     dismissNotice: (route) => ipcRenderer.invoke("companion:notice-dismiss", String(route)),
     pairing: (open, expectedToken) => ipcRenderer.invoke("companion:pairing", open, expectedToken),
