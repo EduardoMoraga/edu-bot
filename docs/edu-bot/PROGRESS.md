@@ -213,6 +213,20 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   test "browser driver S4" de Windows se reintenta; los nombres internos `openmausbot` del archivo de bloqueo y la
   caché no se cambian (cambiarlos necesita migración).
 
+## En curso y en cola (después de v0.1.0)
+
+- [ ] **Pulido de conectores y conexiones remotas** (rama `polish/connectors-remote`, Claude Fable; luego auditoría
+  de Grok). Sin funciones nuevas.
+- [ ] **En cola, justo después del pulido: Claude como en T3 Code** (decisión de Eduardo, 25-11). Cada persona
+  instala Claude Code y hace `claude auth login`. Edu Bot solo lanza el `claude` oficial y **nunca lee ni guarda
+  tokens**: se quita de `server/plan-usage.ts` la lectura del token (archivo `.credentials.json` y llavero de macOS)
+  y la consulta a `api.anthropic.com/api/oauth/usage`. Los límites salen solo de lo que imprime el CLI, o no se
+  muestran. PR chico, aparte del plan de equipos.
+- [ ] **En cola, después del pulido:** tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
+  equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
+  Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
+- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
+
 ## Cómo trabajamos
 
 - Límites de uso (pedido 22-11): si se acaba el límite semanal de Claude, no me detengo en silencio:

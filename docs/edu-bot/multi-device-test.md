@@ -128,6 +128,24 @@ bloqueo guarda el pid, y la app siguiente lo recupera si ese proceso ya no exist
 Revisarlo al abrir de nuevo: si Edu Bot no abre o dice que otra copia está corriendo, eso sí es un error. Sigue sin
 saberse por qué el servidor tardó más de 9,5 s en parar en FFM.
 
+### L2 con la app abierta (desde omarchy, 25-11, 00:57 UTC)
+
+Edu Git abrió Edu Bot en FFM a las 21:56 hora de Chile. El log dice `port 443 already serves something; listening on
+100.124.16.12:8799`, o sea que usa el `http://…:8799` porque el 443 está tomado por el `serve` viejo.
+
+| Prueba | Resultado |
+| --- | --- |
+| `GET http://ffm-eduardomoraga.tail9f9734.ts.net:8799/.well-known/openmausbot/environment` | **200**: `label: FFM-EDUARDOMORAGA`, `platform: win32`, `version: 0.1.0` |
+| `/api/health` sin sesión | 200, solo `{"app":"openmausbot"}` (no muestra más sin sesión) |
+| `Host: evil.example.com` | **421** |
+| `Host: 127.0.0.1:8799` desde afuera | **421** |
+| `/api/bots` sin sesión | **403** `forbidden: this request came through a proxy (pair this device to use the server remotely)` |
+| `/api/auth/sessions`, `POST /api/auth/pairing`, `/api/connectors/catalog` sin sesión | **403** |
+| `:8810` y `:8811` | no contestan. Es lo esperado: el enlace del teléfono duerme hasta que se pide un código, y el 8811 es solo local |
+
+**El Firewall de Windows no bloquea** el 8799 por Tailscale (la red Tailscale está como Private). El problema de
+antes era solo que la app estaba cerrada.
+
 ### (a) Emparejar el S24 con FFM: pasos para Eduardo
 
 **En el S24:**
@@ -178,7 +196,7 @@ revisan. Si no hay ninguno, inicia sesión en **Ajustes → IA → Proveedores**
 | # | Chequeo | Resultado |
 | --- | --- | --- |
 | L1 | **Tus otros ordenadores** dice "Listo en …" (anota la dirección) | pendiente |
-| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | **En pausa**: a las 23:57 UTC no contestó porque **Edu Bot estaba cerrado** en FFM (se cerró a las 19:57 UTC). Hay que repetirlo con la app abierta. El firewall no está descartado ni confirmado. Ver "Intento L2" y "Causa de L2" |
+| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | **OK** (25-11, 00:57 UTC, con la app abierta). Ver "L2 con la app abierta" |
 | L3 | El bot lista `EduBotPrueba` y lee `hola.txt` | pendiente |
 | L4 | Control de pantalla corre en FFM | pendiente |
 | L5 | El bot toma una captura de la pantalla de FFM | pendiente |
@@ -363,6 +381,27 @@ esperado mientras **Tus otros ordenadores** esté apagado, porque la app escucha
 ## Resultados: NucBox_M6
 
 Apagado hace 30 días. Si Eduardo lo enciende, se repiten los chequeos F1 a F7 aquí.
+
+## Conectores en vivo (Edu Git, 24-11, ~21:55 hora de Chile)
+
+Prueba con la v0.1.0 en FFM y en el MacBook Pro, sin cambiar código. Solo hallazgos.
+
+- **FFM**: Notion (MCP oficial, `https://mcp.notion.com/mcp`) **conectado y activo**. Composio sin configurar
+  (`configured=false`, `mode=unavailable`, `setup=needs-setup`, 24 tarjetas de respaldo). Nada de Google.
+- **MacBook Pro**: Edu Bot no estaba instalado. Se instaló el `.dmg` arm64 (SHA256 igual a `SHA256SUMS`), se le
+  quitó la cuarentena y se abrió. Sin servidores MCP, Composio igual que en FFM. El control del equipo pide
+  Accesibilidad y Grabación de pantalla (esperado en Mac).
+- **Google (Gmail, Calendar, Drive, Docs, Sheets) no conecta sin llave, por diseño.** Son apps de Composio. Los
+  MCP oficiales de Google no tienen `registration_endpoint`, por eso quedaron fuera de un clic en #38. Para
+  conectarlos hace falta una llave gratis de Composio (`ak_…`, de
+  https://dashboard.composio.dev/~/project/settings/api-keys) en **Apps → Más apps (avanzado)**, y después iniciar
+  sesión en Google. Ningún equipo tiene esa llave todavía.
+- **Granola no está en la app.** No aparece en el catálogo. Granola sí tiene un MCP remoto oficial que cumple la
+  regla de un clic de #38: `https://mcp.granola.ai/mcp`, HTTP, OAuth 2.0, con `registration_endpoint` vivo
+  (`https://mcp-auth.granola.ai/oauth2/register`, visto el 24-11).
+  - **Hoy, sin código:** **Apps → Tu propio servidor MCP**, pegar `https://mcp.granola.ai/mcp`, **Añadir**,
+    **Conectar** e iniciar sesión en Granola.
+  - **Propuesta (alcance nuevo, no va en el pulido):** sumar Granola como tarjeta de un clic, igual que Notion.
 
 ## Errores exactos
 
