@@ -39,10 +39,15 @@ export const SKIN_IDS = [
   "daylight",
   "meadow",
   "pop",
-  "halloween",
-  "diwali",
+  "edu-night",
   "aurora",
 ] as const;
+const RETIRED_SKIN_IDS = ["halloween", "diwali"] as const;
+export const isRetiredSkin = (value: unknown) => (RETIRED_SKIN_IDS as readonly unknown[]).includes(value);
+/** A built-in skin choice as it was saved or sent. A skin an earlier version shipped reads as no choice, so what held
+ * it falls back to its default. */
+export const savedSkinChoiceSchema = z.enum([...SKIN_IDS, "system", ...RETIRED_SKIN_IDS])
+  .transform((choice) => (isRetiredSkin(choice) ? undefined : choice as (typeof SKIN_IDS)[number] | "system")).optional();
 export const FONT_IDS = ["skin", "system", "inter", "poppins", "serif"] as const;
 export const CHAT_WIDTH_IDS = ["standard", "wide", "full"] as const;
 /** The Enter-adds-a-line modes are for input methods that confirm a conversion with Enter (Japanese). */

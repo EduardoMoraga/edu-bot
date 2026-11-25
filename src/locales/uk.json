@@ -3953,7 +3953,6 @@
   "settings.simple.billing.plan": "План",
   "settings.simple.group.typing": "Мова та введення",
   "settings.simple.language.partial": "Поки перекладено лише частину застосунку.",
-  "settings.simple.themes.followHint": "Слідує за комп’ютером: Daylight, коли світло, Midnight, коли темно.",
   "settings.talk.aria": "Говорити з Edu з будь-якого застосунку",
   "settings.talk.failed": "Не вдалося змінити. Спробуйте ще раз.",
   "settings.talk.keyAria": "Клавіша для розмови",
@@ -4042,7 +4041,6 @@
   "settings.simple.billing.included": "Включене використання цього місяця",
   "settings.simple.billing.summary": "{percent}% включеного використання цього місяця",
   "settings.simple.billing.used": "використано",
-  "settings.skin.dressUp.title": "Перевдягнути моїх ботів",
   "server.cloudComputer.replaced": "Хмарний комп'ютер бота {name} перестав відповідати, тому Edu Bot замінив його новим. Файли, які були лише на старому комп'ютері, втрачено.",
   "server.cloudComputer.restarted": "Хмарний комп'ютер бота {name} перестав відповідати, тому Edu Bot перезапустив його. Він знову відповідає; відкриті на ньому програми було закрито.",
   "server.cloudComputer.capped": "Хмарний комп'ютер бота {name} знову перестав відповідати протягом години після заміни, тому Edu Bot залишив його як є. Кнопка «Замінити комп'ютер» на панелі комп'ютера спробує ще раз.",
@@ -4276,5 +4274,6 @@
   "botSettings.data.saved": "Збережено.",
   "botSettings.data.allow": "Дозволити",
   "profiles.field.data": "підключення даних",
-  "settings.data.connectionFailed": "Не вдалося зберегти підключення."
+  "settings.data.connectionFailed": "Не вдалося зберегти підключення.",
+  "settings.simple.themes.followPair": "Слідує за комп’ютером: {light}, коли світло, {dark}, коли темно."
 }

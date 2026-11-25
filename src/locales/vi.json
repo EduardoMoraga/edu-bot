@@ -5784,7 +5784,6 @@
   "settings.simple.billing.plan": "Gói",
   "settings.simple.group.typing": "Ngôn ngữ và nhập liệu",
   "settings.simple.language.partial": "Hiện mới dịch một phần ứng dụng.",
-  "settings.simple.themes.followHint": "Theo máy tính của bạn: Daylight khi sáng, Midnight khi tối.",
   "settings.talk.aria": "Nói chuyện với Edu từ mọi ứng dụng",
   "settings.talk.failed": "Không thay đổi được. Hãy thử lại.",
   "settings.talk.keyAria": "Phím tắt để nói",
@@ -5860,7 +5859,6 @@
   "settings.simple.billing.included": "Mức dùng kèm theo trong tháng này",
   "settings.simple.billing.summary": "{percent}% mức dùng kèm theo trong tháng này",
   "settings.simple.billing.used": "đã dùng",
-  "settings.skin.dressUp.title": "Hóa trang cho bot của tôi",
   "server.cloudComputer.replaced": "Máy tính đám mây của {name} đã ngừng phản hồi, nên Edu Bot đã thay nó bằng máy mới. Các tệp chỉ có trên máy cũ đã mất.",
   "server.cloudComputer.restarted": "Máy tính đám mây của {name} đã ngừng phản hồi, nên Edu Bot đã khởi động lại nó. Máy đã phản hồi trở lại; các chương trình đang mở trên đó đã bị đóng.",
   "server.cloudComputer.capped": "Máy tính đám mây của {name} lại ngừng phản hồi trong vòng một giờ sau khi được thay, nên Edu Bot để nguyên nó. Thay máy tính trong bảng máy tính sẽ thử thêm một lần.",
@@ -6094,5 +6092,6 @@
   "botSettings.data.saved": "Đã lưu.",
   "botSettings.data.allow": "Cho phép",
   "profiles.field.data": "kết nối dữ liệu",
-  "settings.data.connectionFailed": "Không thể lưu kết nối."
+  "settings.data.connectionFailed": "Không thể lưu kết nối.",
+  "settings.simple.themes.followPair": "Theo máy tính của bạn: {light} khi sáng, {dark} khi tối."
 }

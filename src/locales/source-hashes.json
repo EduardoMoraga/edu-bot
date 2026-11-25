@@ -3533,7 +3533,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -3623,7 +3622,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -4348,7 +4346,8 @@
       "server.profiles.mcp.addedOff": "3724d86d0a9fc138fe7cf4660e58ab694d7b93de98521c7eb8764b7c0268739e",
       "server.profiles.bot.refusedStartsAt": "8e8035dd952aa871adec2909f2d3d35b0e5057d6f27b844e1d38ea02ffe49464",
       "server.profiles.bot.refusedGoesTo": "80009689bafc793dd2aad0b089bf679c5e40940e15a29a60def94c0b4bbeb690",
-      "server.profiles.bot.refusedStaysAt": "d55839dc66b6f73c0ca2e94b81ff85b6e3bf6cc1b257a4b5d1115d01f67a5558"
+      "server.profiles.bot.refusedStaysAt": "d55839dc66b6f73c0ca2e94b81ff85b6e3bf6cc1b257a4b5d1115d01f67a5558",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "es": {
       "cloudAccount.notSetUp": "257081a46bba2504b155bcee223091e65cd29a23f6275fdfacedb2641ac3bac6",
@@ -6266,8 +6265,6 @@
       "settings.customThemes.historyUndid": "881f1241f5f3d1fbf27033f14b2f41556325566ee417d2692a02aa7173ac8ea2",
       "settings.customThemes.historyNow": "fe18013d93d22f4f2a70344d30c00fe62d2ef29189ae5d25ccbda81fbd9c92b0",
       "settings.customThemes.restore": "a76e13b9839270eb73ed11417f7d8acca55df0ad52065799361631d0fff74f27",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -8938,7 +8935,6 @@
       "botPanel.avatar.diwali": "579b0bec9023767ce1e4cea28a6ed9a08ad7da5421fc5019929b5684edfe9e14",
       "botPanel.avatar.more": "11a8b6a502312fe4559d0725e134349347d58007dd75b8ef68fe27735f4a362d",
       "botPanel.avatar.bodyEverywhere": "a786f32d57f9bb6e91d06b14b53f4e24b35f580531e0e215bd5cd5b7bb8c4328",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -11397,7 +11393,6 @@
       "settings.simple.themes.title": "eceab8df6ddf48352bc730a2784437d15472a4e9d81ee29834587d7f1a532e08",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
       "settings.simple.themes.hint": "b4a933bbef7eebd1ba5305d6bbc14395b9c23eb149178c14c1b1436510c88a9b",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.themes.fixedHint": "9debc6ac74d17e0dee92665cd9c4c39963b0a25c3de4830d59175e94e2ad5625",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
       "settings.simple.theme.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
@@ -13826,11 +13821,8 @@
       "skins.tagline.graphite": "6b42dd1749ebe335027ff845cb5475b8ebeb543270ae9f1da7d21b7818da29a4",
       "skins.tagline.linen": "1fa25a39298be5f9920cf2000b2456a75bf8b1a7a8f1ae6ad8c220e5b3c01215",
       "skins.tagline.dusk": "b440656689eba3d6fcb17e45bfc2a96bed65683c475703db16b8a68bd2624010",
-      "skins.tagline.daylight": "5600d23afdbae7f191e997c56436c7fb7a73287392552e9096f571ab6157acee",
       "skins.tagline.meadow": "7f21b481527150583c65b5b5afce8c8054c49fc6cd5f3403f4717de7c93a66fb",
       "skins.tagline.pop": "5733a8cf0f8476a4f683ceb92159e7e0b6109772651abf295a016545dad0dff9",
-      "skins.tagline.halloween": "5e8ecc728a232634ad86c6102c2fd9082958e0217edb83672488a883a31d158a",
-      "skins.tagline.diwali": "92af77174824ccd4267be3745deb99c28cd2ddd21e761e2afcd438bded98405c",
       "skins.tagline.aurora": "ca1a84cb54e664d46ed9f9aff1205b6ee7dcef1b1fa1123675f331fcd922aa01",
       "automations.calendar.cronMove": "0c6cf64eaab4f2a86e3a0ff3891e787c26eb8401a49e42e440fad757504dd9a7",
       "automations.calendar.moveSeries": "2427cde291e9955a179eb265a58086f7e47de828132c5eaf8ec02442f4d43ecc",
@@ -16107,7 +16099,10 @@
       "githubMcp.description": "4b717387b32d410764e9168d49426cd53b6b1a1b394ab27879025e2c9b0720fe",
       "notionMcp.notice": "c8e7224dfa73631ff6e840638f4a7841ac5ec22c4e5add90ac047c4c8ee948ad",
       "notionMcp.description": "3be48911c2c24b40bfd7b7ad74627b443406789e26fbd359ed51a054b13ebd20",
-      "planUsage.claudeCli": "c66324537e73c789609badc09a46ccf891efdd5944e4e2f9b3f40bd1caba1df2"
+      "planUsage.claudeCli": "c66324537e73c789609badc09a46ccf891efdd5944e4e2f9b3f40bd1caba1df2",
+      "skins.tagline.edu-night": "239c42155d9a923224adc778b4f46d252ea0326f6dfa4a54d803d9e7e8d14492",
+      "skins.tagline.daylight": "4bb148fc4be8a8ae5e7af2674ed601b2c0121d2b39f026b18555b1ae2f5a6882",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "fr": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -19457,7 +19452,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -19549,7 +19543,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -20085,7 +20078,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "hi": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -23288,7 +23282,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -23381,7 +23374,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -23917,7 +23909,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "ja": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -24874,8 +24867,6 @@
       "settings.profile.learned.from": "ac13979d20e7673ec6ce2206063db7f64a8fa74b7c5a806397dc9340e7eef999",
       "settings.profile.learned.remove": "c3812fc4acb861d5182fc2b8155f327f736fbe5e5eb86a7bd7afcb6dc5497282",
       "settings.profile.learned.error": "73e5881df3296be521be94b16f8f9c98e382ee142a487bb621031d517c121588",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -26857,7 +26848,6 @@
       "botPanel.avatar.reset": "daee7606b339f3c339076fe2c9f372a3ff40c8ee896005d829c7481b64ca5303",
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -31450,7 +31440,6 @@
       "place.view.ccNoHours.lineTrial": "ebf5915fb2abb68d39c6df1470731f31d803097246b173e94a178ac0ff8efab4",
       "settings.simple.group.typing": "0b96af8bce90a78a3ab5958209736b8738fe952deefc38fc958a14fbbeb75ef6",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.updates.seeRelease": "9355a3774398dd649b5e15b0ba5bb0629f09427ce4b40a92395fda60b3c0cc19",
       "settings.simple.updates.reload": "bdc090ec61e3fcfc65f469951dfe00f3f2ecfc6003c44deac8e05b7237092de6",
       "sidebar.nav.publishedApps": "9ddfc0e18af9ac5e94dc674948c4bdc642014ec0c7be79b1d74168859d83e038",
@@ -31978,7 +31967,8 @@
       "connectors.setup.pasteKey": "b958190e74570649b08b55d025771365d97da9f2f7b13bcbd78f76e2e863813f",
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
-      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d"
+      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "pt-br": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -33457,8 +33447,6 @@
       "settings.theme.system": "6725e7bbcd28f3a8a586fa34bf191fd72dde8b61756932cd3237c17a6f196f1a",
       "settings.theme.light": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
       "settings.theme.dark": "60acc53f13a5d1bf115878c4a785e9a43e8286c4139a8402a6ac7d23966f9153",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -38979,7 +38967,6 @@
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
       "botPanel.avatar.more": "11a8b6a502312fe4559d0725e134349347d58007dd75b8ef68fe27735f4a362d",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -40411,10 +40398,8 @@
       "skins.tagline.graphite": "6b42dd1749ebe335027ff845cb5475b8ebeb543270ae9f1da7d21b7818da29a4",
       "skins.tagline.linen": "1fa25a39298be5f9920cf2000b2456a75bf8b1a7a8f1ae6ad8c220e5b3c01215",
       "skins.tagline.dusk": "b440656689eba3d6fcb17e45bfc2a96bed65683c475703db16b8a68bd2624010",
-      "skins.tagline.daylight": "5600d23afdbae7f191e997c56436c7fb7a73287392552e9096f571ab6157acee",
       "skins.tagline.meadow": "7f21b481527150583c65b5b5afce8c8054c49fc6cd5f3403f4717de7c93a66fb",
       "skins.tagline.pop": "5733a8cf0f8476a4f683ceb92159e7e0b6109772651abf295a016545dad0dff9",
-      "skins.tagline.halloween": "5e8ecc728a232634ad86c6102c2fd9082958e0217edb83672488a883a31d158a",
       "automations.calendar.cronMove": "0c6cf64eaab4f2a86e3a0ff3891e787c26eb8401a49e42e440fad757504dd9a7",
       "automations.calendar.moveSeries": "2427cde291e9955a179eb265a58086f7e47de828132c5eaf8ec02442f4d43ecc",
       "automations.address.copyAddressFailed": "4c0b8a2341cb088908c2ace6a8a9e563f3c5255406c3b7df500f7533a33b6f00",
@@ -41580,7 +41565,6 @@
       "settings.simple.themes.title": "eceab8df6ddf48352bc730a2784437d15472a4e9d81ee29834587d7f1a532e08",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
       "settings.simple.themes.hint": "b4a933bbef7eebd1ba5305d6bbc14395b9c23eb149178c14c1b1436510c88a9b",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.themes.fixedHint": "9debc6ac74d17e0dee92665cd9c4c39963b0a25c3de4830d59175e94e2ad5625",
       "chat.setupCard.hint": "d7bbe8e1ab022e478f36b7338b2b278b9ad5b2d421eced2fd24b157b5df8db74",
       "chat.setupCard.heading": "c55d59f402bbe025ee81dbf0efa20086040334938ed8617f340ab81db478b196",
@@ -41597,7 +41581,6 @@
       "mascot.body.jalebi": "2e200e92c49eb6d51ca76db4516d1fe7a39430862e5b8ebb5fa30071dc5ccc63",
       "mascot.body.katli": "28670af54fcc50cd51c5983623672ed0d63c3355b5be96ef666812b0da6b6bf5",
       "mascot.body.karanji": "dc2ff0fdc7d7ce51f05cd1dd8d6f0f8ff444c82da36304373561c9cf246c32a4",
-      "skins.tagline.diwali": "92af77174824ccd4267be3745deb99c28cd2ddd21e761e2afcd438bded98405c",
       "hostedMcp.keyLabel": "58b23fd272fffe547e990d74037e55ba0984d571b5efafe689e3912d6b643d14",
       "hostedMcp.keyPlaceholder": "bc8e4d10bdc9a2d4ecfaf08d3aaf1526b99c87e87b20ec5e76eb15df653e1b41",
       "hostedMcp.getKey": "f5064267f85e35969a446cbec8e8760a689d192d5da8b3e6b4e79574580e5ff2",
@@ -43702,7 +43685,10 @@
       "githubMcp.description": "4b717387b32d410764e9168d49426cd53b6b1a1b394ab27879025e2c9b0720fe",
       "notionMcp.notice": "c8e7224dfa73631ff6e840638f4a7841ac5ec22c4e5add90ac047c4c8ee948ad",
       "notionMcp.description": "3be48911c2c24b40bfd7b7ad74627b443406789e26fbd359ed51a054b13ebd20",
-      "planUsage.claudeCli": "c66324537e73c789609badc09a46ccf891efdd5944e4e2f9b3f40bd1caba1df2"
+      "planUsage.claudeCli": "c66324537e73c789609badc09a46ccf891efdd5944e4e2f9b3f40bd1caba1df2",
+      "skins.tagline.edu-night": "239c42155d9a923224adc778b4f46d252ea0326f6dfa4a54d803d9e7e8d14492",
+      "skins.tagline.daylight": "4bb148fc4be8a8ae5e7af2674ed601b2c0121d2b39f026b18555b1ae2f5a6882",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "zh": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -47762,8 +47748,6 @@
       "settings.theme.system": "6725e7bbcd28f3a8a586fa34bf191fd72dde8b61756932cd3237c17a6f196f1a",
       "settings.theme.light": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
       "settings.theme.dark": "60acc53f13a5d1bf115878c4a785e9a43e8286c4139a8402a6ac7d23966f9153",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -48841,7 +48825,6 @@
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
       "botPanel.avatar.more": "11a8b6a502312fe4559d0725e134349347d58007dd75b8ef68fe27735f4a362d",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -51171,7 +51154,6 @@
       "place.view.ccNoHours.lineTrial": "ebf5915fb2abb68d39c6df1470731f31d803097246b173e94a178ac0ff8efab4",
       "settings.simple.group.typing": "0b96af8bce90a78a3ab5958209736b8738fe952deefc38fc958a14fbbeb75ef6",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.updates.seeRelease": "9355a3774398dd649b5e15b0ba5bb0629f09427ce4b40a92395fda60b3c0cc19",
       "settings.simple.updates.reload": "bdc090ec61e3fcfc65f469951dfe00f3f2ecfc6003c44deac8e05b7237092de6",
       "sidebar.nav.publishedApps": "9ddfc0e18af9ac5e94dc674948c4bdc642014ec0c7be79b1d74168859d83e038",
@@ -52744,10 +52726,8 @@
       "skins.tagline.graphite": "6b42dd1749ebe335027ff845cb5475b8ebeb543270ae9f1da7d21b7818da29a4",
       "skins.tagline.linen": "1fa25a39298be5f9920cf2000b2456a75bf8b1a7a8f1ae6ad8c220e5b3c01215",
       "skins.tagline.dusk": "b440656689eba3d6fcb17e45bfc2a96bed65683c475703db16b8a68bd2624010",
-      "skins.tagline.daylight": "5600d23afdbae7f191e997c56436c7fb7a73287392552e9096f571ab6157acee",
       "skins.tagline.meadow": "7f21b481527150583c65b5b5afce8c8054c49fc6cd5f3403f4717de7c93a66fb",
       "skins.tagline.pop": "5733a8cf0f8476a4f683ceb92159e7e0b6109772651abf295a016545dad0dff9",
-      "skins.tagline.halloween": "5e8ecc728a232634ad86c6102c2fd9082958e0217edb83672488a883a31d158a",
       "automations.calendar.cronMove": "0c6cf64eaab4f2a86e3a0ff3891e787c26eb8401a49e42e440fad757504dd9a7",
       "automations.calendar.moveSeries": "2427cde291e9955a179eb265a58086f7e47de828132c5eaf8ec02442f4d43ecc",
       "automations.address.copyAddressFailed": "4c0b8a2341cb088908c2ace6a8a9e563f3c5255406c3b7df500f7533a33b6f00",
@@ -53895,7 +53875,8 @@
       "connectors.setup.pasteKey": "b958190e74570649b08b55d025771365d97da9f2f7b13bcbd78f76e2e863813f",
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
-      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d"
+      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "zh-tw": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -59116,8 +59097,6 @@
       "settings.theme.system": "6725e7bbcd28f3a8a586fa34bf191fd72dde8b61756932cd3237c17a6f196f1a",
       "settings.theme.light": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
       "settings.theme.dark": "60acc53f13a5d1bf115878c4a785e9a43e8286c4139a8402a6ac7d23966f9153",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -59930,7 +59909,6 @@
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
       "botPanel.avatar.more": "11a8b6a502312fe4559d0725e134349347d58007dd75b8ef68fe27735f4a362d",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -62416,10 +62394,8 @@
       "skins.tagline.graphite": "6b42dd1749ebe335027ff845cb5475b8ebeb543270ae9f1da7d21b7818da29a4",
       "skins.tagline.linen": "1fa25a39298be5f9920cf2000b2456a75bf8b1a7a8f1ae6ad8c220e5b3c01215",
       "skins.tagline.dusk": "b440656689eba3d6fcb17e45bfc2a96bed65683c475703db16b8a68bd2624010",
-      "skins.tagline.daylight": "5600d23afdbae7f191e997c56436c7fb7a73287392552e9096f571ab6157acee",
       "skins.tagline.meadow": "7f21b481527150583c65b5b5afce8c8054c49fc6cd5f3403f4717de7c93a66fb",
       "skins.tagline.pop": "5733a8cf0f8476a4f683ceb92159e7e0b6109772651abf295a016545dad0dff9",
-      "skins.tagline.halloween": "5e8ecc728a232634ad86c6102c2fd9082958e0217edb83672488a883a31d158a",
       "automations.calendar.cronMove": "0c6cf64eaab4f2a86e3a0ff3891e787c26eb8401a49e42e440fad757504dd9a7",
       "automations.calendar.moveSeries": "2427cde291e9955a179eb265a58086f7e47de828132c5eaf8ec02442f4d43ecc",
       "automations.address.copyAddressFailed": "4c0b8a2341cb088908c2ace6a8a9e563f3c5255406c3b7df500f7533a33b6f00",
@@ -63439,7 +63415,6 @@
       "settings.simple.themes.title": "eceab8df6ddf48352bc730a2784437d15472a4e9d81ee29834587d7f1a532e08",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
       "settings.simple.themes.hint": "b4a933bbef7eebd1ba5305d6bbc14395b9c23eb149178c14c1b1436510c88a9b",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.themes.fixedHint": "9debc6ac74d17e0dee92665cd9c4c39963b0a25c3de4830d59175e94e2ad5625",
       "apiInstances.editServer": "2313fe21ea84567f451e913cae39bd4ef9775a83458b23f3f440c2108e5363a1",
       "apiInstances.modelsFor": "928aa8803b92765b315905a8bec2d9c8d1712c506ab62e1a39e9fa2d12f2c8a1",
@@ -63470,7 +63445,6 @@
       "vault.choices.note": "ac0cee8d6047623427bb117e12f74028b2297651c85cbc69bf018af03bb47a98",
       "vault.choices.error": "fc55267ee3d6c9b47bf7f2e4e04bebfae80778636ee69db98ec55e699f90ea88",
       "skills.foundWhenNeeded": "2ca7e63c87359c6d2c2b9f071a125d32e0bab406da166526421cab80e367ea67",
-      "skins.tagline.diwali": "92af77174824ccd4267be3745deb99c28cd2ddd21e761e2afcd438bded98405c",
       "skins.tagline.aurora": "ca1a84cb54e664d46ed9f9aff1205b6ee7dcef1b1fa1123675f331fcd922aa01",
       "native.dialog.resetSavedKeys.title": "09a032a1b21411b300becf306038111d2975ab78b24c441565a726eff5d684b4",
       "native.dialog.resetSavedKeys.detail": "9f72b7452bdcd91042c9679f05a5b6f2f6e3e7fdc7980c42a488fa3b01d6b3b0",
@@ -64187,7 +64161,8 @@
       "connectors.setup.pasteKey": "b958190e74570649b08b55d025771365d97da9f2f7b13bcbd78f76e2e863813f",
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
-      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d"
+      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "uk": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -67824,7 +67799,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -67904,7 +67878,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -68439,7 +68412,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "vi": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -73931,7 +73905,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -73975,7 +73948,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -74509,7 +74481,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "tr": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -80001,7 +79974,6 @@
       "settings.profile.awayEmails": "61196c627772ce6590a3d6daf42ab66343da17559a93c727613aae2cf0db04a7",
       "settings.theme.title": "efb52e7172b77731d996ff4f51cd7b3dcfd55fc6f07392994619418d58d170dd",
       "settings.theme.lightOrDark": "9c259901979dc2195dc36e59bf07ea998c75f090cbd266614bb4b3bcffe04333",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
       "settings.followUp.title": "0d86c2e81a22d17d24ce85fbe02833cdf98dab6da6931749f9c5190aad3b73ed",
       "settings.followUp.steer": "934d9bdb2bd5f619a580f50a2306ea14590bfa0553bb68bf14d35b238ff5fe93",
       "settings.followUp.queue": "85008f76da83adcb5cdf8f74aba9c15020c12d1f9f10d607e93f8a63cea7264f",
@@ -80045,7 +80017,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -80579,7 +80550,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "pl": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -81528,8 +81500,6 @@
       "settings.profile.learned.from": "ac13979d20e7673ec6ce2206063db7f64a8fa74b7c5a806397dc9340e7eef999",
       "settings.profile.learned.remove": "c3812fc4acb861d5182fc2b8155f327f736fbe5e5eb86a7bd7afcb6dc5497282",
       "settings.profile.learned.error": "73e5881df3296be521be94b16f8f9c98e382ee142a487bb621031d517c121588",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -83472,7 +83442,6 @@
       "botPanel.avatar.reset": "daee7606b339f3c339076fe2c9f372a3ff40c8ee896005d829c7481b64ca5303",
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -87305,7 +87274,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -87851,7 +87819,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "ru": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -88806,8 +88775,6 @@
       "settings.profile.learned.from": "ac13979d20e7673ec6ce2206063db7f64a8fa74b7c5a806397dc9340e7eef999",
       "settings.profile.learned.remove": "c3812fc4acb861d5182fc2b8155f327f736fbe5e5eb86a7bd7afcb6dc5497282",
       "settings.profile.learned.error": "73e5881df3296be521be94b16f8f9c98e382ee142a487bb621031d517c121588",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -90782,7 +90749,6 @@
       "botPanel.avatar.reset": "daee7606b339f3c339076fe2c9f372a3ff40c8ee896005d829c7481b64ca5303",
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -94635,7 +94601,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -95176,7 +95141,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "it": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -96107,8 +96073,6 @@
       "settings.profile.learned.from": "ac13979d20e7673ec6ce2206063db7f64a8fa74b7c5a806397dc9340e7eef999",
       "settings.profile.learned.remove": "c3812fc4acb861d5182fc2b8155f327f736fbe5e5eb86a7bd7afcb6dc5497282",
       "settings.profile.learned.error": "73e5881df3296be521be94b16f8f9c98e382ee142a487bb621031d517c121588",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -98033,7 +97997,6 @@
       "botPanel.avatar.tabUpload": "865e89de78d94c747184d6a7e6f5244b453d8062343c07e014ae698cfb0260e8",
       "botPanel.avatar.reset": "daee7606b339f3c339076fe2c9f372a3ff40c8ee896005d829c7481b64ca5303",
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -101772,7 +101735,6 @@
       "settings.simple.advanced": "9f088dbebd6c3c70a5ddbc2c943b11e4ca9acea5757b0b4f2b32479f0dbb747e",
       "settings.simple.advancedMode": "16e82f2e83d4750aa18deb99726554d77c21a883201d6059da0a9faa091329f5",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.language.system": "48b4e3ed58c7e81e7b4174310c676b31fab9682a2096f6960cea98952cddaa98",
       "settings.simple.language.partial": "ad945e2a103441a940bc5cae255186becedde7e10602ff16e51008c22db1503d",
       "settings.simple.sendKey": "d953560bd79dc2647ec6a04b7739b6d57631a665f0f34217dd3eef5539155715",
@@ -102313,7 +102275,8 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349"
+      "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     },
     "ko": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -103479,8 +103442,6 @@
       "settings.theme.system": "6725e7bbcd28f3a8a586fa34bf191fd72dde8b61756932cd3237c17a6f196f1a",
       "settings.theme.light": "dbcd5e7bb7a0f538810de44c3efbd813037ee3fa358747bb71fa58e157af45f7",
       "settings.theme.dark": "60acc53f13a5d1bf115878c4a785e9a43e8286c4139a8402a6ac7d23966f9153",
-      "settings.skin.dressUp.title": "502e623ab8d32f2f8f58efcd88911af55a062be2ee53e66567a1db199ef000fb",
-      "settings.skin.dressUp.subtitle": "a9b5326cf6c33e02179614591719c8a1a967e78e948bda69a11fee2197e117c3",
       "settings.chatWidth.title": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
       "settings.chatWidth.subtitle": "ccedd1b6fb66c51276bdaa44be098d0f55510b34b2bfc6cfe6c21e418b08829f",
       "settings.chatWidth.aria": "79e072027e0a723731534a6efa653598eab2355ff38c8a4ae22da8feff8cc7de",
@@ -105684,7 +105645,6 @@
       "botPanel.avatar.face": "304afc32b7ff2e2326754c58222d6f930ca90bcb24e2d67a1453616a3aea8cd7",
       "botPanel.avatar.halloween": "049566b6b12d6a618eadb364ed0e035f91b2f60e581643667285e1a1f79bb0a9",
       "botPanel.avatar.more": "11a8b6a502312fe4559d0725e134349347d58007dd75b8ef68fe27735f4a362d",
-      "botPanel.avatar.costume": "9def38bd1102ebda21a0d7fd1b4fba5d7d3be1eac88a3906c86dff813f09e9df",
       "botPanel.avatar.drop": "660e0bcebcfec732187d12b47b7e2cb5b32edf66577ea9ed29e634f7b2dcb3d3",
       "botPanel.avatar.types": "8bd242087bd8063000dd8dc0caaf6799b786507e2fb8129a0de3c59c563f8bd0",
       "botPanel.avatar.shape": "e0e492707f85ff1f9c23155494a54382b52bf34888091adc7a6bb338ef78f88d",
@@ -109575,7 +109535,6 @@
       "place.view.ccNoHours.lineTrial": "ebf5915fb2abb68d39c6df1470731f31d803097246b173e94a178ac0ff8efab4",
       "settings.simple.group.typing": "0b96af8bce90a78a3ab5958209736b8738fe952deefc38fc958a14fbbeb75ef6",
       "settings.simple.themes.browse": "5d7a5476ede9e8cb334ca24996a48200bea59e871006443754457753f797bf53",
-      "settings.simple.themes.followHint": "d42ba551158199061ebfda7029c05ad07f84ebad29cfc8c24ffe4a7323ed5629",
       "settings.simple.followUp": "1892f526b8085496555ed38b9f243411ed0ac44c39c4c060b03ca220a0ec591f",
       "settings.simple.updates.seeRelease": "9355a3774398dd649b5e15b0ba5bb0629f09427ce4b40a92395fda60b3c0cc19",
       "settings.simple.updates.reload": "bdc090ec61e3fcfc65f469951dfe00f3f2ecfc6003c44deac8e05b7237092de6",
@@ -110110,7 +110069,8 @@
       "connectors.setup.pasteKey": "b958190e74570649b08b55d025771365d97da9f2f7b13bcbd78f76e2e863813f",
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
-      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d"
+      "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
     }
   }
 }

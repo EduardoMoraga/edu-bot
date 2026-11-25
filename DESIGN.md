@@ -100,6 +100,10 @@ Rules:
 - **Check both reference skins.** Midnight (dark) and Daylight (light) are the
   reference skins; every change is checked in both. The other skins restyle
   tokens, so a change that only uses tokens works there too.
+- **A new install wears the Edu pair.** System, Light and Dark wear Edu
+  (`meadow`) and Edu Night (`edu-night`); check a change there too. Midnight is
+  shown as "Classic", and an install from before the Edu pair keeps Daylight
+  and Classic for System, Light and Dark.
 
 ## 4. Type
 

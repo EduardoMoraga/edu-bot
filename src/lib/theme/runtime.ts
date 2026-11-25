@@ -2,7 +2,7 @@
 // with the server through `theme` frames. Every way back lives here, outside anything a theme's CSS can hide.
 import { SAFE_LOOK_PARAM, THEME_COLOR_ROLES, themeFileSchema, type ActiveTheme, type ThemeFile } from "../../../shared/theme";
 import { readColorScheme } from "../color-scheme";
-import { DEFAULT_SKIN_CHOICE, SKIN_IDS, applySkinChoice, readSkin, resolveSkin, subscribeSkin, THEME_SKINS, wearSkin, type SkinChoice, type SkinId } from "../skins";
+import { DEFAULT_SKIN_CHOICE, SKIN_IDS, applySkinChoice, readSkin, resolveSkin, subscribeSkin, themeSkins, wearSkin, type SkinChoice, type SkinId } from "../skins";
 import { accentPalette, canvasPalette, modeOf } from "./palette";
 import { applyThemeCss } from "./theme-css";
 
@@ -51,12 +51,12 @@ function clearPaint(root: HTMLElement): void {
   painted = [];
 }
 
-const isLightOrDark = (choice: SkinChoice | undefined) => !choice || choice === "system" || choice === THEME_SKINS.light || choice === THEME_SKINS.dark;
+const isLightOrDark = (choice: SkinChoice | undefined) => !choice || choice === "system" || choice === themeSkins().light || choice === themeSkins().dark;
 
 /** The skin a theme wears whatever the person picks, or undefined when it follows their System, Light or Dark choice. */
 function ownSkin(theme: ThemeFile): SkinChoice | undefined {
   if (theme.light && theme.dark && isLightOrDark(theme.skin)) return undefined;
-  return theme.skin ?? (theme.canvas ? THEME_SKINS[modeOf(theme.canvas)] : undefined);
+  return theme.skin ?? (theme.canvas ? themeSkins()[modeOf(theme.canvas)] : undefined);
 }
 
 function draw(): boolean {

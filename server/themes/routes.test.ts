@@ -47,6 +47,15 @@ describe("theme routes", () => {
     expect(await callRoute(routes, { method: "GET", path: "/api/themes", auth: guest })).toMatchObject({ status: 403 });
   });
 
+  it("takes a theme or a choice naming a skin that no longer ships, without the skin", async () => {
+    const { routes, store, changed } = fixture();
+    expect(await callRoute(routes, { method: "PUT", path: "/api/themes/spooky", body: { theme: { name: "Spooky", skin: "halloween", accent: "#ff7f1f" } }, auth: ann })).toMatchObject({ status: 200 });
+    expect(store.read("p_ann", "spooky")).toEqual({ name: "Spooky", accent: "#ff7f1f" });
+    expect(await callRoute(routes, { method: "PUT", path: "/api/themes/active", body: { id: null, skin: "diwali" }, auth: ann })).toMatchObject({ status: 200 });
+    expect(changed.at(-1)).toEqual({ person: "p_ann" });
+    expect(await callRoute(routes, { method: "PUT", path: "/api/themes/active", body: { id: null, skin: "neon" }, auth: ann })).toMatchObject({ status: 400 });
+  });
+
   it("lists a person's look changes and goes back to one, telling their windows", async () => {
     const { routes, store, changed } = fixture();
     await callRoute(routes, { method: "PUT", path: "/api/themes/neon", body: { theme: { name: "Neon", accent: "#ff2bd6" } }, auth: ann });

@@ -1,14 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { SKINS, THEME_SKINS, readSkinChoice, subscribeSkin, type SkinChoice } from "@/lib/skins";
+import { SKINS, readSkinChoice, subscribeSkin, themeSkins, type SkinChoice } from "@/lib/skins";
 import { chooseSkinChoice } from "@/lib/theme/runtime";
 import { SettingRow } from "./SettingsPrimitives";
 
-const THEMES = [
+const themeRows = () => [
   { choice: "system", label: "settings.theme.system" },
-  { choice: THEME_SKINS.light, label: "settings.theme.light" },
-  { choice: THEME_SKINS.dark, label: "settings.theme.dark" },
+  { choice: themeSkins().light, label: "settings.theme.light" },
+  { choice: themeSkins().dark, label: "settings.theme.dark" },
 ] as const satisfies readonly { choice: SkinChoice; label: string }[];
 
 export function useSkinChoice(): SkinChoice {
@@ -17,14 +17,15 @@ export function useSkinChoice(): SkinChoice {
 
 export function ThemeRow({ simple = false }: { simple?: boolean }) {
   const choice = useSkinChoice();
-  const look = THEMES.some((theme) => theme.choice === choice) ? undefined : SKINS.find((skin) => skin.id === choice)?.name;
+  const rows = themeRows();
+  const look = rows.some((theme) => theme.choice === choice) ? undefined : SKINS.find((skin) => skin.id === choice)?.name;
   return (
     <SettingRow
       title={t(simple ? "settings.theme.lightOrDark" : "settings.theme.title")}
       subtitle={look ? t("settings.theme.look", { name: look }) : simple ? undefined : t("settings.theme.subtitle")}
     >
       <div role="radiogroup" aria-label={t(simple ? "settings.theme.lightOrDark" : "settings.theme.title")} className={simple ? "inline-flex h-7 rounded-full bg-ink/[0.06] p-0.5" : "inline-flex rounded-full bg-inset p-0.5"}>
-        {THEMES.map((theme) => (
+        {rows.map((theme) => (
           <button
             key={theme.choice}
             type="button"

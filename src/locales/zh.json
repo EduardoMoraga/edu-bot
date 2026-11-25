@@ -1742,8 +1742,6 @@
   "settings.theme.system": "跟随系统",
   "settings.theme.light": "浅色",
   "settings.theme.dark": "深色",
-  "settings.skin.dressUp.title": "给机器人换装",
-  "settings.skin.dressUp.subtitle": "启用此皮肤期间，每个机器人都换上节日装扮。更换皮肤后，它们会恢复平时的样子。",
   "settings.chatWidth.title": "聊天宽度",
   "settings.chatWidth.subtitle": "消息气泡在这台机器上最多能有多宽。「宽」和「全宽」会在大窗口中用上更多空间。",
   "settings.chatWidth.aria": "聊天宽度",
@@ -4063,7 +4061,6 @@
   "botPanel.avatar.face": "表情",
   "botPanel.avatar.halloween": "万圣节",
   "botPanel.avatar.more": "更多造型",
-  "botPanel.avatar.costume": "开启{skin}皮肤时，打扮成 {name}",
   "botPanel.avatar.drop": "把图片拖到这里，或选择一张",
   "botPanel.avatar.types": "PNG、JPEG、GIF 或 WebP · 最大 10 MB",
   "botPanel.avatar.shape": "形状",
@@ -9163,10 +9160,8 @@
   "skins.tagline.graphite": "沉静的石墨色，配柔和的钢蓝色。",
   "skins.tagline.linen": "干净的日光色，点缀克制的藏青。",
   "skins.tagline.dusk": "入夜后的暗梅色，安静而低调。",
-  "skins.tagline.daylight": "反向的黑夜。近白底色，墨黑气泡。",
   "skins.tagline.meadow": "清新的白色配平静的绿色。这就是 Edu Bot 的样子。",
   "skins.tagline.pop": "奶油纸感、粗墨描边、硬朗投影。敦实又欢快。",
-  "skins.tagline.halloween": "入夜后的梅紫色，点亮南瓜橙。蝙蝠可选。",
   "automations.calendar.cronMove": "打开这个自动化即可更改它的重复安排。",
   "automations.calendar.moveSeries": "要移动每一次重复吗？",
   "automations.address.copyAddressFailed": "无法拷贝地址",
@@ -9786,7 +9781,6 @@
   "settings.profile.awayEmails": "我不在时给我发邮件",
   "settings.section.vault": "保险库",
   "settings.simple.group.typing": "语言和输入",
-  "settings.simple.themes.followHint": "跟随电脑：亮时用 Daylight，暗时用 Midnight。",
   "apiInstances.geminiPreset": "填写 Google Gemini",
   "apiInstances.geminiKeyHint": "请粘贴来自 Google AI Studio 的 Gemini API 密钥（aistudio.google.com/apikey）。添加后会自动检测模型。",
   "homeLine.clean": "你的机器人已经在 Cloud 上。登录即可把它们带回来。",
@@ -10216,5 +10210,6 @@
   "botSettings.data.saved": "已保存。",
   "botSettings.data.allow": "允许",
   "profiles.field.data": "数据连接",
-  "settings.data.connectionFailed": "无法保存连接。"
+  "settings.data.connectionFailed": "无法保存连接。",
+  "settings.simple.themes.followPair": "跟随电脑：亮时用 {light}，暗时用 {dark}。"
 }

@@ -23,7 +23,7 @@ import { SkinPicker } from "../../SkinPicker";
 import { TalkShortcutRow } from "../../TalkShortcutRow";
 import { useSkinChoice, ThemeRow } from "../../ThemeRow";
 import { WindowFrameRow } from "../../WindowFrameRow";
-import { resolveSkin, SKINS } from "@/lib/skins";
+import { resolveSkin, SKINS, themeSkins, type SkinId } from "@/lib/skins";
 import { versionLine } from "../settings-context";
 import { useSettingsShell } from "../settings-shell";
 import { PlaceBadge } from "../SettingsNav";
@@ -137,9 +137,10 @@ export function GeneralPage() {
 
 function ThemePickerRow({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const choice = useSkinChoice();
-  const current = SKINS.find((skin) => skin.id === resolveSkin(choice))?.name;
+  const name = (id: SkinId) => SKINS.find((skin) => skin.id === id)?.name ?? id;
+  const pair = themeSkins();
   return (
-    <SettingRow title={t("settings.theme.title")} subtitle={choice === "system" ? t("settings.simple.themes.followHint") : current}>
+    <SettingRow title={t("settings.theme.title")} subtitle={choice === "system" ? t("settings.simple.themes.followPair", { light: name(pair.light), dark: name(pair.dark) }) : name(resolveSkin(choice))}>
       <button type="button" className="ui-button" aria-expanded={open} data-settings-themes="" onClick={onToggle}>{t(open ? "settings.appearance.hideThemes" : "settings.simple.themes.browse")}</button>
     </SettingRow>
   );
