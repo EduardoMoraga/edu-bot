@@ -2,7 +2,7 @@
 // with the server through `theme` frames. Every way back lives here, outside anything a theme's CSS can hide.
 import { SAFE_LOOK_PARAM, THEME_COLOR_ROLES, themeFileSchema, type ActiveTheme, type ThemeFile } from "../../../shared/theme";
 import { readColorScheme } from "../color-scheme";
-import { DEFAULT_SKIN_CHOICE, SKIN_IDS, applySkinChoice, readSkin, resolveSkin, subscribeSkin, THEME_SKINS, wearSkin, type SkinChoice } from "../skins";
+import { DEFAULT_SKIN_CHOICE, SKIN_IDS, applySkinChoice, readSkin, resolveSkin, subscribeSkin, THEME_SKINS, wearSkin, type SkinChoice, type SkinId } from "../skins";
 import { accentPalette, canvasPalette, modeOf } from "./palette";
 import { applyThemeCss } from "./theme-css";
 
@@ -12,6 +12,7 @@ const SAFE_KEY = "omb-safe-look";
 export type WornTheme = { id: string; theme: ThemeFile };
 
 let worn: WornTheme | null = null;
+let preview: WornTheme | null = null;
 let painted: string[] = [];
 let painting = false;
 const listeners = new Set<() => void>();
@@ -50,22 +51,29 @@ function clearPaint(root: HTMLElement): void {
   painted = [];
 }
 
-function paint(): void {
-  if (typeof document === "undefined" || painting) return;
+const isLightOrDark = (choice: SkinChoice | undefined) => !choice || choice === "system" || choice === THEME_SKINS.light || choice === THEME_SKINS.dark;
+
+/** The skin a theme wears whatever the person picks, or undefined when it follows their System, Light or Dark choice. */
+function ownSkin(theme: ThemeFile): SkinChoice | undefined {
+  if (theme.light && theme.dark && isLightOrDark(theme.skin)) return undefined;
+  return theme.skin ?? (theme.canvas ? THEME_SKINS[modeOf(theme.canvas)] : undefined);
+}
+
+function draw(): boolean {
+  if (typeof document === "undefined" || painting) return false;
   painting = true;
   try {
     const root = document.documentElement;
     clearPaint(root);
-    const theme = safeLook() ? null : worn?.theme;
-    if (!theme) {
+    const shown = safeLook() ? null : preview ?? worn;
+    if (!shown) {
       delete root.dataset.theme;
       applyThemeCss("");
       wearSkin(readSkin());
-      return;
+      return true;
     }
-    const plainSkin = !theme.skin || theme.skin === "system" || theme.skin === THEME_SKINS.light || theme.skin === THEME_SKINS.dark;
-    const followsChoice = Boolean(theme.light && theme.dark) && plainSkin;
-    const base: SkinChoice | undefined = followsChoice ? undefined : theme.skin ?? (theme.canvas ? THEME_SKINS[modeOf(theme.canvas)] : undefined);
+    const theme = shown.theme;
+    const base = ownSkin(theme);
     wearSkin(base ? resolveSkin(base) : readSkin());
     const mode = readColorScheme(root);
     const variant = theme[mode];
@@ -92,12 +100,23 @@ function paint(): void {
       root.style.setProperty("--tracking-ui", "0");
       painted.push("--font-sans", "--tracking-ui");
     }
-    root.dataset.theme = worn!.id;
+    root.dataset.theme = shown.id;
     applyThemeCss(theme.css ?? "");
+    return true;
   } finally {
     painting = false;
-    for (const listener of listeners) listener();
   }
+}
+
+function paint(): void {
+  if (draw()) for (const listener of listeners) listener();
+}
+
+/** Paints a theme being edited over the worn one, in this window only and remembered nowhere, until `null` or the
+ * reset keys. */
+export function previewTheme(next: WornTheme | null): void {
+  preview = next;
+  draw();
 }
 
 /** Wears `next` in this window, remembering it so the next start paints it before the server answers. */
@@ -151,6 +170,22 @@ export function takeOffTheme(): void {
   void wearOnServer(null);
 }
 
+/** A skin picked from the grid: any custom theme comes off, so the skin shows. */
+export function chooseSkin(id: SkinId): void {
+  preview = null;
+  takeOffTheme();
+  applySkinChoice(id);
+}
+
+/** A skin choice from the Light or dark row or a bot: a theme that follows System, Light or Dark stays on for those; any
+ * other theme, or any other skin, takes the theme off, so the choice shows. */
+export function chooseSkinChoice(choice: SkinChoice): void {
+  const hides = (theme: WornTheme | null) => Boolean(theme && (!isLightOrDark(choice) || ownSkin(theme.theme)));
+  if (hides(preview)) preview = null;
+  if (hides(worn)) takeOffTheme();
+  applySkinChoice(choice);
+}
+
 /** Wears one of the person's saved themes, here and in their other windows; false when the server refused. */
 export async function chooseTheme(id: string | null): Promise<boolean> {
   const done = await wearOnServer(id);
@@ -160,6 +195,7 @@ export async function chooseTheme(id: string | null): Promise<boolean> {
 
 /** The way back from any theme: drops it and wears the default skin, whatever the server says. */
 export function resetLook(): void {
+  preview = null;
   applySkinChoice(DEFAULT_SKIN_CHOICE);
   wearTheme(null);
   void wearOnServer(null, DEFAULT_SKIN_CHOICE);

@@ -161,10 +161,12 @@ describe("the Settings window", () => {
     const simple = render("appearance");
     fixture.advanced = true;
     const advanced = render("appearance");
-    expect(simple).not.toContain("Chat width");
-    expect(advanced).toContain("Chat width");
+    expect(simple).toContain("Chat width");
+    expect(simple).toContain("Interface font");
+    expect(simple).not.toContain("Commands a bot ran");
+    expect(advanced).toContain("Commands a bot ran");
     expect(simple).toContain("Light or dark");
-    expect(simple).toContain("Browse themes");
+    expect(simple).toContain("Hide themes");
   });
 
   it("keeps the Advanced mode switch in the nav footer on every page, and flips it from there", () => {
