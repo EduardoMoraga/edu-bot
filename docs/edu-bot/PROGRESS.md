@@ -222,13 +222,15 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   documentación de conexiones dice Edu Bot y los menús reales. Quedan sin hacer (necesitan alcance): el switch
   "En cualquier lugar, a través de Edu Bot" (no hay ese servicio), sinónimos de búsqueda en español, textos en
   otros idiomas y ejemplos `maus.example.com` de la línea de comandos.
-- [ ] **Claude como en T3 Code**: en curso (rama `claude/own-cli`, Claude Opus).
-- Detalle de Claude como en T3 Code (decisión de Eduardo, 25-11). Cada persona
-  instala Claude Code y hace `claude auth login`. Edu Bot solo lanza el `claude` oficial y **nunca lee ni guarda
-  tokens**: se quita de `server/plan-usage.ts` la lectura del token (archivo `.credentials.json` y llavero de macOS)
-  y la consulta a `api.anthropic.com/api/oauth/usage`. Los límites salen solo de lo que imprime el CLI, o no se
-  muestran. PR chico, aparte del plan de equipos.
-- [ ] **En cola, después del pulido:** tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
+- [x] **Claude como en T3 Code** (#57, 25-11; Claude Opus, Grok auditó 2 rondas hasta PASS). Cada persona
+  instala Claude Code y hace `claude auth login`. Edu Bot ya **no lee el token de Claude** (ni el archivo ni el
+  llavero del Mac) y no llama a la API de uso de Anthropic. El panel de uso no muestra barras de Claude: un límite
+  de Claude sale solo cuando Claude Code lo avisa en un chat. El cambio de bot al llegar al límite sigue
+  funcionando. Texto: "Usa tu Claude Code. Inicia sesión con `claude auth login`", sin logo.
+  Para que decidas después: Codex, Grok, OpenCode Go y Antigravity todavía leen su inicio de sesión para mostrar su
+  uso (cada uno solo habla con su propia empresa). Lista exacta: [comentario en #57](https://github.com/EduardoMoraga/edu-bot/pull/57#issuecomment-7157888058).
+- [ ] **Ahora: tus equipos por Tailscale**, PR 1 de 4 ("Mis equipos").
+  Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
   Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
 - [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
