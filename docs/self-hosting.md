@@ -905,10 +905,11 @@ days, renewed on use up to 180 days from pairing, revocable) and the app
 loads. `npx edubot devices` lists the paired devices and
 `devices revoke ID` signs one out.
 
-From the **desktop app**, open the **You** menu at the bottom left, choose
-**Switch place**, then **Connect to a server**, and paste the link. Once one
-server is connected, **＋** at the end of the rail at the window's left edge
-opens the same sheet. You can also type the address (`bots.example.com`,
+From the **desktop app**, open **Settings → This app → Your computers**,
+choose **Connect to a server**, and paste the link (the **You → Switch place →
+Connect to a server** menu item opens the same page). Once one server is
+connected, **＋** at the end of the rail at the window's left edge opens the
+sheet directly. You can also type the address (`bots.example.com`,
 `192.168.1.20:8799`, a `*.ts.net` name) and the pairing code in its own
 field. The sheet looks the address up and names what it found, for example
 "✓ hetzner-1 · Edu Bot 0.1.0 · HTTPS". A bare address tries https first,

@@ -23,7 +23,7 @@ Pick one home, then open it from your other devices. There are two ways:
 
 | Home | Good for | How |
 | --- | --- | --- |
-| **One of your computers** | Two desktops on the same Tailscale network | On the computer with the bots, turn on **Settings → Phone & devices → Your other computers** and choose **Pair a computer**. On the other, choose **You → Switch place → Connect to a server** and paste the link. The bots stay on the first computer, which must be on. See [desktop-companion.md](desktop-companion.md). |
+| **One of your computers** | Two desktops on the same Tailscale network | On the computer with the bots, turn on **Settings → Phone & devices → Your other computers** and choose **Pair a computer**. On the other, open **Settings → This app → Your computers → Connect to a server** and paste the link. The bots stay on the first computer, which must be on. See [desktop-companion.md](desktop-companion.md). |
 | **Your own server** | A VPS or always-on machine you run yourself | Pair each device with it, then right-click the server's circle at the window's left edge and choose **Make <server> my home** to move this computer's bots there. See [self-hosting.md](self-hosting.md). |
 
 Edu Bot does not offer MausBot Cloud (My Cloud, Team Clouds or their plans). The app has no Cloud sign-in unless the

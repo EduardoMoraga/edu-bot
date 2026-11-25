@@ -58,7 +58,7 @@ Use a disposable workspace on the host.
    `*:8799`.
 4. On the host, choose **Pair a computer** under the switch. Expect the dialog to show the address `http://$NAME:8799`
    with the code, and **Copy link** to copy a link that starts with `http://$NAME:8799/pair#code=`.
-5. On the client, choose You → Switch place → Connect to a server (or ＋ on the rail once it shows) and paste the
+5. On the client, open Settings → This app → Your computers → Connect to a server (or ＋ on the rail once it shows) and paste the
    link. Expect the found line to say Tailscale. Connect, then send a message and wait for a reply. On the host,
    expect the client under Paired with its computer name, not "Chrome on Windows".
 6. From the client, check the refusals:

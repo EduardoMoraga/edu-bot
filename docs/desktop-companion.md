@@ -31,9 +31,10 @@ In Advanced mode the same page also has **More ways in → Tailscale**, the swit
 
 ## Connect the client
 
-1. On the client, open the **You** menu at the bottom left, choose **Switch place**, then **Connect to a server**.
-   Once the client has one server connected, **＋** at the end of the rail at the window's left edge opens the same
-   sheet. So does **Settings → This app → Your computers → Connect to a server** (Advanced mode).
+1. On the client, open **Settings → This app → Your computers** and choose **Connect to a server** (searching
+   Settings for "Your computers" finds it and turns on Advanced mode). The **You → Switch place → Connect to a
+   server** menu item opens the same page. Once the client has one server connected, **＋** at the end of the rail at
+   the window's left edge opens the sheet directly.
 2. Paste the link. Or type the address and the code in their two boxes.
 3. The sheet names the host it found and says it is on Tailscale. Choose **Connect to** and the host's name.
 4. If the host is yours alone, the client asks **Let <host> use this computer?** **Allow** lends the apps on the
