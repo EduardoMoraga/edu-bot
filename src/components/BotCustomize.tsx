@@ -9,7 +9,7 @@ import { bodyName } from "@/lib/mascot-names";
 import type { Bot } from "@/state/store";
 import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
 import { PICKABLE_MASCOT_BODY_IDS } from "../../shared/mascot-bodies";
-import { MausAvatar } from "./Avatar";
+import { BotFace } from "./Avatar";
 import { AvatarImageGenerator } from "./AvatarImageGenerator";
 import type { AvatarPatch, useAvatarImage } from "./avatar-editing";
 
@@ -17,7 +17,7 @@ export const AVATAR_FILE_TYPES = "image/png,image/jpeg,image/gif,image/webp";
 const LABEL = "text-[12px] font-medium uppercase tracking-wide text-ink-secondary";
 
 /** The welcome's own profile edit: name, colour, look, then a picture of the person's own or one made with AI. */
-export function MausBotCustomize({ preview, name, nameRef, image, onName, onPatch }: {
+export function BotCustomize({ preview, name, nameRef, image, onName, onPatch }: {
   preview: Bot;
   name: string;
   nameRef: RefObject<HTMLInputElement | null>;
@@ -75,7 +75,7 @@ export function MausBotCustomize({ preview, name, nameRef, image, onName, onPatc
               onClick={() => shape({ mascotBody: id })}
               className={cn("flex h-11 items-center justify-center rounded-xl", !picture && (botBodyId(preview.mascotBody)) === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]")}
             >
-              <MausAvatar color={preview.color} bodyId={id} size={30} animated={false} trackPointer={false} />
+              <BotFace color={preview.color} bodyId={id} size={30} animated={false} trackPointer={false} />
             </button>
           ))}
         </div>

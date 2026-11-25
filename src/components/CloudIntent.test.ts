@@ -6,7 +6,6 @@ import { EMPTY_ONBOARDING } from "@/lib/onboarding";
 
 const store = vi.hoisted(() => ({ state: {} as any, dispatch: vi.fn() }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ state: store.state, dispatch: store.dispatch }), api: vi.fn(async (_path: string, init?: RequestInit) => ({ onboarding: JSON.parse(String(init?.body)).onboarding })) }));
-vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
 vi.mock("@/components/onboarding/view-transition", () => ({ withViewTransition: (update: () => void) => { update(); return null; } }));
 vi.mock("@/lib/cloud-intent", async original => {
   const actual = await original<typeof import("@/lib/cloud-intent")>();
@@ -45,6 +44,9 @@ it("asks with /setup in front, offers ideas, and says plainly how to skip", () =
   expect(html).toContain("Esc");
   expect(html).toContain("You can come back to it any time");
   expect(html).not.toContain('aria-modal="true"');
+  expect(html, "the Edu mascot, named for screen readers").toContain('data-edu-mascot="happy"');
+  expect(html).toContain('role="img" aria-label="Edu Bot"');
+  expect(html).not.toContain("data-avatar");
 });
 
 it("Skip for now steps aside at once and is kept in the Cloud's record, so no device asks again", async () => {

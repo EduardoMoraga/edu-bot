@@ -1,9 +1,6 @@
-// MausBot Cloud's night card, cut like a linocut: the three bots ride a cloud under the moon while this computer's
-// laptop sleeps on the hill.
 import { memo, useRef, type ReactNode } from "react";
-import { MausAvatar } from "@/components/Avatar";
+import { EduMascot, type EduMascotMood } from "@/components/EduMascot";
 import { cn } from "@/lib/cn";
-import type { MausColor, MausState } from "@/lib/mascot";
 import { useLiveMotion } from "./live-motion";
 
 /** [x, y, radius, seconds per twinkle (0: steady), delay] in the card's 900×120 sky; the scene keeps to x ≥ 600. */
@@ -12,10 +9,10 @@ const STARS = [
   [598, 92, 0.7, 0, 0], [742, 10, 0.8, 0, 0], [652, 106, 0.6, 0, 0], [884, 74, 0.8, 0, 0],
 ] as const;
 const SPARKLES = [[640, 20, 4.2], [712, 40, 3], [868, 62, 3.2]] as const;
-const CREW: readonly { color: MausColor; state: MausState; spot: readonly [x: number, y: number, size: number] }[] = [
-  { color: "orange", state: "working", spot: [636, 52, 28] },
-  { color: "pink", state: "idle", spot: [668, 46, 30] },
-  { color: "green", state: "thinking", spot: [702, 52, 28] },
+const CREW: readonly { mood: EduMascotMood; spot: readonly [x: number, y: number, size: number] }[] = [
+  { mood: "thinking", spot: [636, 52, 28] },
+  { mood: "happy", spot: [668, 46, 30] },
+  { mood: "idle", spot: [702, 52, 28] },
 ];
 const Z = "M-2.6-2.6h5.2l-5.2 5.2h5.2";
 
@@ -65,8 +62,8 @@ const Scene = memo(function Scene({ moving }: { moving: boolean }) {
     <g fill="none" stroke="var(--cloud-night-carve)" strokeWidth="1" strokeLinecap="round">
       <path d="M640 86c6-4 12-4 18 0" /><path d="M676 82c7-5 15-5 22 0" /><path d="M712 86c5-3 10-3 15 0" />
     </g>
-    {CREW.map(({ color, state, spot: [x, y, size] }) => <foreignObject key={color} x={x} y={y} width={size} height={size} overflow="visible">
-      <MausAvatar color={color} state={state} size={size} animated={moving} trackPointer={false} />
+    {CREW.map(({ mood, spot: [x, y, size] }) => <foreignObject key={mood} x={x} y={y} width={size} height={size} overflow="visible">
+      <EduMascot mood={mood} size={size} animated={moving} />
     </foreignObject>)}
     <Laptop moving={moving} />
   </svg>;

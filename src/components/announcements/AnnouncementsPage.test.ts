@@ -10,7 +10,7 @@ import type { Announcements } from "./use-announcements";
 const f = vi.hoisted(() => ({ found: null as unknown as Announcements, dispatch: vi.fn(), state: { config: {} as Record<string, unknown> }, remembered: vi.fn() }));
 vi.mock("./use-announcements", () => ({ useAnnouncements: () => f.found }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ state: f.state, dispatch: f.dispatch }), api: vi.fn() }));
-vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
+vi.mock("@/components/Avatar", () => ({ BotFace: () => null }));
 vi.mock("@/lib/announcement-history", async original => ({ ...await original<typeof import("@/lib/announcement-history")>(), rememberNoticeSeen: f.remembered }));
 const { AnnouncementsPage } = await import("./AnnouncementsPage");
 

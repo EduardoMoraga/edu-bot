@@ -4,15 +4,15 @@ import { useAdvancedMode } from "@/lib/interface-mode";
 import { emailGateDone } from "@/lib/email-gate";
 import { anchorFor, cardAnswered, nextSpotlight, placementFor, tourComplete, type ChatObservation, type SpotlightId } from "@/lib/first-conversation";
 import { t } from "@/lib/i18n";
-import type { MausState } from "@/lib/mascot";
+import type { EduMascotMood } from "@/components/EduMascot";
 import { api, useStore } from "@/state/store";
 import { Spotlight } from "./Spotlight";
 
-const COPY: Record<SpotlightId, { key: "onboarding.spot.composer" | "onboarding.spot.model" | "onboarding.spot.approval" | "onboarding.spot.connector"; mascot: MausState }> = {
+const COPY: Record<SpotlightId, { key: "onboarding.spot.composer" | "onboarding.spot.model" | "onboarding.spot.approval" | "onboarding.spot.connector"; mascot: EduMascotMood }> = {
   "spot.composer": { key: "onboarding.spot.composer", mascot: "happy" },
-  "spot.model": { key: "onboarding.spot.model", mascot: "curious" },
-  "spot.approval": { key: "onboarding.spot.approval", mascot: "suspicious" },
-  "spot.connector": { key: "onboarding.spot.connector", mascot: "curious" },
+  "spot.model": { key: "onboarding.spot.model", mascot: "idle" },
+  "spot.approval": { key: "onboarding.spot.approval", mascot: "thinking" },
+  "spot.connector": { key: "onboarding.spot.connector", mascot: "idle" },
 };
 
 /** Spotlights on the first chat, in Advanced mode only: Simple mode's cards carry a one-line hint instead. */

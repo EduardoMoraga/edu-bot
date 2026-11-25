@@ -2,24 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { readAdvancedMode, useAdvancedMode } from "@/lib/interface-mode";
 import { ANCHOR_EFFECTS, currentStep, stepNumber, TOUR_STEPS, withTourFinished, type TourEffect, type TourStep } from "@/lib/guided-tour";
 import { t } from "@/lib/i18n";
-import type { MausState } from "@/lib/mascot";
+import type { EduMascotMood } from "@/components/EduMascot";
 import { hintSeenPatch } from "@/lib/onboarding";
 import { sendKeyLabel, useSendKey } from "@/lib/send-key";
 import type { LocaleKey } from "@/locales";
 import { api, useStore } from "@/state/store";
 import { Spotlight } from "./Spotlight";
 
-const MASCOT: Record<TourStep["id"], MausState> = {
+const MASCOT: Record<TourStep["id"], EduMascotMood> = {
   "tour.composer": "happy",
-  "tour.model": "curious",
-  "tour.computer": "working",
-  "tour.computer-browser": "curious",
-  "tour.tools": "curious",
+  "tour.model": "idle",
+  "tour.computer": "thinking",
+  "tour.computer-browser": "idle",
+  "tour.tools": "idle",
   "tour.apps": "happy",
-  "tour.apps-panel": "proud",
+  "tour.apps-panel": "happy",
   "tour.automations": "happy",
-  "tour.automations-page": "drowsy",
-  "tour.done": "celebrate",
+  "tour.automations-page": "idle",
+  "tour.done": "happy",
 };
 
 const copy = (step: TourStep, key: string) => t(step.copy ?? (`onboarding.tour.${step.id.slice(5)}` as LocaleKey), { key });

@@ -17,7 +17,7 @@ vi.mock("@/lib/default-bot", async (original) => ({
   useViewerEmail: () => null,
   setWelcomingBot: (id: string | null) => f.welcoming(id),
 }));
-vi.mock("./MausBotCustomize", () => ({ MausBotCustomize: () => null }));
+vi.mock("./BotCustomize", () => ({ BotCustomize: () => null }));
 const { MausBotWelcome } = await import("./MausBotWelcome");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

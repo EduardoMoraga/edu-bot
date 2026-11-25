@@ -13,7 +13,7 @@ import {
 import { BOT_AVATAR_CROPS } from "../../shared/bot-avatar";
 import { PICKABLE_MASCOT_BODY_IDS } from "../../shared/mascot-bodies";
 import { BODY_PACK_IDS, BODY_PACKS, botBodyId, type BotBodyId } from "../../shared/bot-body";
-import { BotAvatar, MausAvatar } from "./Avatar";
+import { BotAvatar, BotFace } from "./Avatar";
 import { AvatarImageGenerator } from "./AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "./avatar-editing";
 import { t } from "@/lib/i18n";
@@ -137,7 +137,7 @@ export function BotProfileAvatarCard({
                   title={expressionName(expression)}
                   aria-label={t("mascot.useExpression", { expression: expressionName(expression) })}
                 >
-                  <MausAvatar color={bot.color} faceColor={bot.mascotFaceColor} bodyId={bot.mascotBody ?? undefined} state={expression} size={42} animated={false} />
+                  <BotFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={bot.mascotBody ?? undefined} state={expression} size={42} animated={false} />
                 </button>
               ))}
             </div>
@@ -224,7 +224,7 @@ function BodyButton({ id, name, bot, busy, onPatch }: {
         selected ? "bg-control text-ink" : "text-ink-secondary hover:bg-control/60",
       )}
     >
-      <MausAvatar color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={34} animated={false} trackPointer={false} />
+      <BotFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={34} animated={false} trackPointer={false} />
     </button>
   );
 }

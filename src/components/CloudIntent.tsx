@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp, CalendarCheck, Eye, Newspaper, Search, type LucideIcon } from "lucide-react";
-import { MausAvatar } from "@/components/Avatar";
+import { EduMascot } from "@/components/EduMascot";
 import { engineReady } from "@/components/EngineLibrary";
 import { staggerIndex } from "@/components/onboarding/beats/shared";
 import { withViewTransition } from "@/components/onboarding/view-transition";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/cn";
 import { restoreComposerDraft } from "@/lib/drafts";
 import { t } from "@/lib/i18n";
 import { sendKeyLabel, sendsMessage, useSendKey } from "@/lib/send-key";
-import type { MausMotion, MausState } from "@/lib/mascot";
 import type { OnboardingStatus } from "@/lib/onboarding";
 import type { LocaleKey } from "@/locales";
 import { api, useStore, type Action, type AppState } from "@/state/store";
@@ -60,7 +59,6 @@ export function CloudIntent() {
   const [job, setJob] = useState(intent.pending ?? "");
   const [idea, setIdea] = useState<string | null>(null);
   const [peek, setPeek] = useState<string | null>(null);
-  const [motion, setMotion] = useState<{ kind: MausMotion; key: number }>({ kind: "none", key: 0 });
   const box = useRef<HTMLTextAreaElement>(null);
   const token = useRef<HTMLSpanElement>(null);
   const [indent, setIndent] = useState(0);
@@ -68,11 +66,6 @@ export function CloudIntent() {
   const record = state.config?.onboarding;
   const sendKey = useSendKey();
 
-  // One frame late: a motion issued in the avatar's mounting commit is lost.
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => setMotion({ kind: "arrive", key: 1 }));
-    return () => cancelAnimationFrame(frame);
-  }, []);
   useLayoutEffect(() => {
     if (token.current) setIndent(token.current.offsetWidth + 8);
   }, []);
@@ -131,9 +124,6 @@ export function CloudIntent() {
     });
   };
   const filled = job.trim().length > 0;
-  let face: MausState = "happy";
-  if (filled) face = "listening";
-  else if (peek) face = "curious";
 
   return (
     <main data-cloud-intent className="relative flex h-full min-w-0 flex-1 flex-col overflow-y-auto bg-app">
@@ -143,7 +133,7 @@ export function CloudIntent() {
       />
       <div className="stagger relative mx-auto flex w-full max-w-[620px] flex-col px-6 pb-12 pt-[clamp(48px,12vh,128px)]">
         <div className="animate-rise flex justify-center" style={staggerIndex(0)}>
-          <MausAvatar color="green" state={face} motion={motion.kind} motionKey={motion.key} size={64} label={productName()} />
+          <EduMascot mood={filled ? "idle" : "happy"} size={64} label={productName()} />
         </div>
         <h1 className="animate-rise mt-5 text-center text-[24px] font-semibold tracking-[-0.015em] text-ink [text-wrap:balance]" style={staggerIndex(1)}>
           {t("cloudIntent.title")}

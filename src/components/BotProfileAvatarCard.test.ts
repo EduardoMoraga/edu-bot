@@ -52,8 +52,9 @@ describe("BotProfileAvatarCard body picker", () => {
   it("offers each pack of carved bodies in its own row", () => {
     const markup = renderCard(makeBot({ mascotBody: "jalebi" }));
 
-    expect(markup).toContain(">Halloween<");
-    expect(markup).toContain(">Diwali<");
+    expect(markup).toContain(">Carved<");
+    expect(markup).toContain(">Festive<");
+    expect(markup).not.toMatch(/Halloween|Diwali/);
     for (const id of [...HALLOWEEN_BODY_IDS, ...DIWALI_BODY_IDS]) {
       expect(markup).toContain(`aria-label="Use the ${CARVED_BODIES[id].name} body"`);
     }
