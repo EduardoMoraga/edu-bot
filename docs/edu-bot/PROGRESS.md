@@ -239,7 +239,15 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   en Linux: pasa de una versión vieja a la 0.2.0 en el mismo lugar. GitHub falló al armar el borrador; subí yo los
   mismos archivos que hizo CI, revisados con SHA256SUMS.
 - [ ] **Ahora: v0.3.0, temas, diseño, marca propia y README** (pedido 25-11). Plan en 5 PRs, unos 5 a 7 días:
-  [plan-v0.3.0.md](plan-v0.3.0.md). Primero: los temas cambian con un clic.
+  [plan-v0.3.0.md](plan-v0.3.0.md).
+  - [x] PR A (#62): los temas cambian con un clic. Claro u oscuro ya funciona con un tema propio puesto. La
+    grilla de temas se ve de entrada, y la letra y el ancho del chat ya no piden modo avanzado.
+  - [x] PR B1 (#63): una instalación nueva se ve con el look **Edu** (verde claro) y **Edu Night** (verde
+    oscuro), según tu computador. Si ya usabas la app, se queda con los colores que tenías. Midnight ahora se
+    llama **Classic**. Halloween y Diwali ya no están; si alguien tenía uno, pasa a Edu sin error.
+  - [ ] PR B2, en curso: letra propia para Edu, más aire en modo simple, barra lateral más clara y una
+    pantalla nueva para el chat vacío. Separé el diseño de la mascota nueva (va en su propio PR) para que cada
+    revisión sea chica.
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
@@ -292,6 +300,10 @@ Se sumaron a `scripts/testing/ci-retry-list.json`: 2 reintentos solo en CI. Si s
   Chrome en Windows (2 veces). Pasan solos en este PC; fallan por carga en CI.
 - 23-11: `antigravity-turn-outcome` (inodo reusado) y la espera del teléfono por USB en Mac: arreglados de verdad,
   sin reintentos. Va a la lista: `saved-steps/store` "keeps the 200 most recently used" (Windows, 40 s).
+- 25-11, vistos 1 vez: `server/index.test.ts` "imports a team as a project" (Windows, 40 s),
+  `server/lending-memory.test.ts`, `server/thread-link.test.ts` y `server/task-cwd-api.test.ts` (Windows, el
+  servidor de prueba no partió), `server/host/chief-incident-spend.test.ts` (Windows, 40 s) y
+  `server/desktop-updates.e2e.test.ts` (Linux). Si se repiten, van a la lista.
 - Pendiente: recalibrar el reparto de tests entre partes de CI (`update-shard-weights`). Los tests nuevos de
   M2 y M3 no tienen tiempo registrado y una parte quedó más lenta.
 
