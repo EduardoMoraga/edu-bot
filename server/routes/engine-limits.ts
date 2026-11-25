@@ -2,6 +2,7 @@
 // is checked; the conversation is the capability's. It only reads.
 import type { ServerResponse } from "node:http";
 
+import type { EngineLimit } from "../../shared/limit-reset.ts";
 import type { Audience } from "../audience.ts";
 import type { InstanceConfigMap, ProviderSnapshot } from "../contracts.ts";
 import { engineLimitsFor, type EngineLimitInstance } from "../engine-limits.ts";
@@ -20,6 +21,8 @@ export interface EngineLimitsDeps {
   status(instanceId: string): ProviderSnapshot | undefined;
   /** Never a forced refresh: a bot calling in a loop is served the same read. */
   load(accounts: PlanAccount[]): Promise<PlanUsageReport>;
+  /** The limit clock's entry for an engine, which holds what Claude's CLI last refused with. */
+  held?(instanceId: string): EngineLimit | undefined;
   audienceOf(threadId: string): Audience;
   guestDriven(threadId: string): boolean;
   dataDir: string;
@@ -39,7 +42,7 @@ export function createEngineLimitsRoutes(deps: EngineLimitsDeps) {
     if (deps.guestDriven(ctx.threadId)) return void ctx.json(ctx.res, 403, { error: ENGINE_LIMITS_GUEST });
     const configs = deps.configs();
     const report = await deps.load(planAccountsFromInstances(configs)).catch(() => null);
-    const accounts = engineLimitsFor({ instances: deps.instances(), configs, status: deps.status, report, turn: deps.audienceOf(ctx.threadId), dataDir: deps.dataDir });
+    const accounts = engineLimitsFor({ instances: deps.instances(), configs, status: deps.status, report, held: (id) => deps.held?.(id), turn: deps.audienceOf(ctx.threadId), dataDir: deps.dataDir });
     return void ctx.json(ctx.res, 200, { text: JSON.stringify({ accounts }) });
   };
 }

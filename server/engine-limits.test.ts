@@ -5,6 +5,7 @@ import { memberAudience, roomAudience, TEAM_AUDIENCE } from "./audience.ts";
 import type { InstanceConfigMap, ProviderSnapshot } from "./contracts.ts";
 import { audienceHome } from "./engine-homes/layout.ts";
 import { accountReadableFrom, engineLimitsFor, type EngineLimitInstance } from "./engine-limits.ts";
+import type { EngineLimit } from "../shared/limit-reset.ts";
 import type { PlanProviderRow, PlanUsageReport } from "./plan-usage.ts";
 import { createEngineLimitsRoutes, ENGINE_LIMITS_GUEST } from "./routes/engine-limits.ts";
 import { PASS } from "./routes/table.ts";
@@ -14,9 +15,9 @@ const AT = "2026-11-02T10:00:00.000Z";
 const closed = { available: false, remainingPercent: null, usedPercent: null, resetsAt: null };
 const open = (used: number, resetsAt: string | null = "2026-11-02T12:00:00.000Z") => ({ available: true, usedPercent: used, remainingPercent: 100 - used, resetsAt });
 const row = (id: string, extra: Partial<PlanProviderRow> = {}): PlanProviderRow => ({
-  id, name: id, driver: "claude", plan: "max", ok: true, error: null, fiveHour: open(40.25), weekly: open(70), extra: [], models: [], ...extra,
+  id, name: id, driver: "codex", plan: "plus", ok: true, error: null, fiveHour: open(40.25), weekly: open(70), extra: [], models: [], ...extra,
 });
-const instance = (instanceId: string, driverKind = "claudeAgent", displayName: string | undefined = "Claude", enabled = true): EngineLimitInstance => ({ instanceId, driverKind, displayName, enabled });
+const instance = (instanceId: string, driverKind = "codex", displayName: string | undefined = "Codex", enabled = true): EngineLimitInstance => ({ instanceId, driverKind, displayName, enabled });
 const ready: ProviderSnapshot = { state: "available", authenticated: true, billing: "subscription" };
 const report = (...providers: PlanProviderRow[]): PlanUsageReport => ({ fetchedAt: AT, providers });
 const read = (input: Partial<Parameters<typeof engineLimitsFor>[0]> & { instances: EngineLimitInstance[] }) => engineLimitsFor({
@@ -26,19 +27,19 @@ const read = (input: Partial<Parameters<typeof engineLimitsFor>[0]> & { instance
 describe("usage limits a bot reads", () => {
   it("gives percent, reset and when it was checked, for every window the account reports", () => {
     const [account] = read({
-      instances: [instance("claude")],
-      report: report(row("claude", {
-        extra: [{ label: "Extra Usage", usedPercent: 5, remainingPercent: 95, resetsAt: null }],
-        models: [{ name: "Opus", windows: [{ label: "Weekly", usedPercent: 80, remainingPercent: 20, resetsAt: AT }] }],
+      instances: [instance("codex")],
+      report: report(row("codex", {
+        extra: [{ label: "Code review", usedPercent: 5, remainingPercent: 95, resetsAt: null }],
+        models: [{ name: "GPT-5 Codex", windows: [{ label: "Weekly", usedPercent: 80, remainingPercent: 20, resetsAt: AT }] }],
       })),
     });
     expect(account).toEqual({
-      account: "Claude", engine: "claudeAgent", status: "ok", plan: "max", checkedAt: AT,
+      account: "Codex", engine: "codex", status: "ok", plan: "plus", checkedAt: AT,
       windows: [
         { name: "5-hour", usedPercent: 40.3, resetsAt: "2026-11-02T12:00:00.000Z" },
         { name: "weekly", usedPercent: 70, resetsAt: "2026-11-02T12:00:00.000Z" },
-        { name: "Extra Usage", usedPercent: 5, resetsAt: null },
-        { name: "Opus Weekly", usedPercent: 80, resetsAt: AT },
+        { name: "Code review", usedPercent: 5, resetsAt: null },
+        { name: "GPT-5 Codex Weekly", usedPercent: 80, resetsAt: AT },
       ],
     });
   });
@@ -57,21 +58,21 @@ describe("usage limits a bot reads", () => {
       { account: "Antigravity", engine: "antigravityAgent", status: "unknown", checkedAt: AT, windows: [], why: "Usage could not be checked just now. Try again later." },
     ]);
     expect(read({ instances: [antigravity], status: () => ({ ...ready, authenticated: false }) })).toEqual([]);
-    expect(read({ instances: [instance("claude")], report: report(row("claude")) })[0]!.windows[0]!.name).toBe("5-hour");
+    expect(read({ instances: [instance("codex")], report: report(row("codex")) })[0]!.windows[0]!.name).toBe("5-hour");
   });
 
   it("tells unknown from unsupported", () => {
     const accounts = read({
-      instances: [instance("signed-out", "claudeAgent", "Signed out"), instance("quiet", "codex", "Quiet"), instance("cursor", "cursorAgent", "Cursor"), instance("key", "claudeAgent", "Key")],
+      instances: [instance("signed-out", "codex", "Signed out"), instance("quiet", "codex", "Quiet"), instance("cursor", "cursorAgent", "Cursor"), instance("key", "claudeAgent", "Key")],
       status: (id) => id === "key" ? { ...ready, billing: "metered" } : ready,
       report: report(
-        row("signed-out", { ok: false, error: "Sign in again in Claude", fiveHour: closed, weekly: closed }),
+        row("signed-out", { ok: false, error: "Sign in again in Codex", fiveHour: closed, weekly: closed }),
         row("quiet", { fiveHour: closed, weekly: closed, plan: null }),
         row("key"),
       ),
     });
     expect(accounts.map(({ account, status, checkedAt, windows, why }) => ({ account, status, checkedAt, windows: windows.length, why }))).toEqual([
-      { account: "Signed out", status: "unknown", checkedAt: AT, windows: 0, why: "Sign in again in Claude" },
+      { account: "Signed out", status: "unknown", checkedAt: AT, windows: 0, why: "Sign in again in Codex" },
       { account: "Quiet", status: "unknown", checkedAt: AT, windows: 0, why: "The account answered but reported no usage windows." },
       { account: "Cursor", status: "unsupported", checkedAt: null, windows: 0, why: "This AI does not report usage limits to this app." },
       { account: "Key", status: "unsupported", checkedAt: null, windows: 0, why: "This AI does not report usage limits to this app." },
@@ -88,7 +89,7 @@ describe("usage limits a bot reads", () => {
   });
 
   it("says unknown, not unsupported, when the read itself failed", () => {
-    expect(read({ instances: [instance("claude"), instance("cursor", "cursorAgent", "Cursor")], report: null }).map((account) => account.status)).toEqual(["unknown", "unsupported"]);
+    expect(read({ instances: [instance("codex"), instance("cursor", "cursorAgent", "Cursor")], report: null }).map((account) => account.status)).toEqual(["unknown", "unsupported"]);
   });
 
   it("leaves out an engine that is off, not installed, or a signed-out one that reports nothing", () => {
@@ -98,6 +99,22 @@ describe("usage limits a bot reads", () => {
       report: report(row("off"), row("missing")),
     });
     expect(accounts).toEqual([]);
+  });
+
+  it("gives Claude only what its CLI reported: the refusal holding it, else nothing", () => {
+    const claude = instance("claude", "claudeAgent", "Claude");
+    const stray = report(row("claude", { driver: "claude" }));
+    expect(read({ instances: [claude], report: stray })).toEqual([
+      { account: "Claude", engine: "claudeAgent", status: "unknown", checkedAt: null, windows: [], why: "Claude Code reports a limit only when a turn reaches it, and none is reached now." },
+    ]);
+    const resetsAt = Date.parse(AT) + 3_600_000;
+    const held = vi.fn((_id: string): EngineLimit => ({ engine: "claude", name: "Claude", driver: "claude", window: null, usedPercent: 100, resetsAt, blocked: true, held: true }));
+    expect(read({ instances: [claude], report: null, held })).toEqual([
+      { account: "Claude", engine: "claudeAgent", status: "ok", checkedAt: null, windows: [{ name: "usage", usedPercent: 100, resetsAt: new Date(resetsAt).toISOString() }] },
+    ]);
+    expect(held).toHaveBeenCalledWith("claude");
+    expect(read({ instances: [claude], held: () => ({ ...held("claude"), window: "weekly", resetsAt: null }) })[0]!.windows).toEqual([{ name: "weekly", usedPercent: 100, resetsAt: null }]);
+    expect(read({ instances: [claude], status: () => ({ ...ready, billing: "metered" }), held })[0]).toMatchObject({ status: "unsupported" });
   });
 
   it("carries no credential, account id, sign-in folder or address", () => {
@@ -144,8 +161,8 @@ describe("a Team Cloud's audience rule", () => {
 
 describe("the internal route", () => {
   const route = (over: Partial<Parameters<typeof createEngineLimitsRoutes>[0]> = {}) => {
-    const load = vi.fn(async () => report(row("claude")));
-    const deps = { instances: () => [instance("claude")], configs: () => ({ claude: { driver: "claudeAgent" } }) as InstanceConfigMap, status: () => ready, load, audienceOf: () => TEAM_AUDIENCE, guestDriven: () => false, dataDir: DATA, ...over };
+    const load = vi.fn(async () => report(row("codex")));
+    const deps = { instances: () => [instance("codex")], configs: () => ({ codex: { driver: "codex" } }) as InstanceConfigMap, status: () => ready, load, audienceOf: () => TEAM_AUDIENCE, guestDriven: () => false, dataDir: DATA, ...over };
     return { load, run: createEngineLimitsRoutes(deps) };
   };
   const call = async (run: ReturnType<typeof route>["run"], method = "GET", path = "/api/internal/engine-limits") => {
@@ -158,8 +175,8 @@ describe("the internal route", () => {
     const { run, load } = route();
     const { status, body } = await call(run);
     expect(status).toBe(200);
-    expect(JSON.parse(body!.text!).accounts[0]).toMatchObject({ account: "Claude", status: "ok" });
-    expect(load).toHaveBeenCalledWith([expect.objectContaining({ id: "claude", driver: "claude" })]);
+    expect(JSON.parse(body!.text!).accounts[0]).toMatchObject({ account: "Codex", status: "ok" });
+    expect(load).toHaveBeenCalledWith([expect.objectContaining({ id: "codex", driver: "codex" })]);
   });
 
   it("refuses a turn someone else started, without reading anything", async () => {

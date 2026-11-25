@@ -1,4 +1,5 @@
-// The agents catalog's usage_limits tool: one read of the plan-usage data the app's own Usage page shows. The internal
+// The agents catalog's usage_limits tool: one read of the plan-usage data the app's own Usage page shows, and of the
+// limits Claude Code reported. The internal
 // route (server/routes/engine-limits.ts) decides which accounts this conversation may see.
 import type { ToolCallContext, ToolCallResult } from "./agents-call.ts";
 

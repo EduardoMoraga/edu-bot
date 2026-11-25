@@ -1,7 +1,9 @@
 // What a bot may read about the usage limits of the AI accounts it can run on: percent used, reset time and when that was
-// checked, per account. Rows are built field by field from the plan-usage report, so no token, account id, sign-in folder
-// or address can reach a model. Security: an account kept in another person's engine home is never listed to a turn.
+// checked, per account. Rows are built field by field from the plan-usage report (Claude's from the limit clock), so no
+// token, account id, sign-in folder or address can reach a model. Security: an account kept in another person's engine home is never listed to a turn.
 import { join, relative, isAbsolute } from "node:path";
+
+import type { EngineLimit } from "../shared/limit-reset.ts";
 
 import { audienceMember, type Audience } from "./audience.ts";
 import type { InstanceConfig, InstanceConfigMap, ProviderSnapshot } from "./contracts.ts";
@@ -38,9 +40,11 @@ export interface EngineLimitInstance {
 
 const REPORTING_DRIVERS: ReadonlySet<string> = new Set(["claudeAgent", "codex", "grokAgent", "opencodeGo", "antigravityAgent"]);
 const ANTIGRAVITY = "antigravityAgent";
+const CLAUDE = "claudeAgent";
 const UNSUPPORTED_WHY = "This AI does not report usage limits to this app.";
 const NO_WINDOWS_WHY = "The account answered but reported no usage windows.";
 const NOT_CHECKED_WHY = "Usage could not be checked just now. Try again later.";
+const CLAUDE_WHY = "Claude Code reports a limit only when a turn reaches it, and none is reached now.";
 
 function under(root: string, path: string): string | null {
   const inside = relative(root, path);
@@ -78,6 +82,13 @@ function rowWindows(row: PlanProviderRow, lead = ""): EngineLimitWindow[] {
   ];
 }
 
+/** Claude's limit is only what its own CLI reported: a refusal that holds the engine until the reset it named. */
+function claudeAccount(base: Pick<EngineLimitAccount, "account" | "engine">, held: EngineLimit | undefined): EngineLimitAccount {
+  if (!held?.blocked) return { ...base, status: "unknown", checkedAt: null, windows: [], why: CLAUDE_WHY };
+  const resetsAt = held.resetsAt === null ? null : new Date(held.resetsAt).toISOString();
+  return { ...base, status: "ok", checkedAt: null, windows: [{ name: held.window ?? "usage", usedPercent: 100, resetsAt }] };
+}
+
 /** A person may have named an account after their address. */
 const shownName = (instance: EngineLimitInstance) => {
   const name = instance.displayName?.trim();
@@ -90,6 +101,8 @@ export function engineLimitsFor(input: {
   status: (instanceId: string) => ProviderSnapshot | undefined;
   /** Null when the read failed. */
   report: PlanUsageReport | null;
+  /** The limit clock's entry for an engine: for Claude, the hold its CLI's last refusal set. */
+  held?: (instanceId: string) => EngineLimit | undefined;
   turn: Audience;
   dataDir: string;
 }): EngineLimitAccount[] {
@@ -107,6 +120,7 @@ export function engineLimitsFor(input: {
     if (!REPORTING_DRIVERS.has(instance.driverKind) || snapshot.billing === "metered" || (instance.driverKind === ANTIGRAVITY && !ANTIGRAVITY_USAGE_LIMITS)) {
       return snapshot.authenticated === false ? [] : [{ ...base, status: "unsupported", checkedAt: null, windows: [], why: UNSUPPORTED_WHY }];
     }
+    if (instance.driverKind === CLAUDE) return [claudeAccount(base, input.held?.(instance.instanceId))];
     if (!report) return [{ ...base, status: "unknown", checkedAt: null, windows: [], why: NOT_CHECKED_WHY }];
     const row = report.providers.find((candidate) => candidate.id === instance.instanceId);
     // An Antigravity account has no row when its limits could not be read just now, or when nobody is signed in.

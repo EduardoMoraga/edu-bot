@@ -7,7 +7,7 @@ import { NEAR_LIMIT_PERCENT, type EngineLimit, type EngineLimitsReport, type Lim
 import { writeFileAtomic } from "./atomic.ts";
 import { LIMIT_POLL_MS, limitReadDue } from "./limit-poll.ts";
 import { codexHasCreditRoom } from "./codex-credits.ts";
-import { claudeHasExtraUsageRoom, loadPlanUsage, type PlanAccount, type PlanProviderRow, type PlanUsageReport, type PlanWindow } from "./plan-usage.ts";
+import { loadPlanUsage, type PlanAccount, type PlanProviderRow, type PlanUsageReport, type PlanWindow } from "./plan-usage.ts";
 import type { RuntimeEvent } from "../shared/runtime-events.ts";
 import { OPENCODE_GO_MODEL_PREFIX, typedOpenCodeModel } from "../shared/opencode-model-id.ts";
 
@@ -43,7 +43,7 @@ export function engineLimitFromUsage(row: PlanProviderRow): EngineLimit | null {
   if (full.length) {
     const latest = full.reduce((left, right) => (right.resetsAt ?? 0) > (left.resetsAt ?? 0) ? right : left);
     // A full window is the meter only: the engine's own refusal still holds it. A shown-only meter never holds the engine.
-    return { ...base, window: latest.window, usedPercent: 100, resetsAt: full.some((line) => line.resetsAt === null) ? null : latest.resetsAt, blocked: meterHoldsEngine(row.driver) && !claudeHasExtraUsageRoom(row) && !codexHasCreditRoom(row) };
+    return { ...base, window: latest.window, usedPercent: 100, resetsAt: full.some((line) => line.resetsAt === null) ? null : latest.resetsAt, blocked: meterHoldsEngine(row.driver) && !codexHasCreditRoom(row) };
   }
   const fullest = [...windows].sort((left, right) => right.used - left.used || (left.resetsAt ?? Infinity) - (right.resetsAt ?? Infinity))[0]!;
   return { ...base, window: fullest.window, usedPercent: fullest.used, resetsAt: fullest.resetsAt, blocked: false };
@@ -54,8 +54,8 @@ const SAME_RESET_MS = 5 * 60_000;
 
 /** A refusal's hold that fresh usage shows is over: no window at its limit and none resetting at the hold's time, so the
  * window that refused is gone (a plan upgrade, a reset moved early or done outside the app). Every new turn goes to another
- * AI while the engine is held, so no turn could end the hold. Claude too: if it still refuses on a limit these windows do
- * not show, that refusal holds it again. A guessed hold (no reset named) has no time to compare and runs out in an hour. */
+ * AI while the engine is held, so no turn could end the hold. If the engine still refuses on a limit these windows do not
+ * show, that refusal holds it again. A guessed hold (no reset named) has no time to compare and runs out in an hour. */
 function holdGone(row: PlanProviderRow, limit: EngineLimit, held: number | undefined, guessed: boolean): boolean {
   if (held === undefined || guessed || limit.blocked || limit.usedPercent === null || limit.usedPercent >= 100) return false;
   // OpenCode Go also refuses on its month, which its row carries as an extra line: a full month keeps the hold.
