@@ -1,6 +1,7 @@
 // Security: sharing this computer with a server lets its bots read its folders, run commands or act in its apps as the
 // person. These are main's own dialogs, which no page (this computer's or a server's) can draw or answer, and each one
 // defaults to Cancel.
+import { consentGiven } from "./consent-dialog.mjs";
 import { randomUUID } from "node:crypto";
 import nativeText from "./native-text.cjs";
 
@@ -33,12 +34,9 @@ export function createLendingDialogs({ dialog, window, validate, isHome = async 
         if (askingTerminal) return false;
         askingTerminal = true;
         try {
-          const { response } = await dialog.showMessageBox({
-            type: "warning", buttons: [t("native.lend.terminalAllow"), t("native.common.cancel")], defaultId: 1, cancelId: 1,
-            message: t("native.lend.terminalTitle"),
-            detail: t("native.lend.terminalDetail"),
-          });
-          if (response !== 0) return false;
+          const allowed = await consentGiven(dialog, null, { type: "warning", grant: t("native.lend.terminalAllow"), refuse: t("native.common.cancel"),
+            message: t("native.lend.terminalTitle"), detail: t("native.lend.terminalDetail") });
+          if (!allowed) return false;
         } finally { askingTerminal = false; }
       }
       await lend();
@@ -53,18 +51,16 @@ export function createLendingDialogs({ dialog, window, validate, isHome = async 
       if (await isHome(folder.path)) {
         // What stays private is `personalSecretPaths` and this app's own data (computer-sharing.mjs `protectedRoots`),
         // refused inside any lent folder, the home folder included.
-        const { response } = await dialog.showMessageBox(window(), { type: "warning", message: t("native.lend.home.title"),
-          detail: t("native.lend.home.detail"),
-          buttons: [t("native.lend.home.button"), t("native.common.cancel")], defaultId: 1, cancelId: 1 });
-        if (response !== 0) return null;
+        const whole = await consentGiven(dialog, window(), { type: "warning", message: t("native.lend.home.title"), detail: t("native.lend.home.detail"),
+          grant: t("native.lend.home.button"), refuse: t("native.common.cancel") });
+        if (!whole) return null;
         folder.home = true;
       }
       return (await validate([folder]))[0];
     },
     async confirmServerAccess(env, grant) {
-      const { response } = await dialog.showMessageBox(window(), { type: "warning", message: t("native.lend.allow.title", { name: env.name }), detail: serverAccessDetail(env, grant, t),
-        buttons: [t("native.lend.allow.button"), t("native.common.cancel")], defaultId: 1, cancelId: 1 });
-      return response === 0;
+      return consentGiven(dialog, window(), { type: "warning", message: t("native.lend.allow.title", { name: env.name }), detail: serverAccessDetail(env, grant, t),
+        grant: t("native.lend.allow.button"), refuse: t("native.common.cancel") });
     },
   };
 }

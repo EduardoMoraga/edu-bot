@@ -5,7 +5,7 @@ import { createLendingDialogs, serverAccessDetail } from "./lending-dialogs.mjs"
 import { installServerLending } from "./server-lending.mjs";
 import nativeText from "./native-text.cjs";
 
-function fakeDialog({ response = 1, picked = { canceled: true, filePaths: [] } } = {}) {
+function fakeDialog({ response = 0, picked = { canceled: true, filePaths: [] } } = {}) {
   const calls = [];
   return {
     calls,
@@ -36,12 +36,12 @@ test("a picked folder is checked and lent read only; a cancelled picker lends no
 });
 
 test("the terminal is lent only after its warning's own yes, one question at a time; turning it off never asks", async () => {
-  for (const [response, lent] of [[0, true], [1, false], [-1, false]]) {
+  for (const [response, lent] of [[1, true], [0, false], [-1, false]]) {
     const { dialog, calls } = fakeDialog({ response });
     let lends = 0;
     await createLendingDialogs({ dialog, window: liveWindow, validate: named }).lendTerminal(true, async () => { lends += 1; });
     assert.equal(lends, lent ? 1 : 0, `response ${response}`);
-    assert.equal(calls[0][1].defaultId, 1, "Cancel is the default");
+    assert.deepEqual([calls[0][1].defaultId, calls[0][1].cancelId, calls[0][1].buttons[0]], [0, 0, "Cancel"], "Cancel is first, the default and the cancel button");
   }
   let answer;
   const slow = { showMessageBox: () => new Promise(resolve => { answer = resolve; }) };
@@ -49,7 +49,7 @@ test("the terminal is lent only after its warning's own yes, one question at a t
   let lends = 0;
   const first = dialogs.lendTerminal(true, async () => { lends += 1; });
   await dialogs.lendTerminal(true, async () => { lends += 1; });
-  answer({ response: 0 });
+  answer({ response: 1 });
   await first;
   assert.equal(lends, 1, "a second click while the question is open lends nothing more");
   const off = fakeDialog();
@@ -63,28 +63,28 @@ test("the terminal warning follows the app's language and keeps Cancel as its de
   const { dialog, calls } = fakeDialog();
   const dialogs = createLendingDialogs({ dialog, window: liveWindow, validate: named, t: text.t });
   for (const [language, message, buttons] of [
-    ["en", "Let your Clouds run commands on this computer?", ["Let them run commands", "Cancel"]],
-    ["pt-br", "Permitir que seus Clouds executem comandos neste computador?", ["Permitir que executem comandos", "Cancelar"]],
+    ["en", "Let your Clouds run commands on this computer?", ["Cancel", "Let them run commands"]],
+    ["pt-br", "Permitir que seus Clouds executem comandos neste computador?", ["Cancelar", "Permitir que executem comandos"]],
   ]) {
     text.set(language);
     assert.equal(await dialogs.lendTerminal(true, () => assert.fail("Cancel never grants access")), false);
     const options = calls.at(-1)[1];
     assert.equal(options.message, message);
     assert.deepEqual(options.buttons, buttons);
-    assert.deepEqual([options.defaultId, options.cancelId], [1, 1]);
+    assert.deepEqual([options.defaultId, options.cancelId], [0, 0]);
   }
 });
 
 test("the whole home folder is lent only after its own warning, and is named in the access dialog", async () => {
   const win = liveWindow(), isHome = async (path) => path === "/Users/me";
-  for (const [response, lent] of [[0, true], [1, false], [-1, false]]) {
+  for (const [response, lent] of [[1, true], [0, false], [-1, false]]) {
     const { dialog, calls } = fakeDialog({ response, picked: { canceled: false, filePaths: ["/Users/me"] } });
     const folder = await createLendingDialogs({ dialog, window: () => win, validate: named, isHome }).chooseFolder("Choose a folder or drive to share");
     assert.equal(calls[1][0], "message");
     assert.equal(calls[1][2].message, "Share your whole home folder?");
     // The truth, not a scare: secrets inside it stay private (proven through the lending path in shared-computer-access).
     assert.match(calls[1][2].detail, /readable by the bots you allow\. .*keys, passwords and browser data, like \.ssh .*always stay private\./);
-    assert.deepEqual([calls[1][2].defaultId, calls[1][2].cancelId], [1, 1]);
+    assert.deepEqual([calls[1][2].defaultId, calls[1][2].cancelId], [0, 0]);
     assert.equal(folder === null, !lent);
     if (lent) assert.deepEqual({ path: folder.path, home: folder.home, write: folder.write }, { path: "/Users/me", home: true, write: false });
   }
@@ -101,11 +101,11 @@ test("a server's computer access is allowed only by the dialog's own Allow, and 
   const grant = { folders: [{ path: "/Users/me/Plans", write: true }, { path: "/Users/me/Notes", write: false }], terminal: true, computer: false };
   for (const response of [0, 1, -1]) {
     const win = liveWindow(), { dialog, calls } = fakeDialog({ response });
-    assert.equal(await createLendingDialogs({ dialog, window: () => win, validate: named }).confirmServerAccess(env, grant), response === 0);
+    assert.equal(await createLendingDialogs({ dialog, window: () => win, validate: named }).confirmServerAccess(env, grant), response === 1);
     const [[kind, parent, options]] = calls;
     assert.equal(kind, "message");
     assert.equal(parent, win);
-    assert.deepEqual({ ...options, detail: undefined }, { type: "warning", message: "Allow computer access for Team server?", detail: undefined, buttons: ["Allow access", "Cancel"], defaultId: 1, cancelId: 1 });
+    assert.deepEqual({ ...options, detail: undefined }, { type: "warning", message: "Allow computer access for Team server?", detail: undefined, buttons: ["Cancel", "Allow access"], defaultId: 0, cancelId: 0 });
     assert.equal(options.detail, serverAccessDetail(env, grant));
   }
   const detail = serverAccessDetail(env, grant).split("\n\n");
@@ -130,12 +130,12 @@ function mainSharing({ response }) {
 }
 
 test("main asks in its own dialog before a server gets this computer, and Cancel saves nothing", async () => {
-  const cancelled = mainSharing({ response: 1 });
+  const cancelled = mainSharing({ response: 0 });
   assert.equal(await cancelled.handlers.get("sharing:save")({}, "team", { folders: [{ path: "/Users/me/Plans", write: true }], terminal: true }), null);
   assert.deepEqual(cancelled.calls.map(([kind, , options]) => [kind, options.message]), [["message", "Allow computer access for Team server?"]]);
   assert.deepEqual(cancelled.saved, []);
 
-  const allowed = mainSharing({ response: 0 });
+  const allowed = mainSharing({ response: 1 });
   await allowed.handlers.get("sharing:save")({}, "team", { folders: [{ path: "/Users/me/Plans", write: true }], terminal: true });
   assert.deepEqual(allowed.saved.map(([id]) => id), ["team"]);
   assert.deepEqual(JSON.parse(JSON.stringify(allowed.saved[0][1])), { folders: [{ path: "/Users/me/Plans", write: true, name: "Plans" }], terminal: true, computer: false });

@@ -138,7 +138,7 @@ describe("installCredentialStoreIpc", () => {
     const deps = {
       ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) },
       localOnly: vi.fn((channel, handler) => handler),
-      dialog: { showMessageBox: vi.fn(async () => ({ response: 0 })) },
+      dialog: { showMessageBox: vi.fn(async () => ({ response: 1 })) },
       windowFor: () => null,
       t: (key) => key,
       appName: () => "OpenMausBot",
@@ -170,7 +170,7 @@ describe("installCredentialStoreIpc", () => {
   });
 
   it("moves nothing when the person cancels", async () => {
-    const { handlers, deps } = installed({ dialog: { showMessageBox: vi.fn(async () => ({ response: 1 })) } });
+    const { handlers, deps } = installed({ dialog: { showMessageBox: vi.fn(async () => ({ response: 0 })) } });
     await expect(handlers.get("credential-store:reset")({ sender: {} })).resolves.toBe("cancelled");
     expect(deps.moveAside).not.toHaveBeenCalled();
     expect(deps.relaunch).not.toHaveBeenCalled();
@@ -180,7 +180,7 @@ describe("installCredentialStoreIpc", () => {
     const win = { id: 7 };
     const { handlers, deps } = installed({ windowFor: () => win });
     await expect(handlers.get("credential-store:reset")({ sender: {} })).resolves.toBe("reset");
-    expect(deps.dialog.showMessageBox).toHaveBeenCalledWith(win, expect.objectContaining({ message: "native.dialog.resetSavedKeys.title", cancelId: 1, defaultId: 1 }));
+    expect(deps.dialog.showMessageBox).toHaveBeenCalledWith(win, expect.objectContaining({ message: "native.dialog.resetSavedKeys.title", cancelId: 0, defaultId: 0, buttons: ["native.common.cancel", "native.dialog.resetSavedKeys.button"] }));
     expect(deps.moveAside).toHaveBeenCalledTimes(1);
     expect(deps.relaunch).toHaveBeenCalledTimes(1);
   });

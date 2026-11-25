@@ -3,6 +3,7 @@
 // pairing (once for a pairing made before this) or from Settings' switch, with no maintainer flag; any other server only
 // while that flag is on, as before. Security: every grant is confirmed in main's own dialog, which no page can draw or
 // answer, and each one defaults to Not now; stopping never needs a flag.
+import { consentGiven } from "./consent-dialog.mjs";
 import nativeText from "./native-text.cjs";
 
 const OWN_CHECK_MS = 30_000;
@@ -34,9 +35,8 @@ export function installServerLending({ ipcMain, guard, sharing, dialogs, validat
   };
   /** The one question, the same after pairing and from Settings' switch. */
   const allows = async (env, parent = window()) => {
-    const options = { type: "question", message: t("native.lend.own.title", { name: env.name }), detail: t("native.lend.own.detail"),
-      buttons: [t("native.lend.own.allow"), t("native.dialog.share.notNow")], defaultId: 1, cancelId: 1 };
-    return (await (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options))).response === 0;
+    return consentGiven(dialog, parent, { type: "question", message: t("native.lend.own.title", { name: env.name }), detail: t("native.lend.own.detail"),
+      grant: t("native.lend.own.allow"), refuse: t("native.dialog.share.notNow") });
   };
   /** Allow lends the apps on the screen now; folders and the terminal are chosen in Settings. */
   const firstGrant = { folders: [], terminal: false, computer: true };
@@ -107,12 +107,10 @@ export function installServerLending({ ipcMain, guard, sharing, dialogs, validat
         if (!(await flag()) || win.isDestroyed()) return;
         const seen = await sharing().observe(env);
         if (!seen || !showing(win, env)) return;
-        const choice = await dialog.showMessageBox(win, {
-          type: "question", message: t("native.dialog.share.title", { name: env.name }), detail: t("native.dialog.share.detail"),
-          buttons: [t("native.dialog.share.choose"), t("native.dialog.share.notNow")], defaultId: 1, cancelId: 1,
-        });
+        const choose = await consentGiven(dialog, win, { type: "question", message: t("native.dialog.share.title", { name: env.name }), detail: t("native.dialog.share.detail"),
+          grant: t("native.dialog.share.choose"), refuse: t("native.dialog.share.notNow") });
         sharing().decline(env, seen);
-        if (choice.response === 0) openSettings(env.id);
+        if (choose) openSettings(env.id);
       } catch (error) { log(`computer sharing offer: ${error?.message ?? error}`); }
       finally { asking.delete(env.id); }
     },
