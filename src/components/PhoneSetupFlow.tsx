@@ -53,7 +53,7 @@ import {
   pairThroughRelayWithoutAddress, relayServesPairing,
   secureAddressRequestLapsed,
   shouldArmPhoneSetupProvisioningTimeout,
-  shouldPrepareSecureAddress,
+  shouldPrepareSecureAddress, signInNotOffered,
   startNonOverlappingPhoneSetupPoll,
   type PhoneSetupPhase,
   type PhonePairingAttemptLock,
@@ -114,10 +114,6 @@ export const shouldHydrateCompanionEmail = (
   userEdited: boolean,
   account: CompanionAccountState,
 ): boolean => !userEdited && Boolean(account.email);
-
-/** No relay service is set up for this app (OMB_CONTROL_PLANE_URL), so there is no sign-in to offer or to retry: the
- * phone pairs on the same Wi-Fi or through Tailscale. */
-export const signInNotOffered = (account: CompanionAccountState | null): boolean => account?.problem === "unconfigured";
 
 export const companionAccountActionError = (
   account: CompanionAccountState | null,
@@ -888,8 +884,7 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
   }
 
   if (c.phase === "sign-in") {
-    const choosing = signInNotOffered(c.account);
-    const unavailable = !choosing && !c.account?.available;
+    const choosing = signInNotOffered(c.account), unavailable = !choosing && !c.account?.available;
     const failed = !choosing && (c.account?.status === "error" || c.setupTimedOut);
     return (
       <div className="mx-auto flex w-full max-w-[430px] flex-col">
@@ -903,9 +898,7 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
           {choosing ? t("phone.signIn.chooseTitle") : unavailable || failed ? t("phone.signIn.attention") : t("phone.signIn.title")}
         </h2>
         <p role={c.setupTimedOut ? "alert" : undefined} className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
-          {choosing
-            ? t("phone.signIn.chooseDetail")
-            : unavailable
+          {choosing ? t("phone.signIn.chooseDetail") : unavailable
             ? t("phone.signIn.unavailable")
             : c.setupTimedOut
               ? t("phone.signIn.timedOut")

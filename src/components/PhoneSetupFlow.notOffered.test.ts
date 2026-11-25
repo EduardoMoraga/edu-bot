@@ -2,7 +2,8 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { PhoneSetupFlowView, signInNotOffered, type CompanionState, type PhoneSetupController } from "./PhoneSetupFlow";
+import { signInNotOffered } from "../lib/phone-setup";
+import { PhoneSetupFlowView, type CompanionState, type PhoneSetupController } from "./PhoneSetupFlow";
 
 const state: CompanionState = { enabled: true, keepAwake: false, port: 8810, devices: [], pairing: null, lan: "192.168.1.34" };
 const noop = () => {};
