@@ -24,6 +24,10 @@ Additional third-party components bundled in Edu Bot:
   https://github.com/yisibl/resvg-js.
 - Microsoft Playwright injected snapshot sources (third_party/playwright-injected/),
   Copyright Microsoft Corporation, licensed under the Apache License, Version 2.0.
+- Atkinson Hyperlegible Next (https://github.com/googlefonts/atkinson-hyperlegible-next),
+  Copyright 2020-2024 The Atkinson Hyperlegible Next Project Authors, licensed
+  under the SIL Open Font License, Version 1.1; bundled from
+  @fontsource-variable/atkinson-hyperlegible-next.
 
 ---
 Original upstream NOTICE follows:

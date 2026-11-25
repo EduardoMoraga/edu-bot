@@ -11816,5 +11816,10 @@
   "connectors.setup.keyRefused": "O Composio não aceitou essa chave. Copie-a de novo do seu projeto no Composio.",
   "phone.signIn.chooseTitle": "Escolha como o seu telefone se conecta",
   "phone.signIn.chooseDetail": "Seu telefone se conecta direto a este computador. Escolha como.",
-  "phone.signIn.wifi": "Parear nesta Wi-Fi"
+  "phone.signIn.wifi": "Parear nesta Wi-Fi",
+  "chat.empty.suggestions": "Ideias para começar",
+  "chat.empty.suggest.summarize": "Resuma um documento para mim",
+  "chat.empty.suggest.email": "Me ajude a escrever um e-mail",
+  "chat.empty.suggest.plan": "Planeje minha semana comigo",
+  "chat.empty.suggest.explain": "Explique um assunto em palavras simples"
 }

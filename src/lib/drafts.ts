@@ -314,6 +314,10 @@ export function appendComposerDraft(id: string, text: string): void {
   });
 }
 
+export function suggestComposerDraft(id: string, text: string): void {
+  if (!getDraft(getStore(), id).includes(text)) appendComposerDraft(id, text);
+}
+
 export function prependComposerDraft(id: string, text: string): void {
   const store = getStore();
   const current = getDraft(store, id);

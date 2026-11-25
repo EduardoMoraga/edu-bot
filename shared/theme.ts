@@ -253,7 +253,7 @@ export function themeGuide(): string {
     "Colours first. `canvas` (hex) is the base background and `accent` (hex) the highlight; the app derives its surfaces, lines and text from them.",
     "`skin` picks the built-in skin underneath, so anything the theme leaves out comes from it. `colors` sets single roles; `light` and `dark` hold canvas, accent and colors used only in that mode. With both `light` and `dark`, and `skin` left out or set to \"system\" or a skin the Light or dark choice wears (\"meadow\" and \"edu-night\"; \"daylight\" and \"midnight\" on an install older than 0.3.0), the person's Light or dark choice in Settings picks the mode; otherwise `skin` or a top-level `canvas` fixes it.",
     `Roles: ${THEME_COLOR_ROLES.map((role) => `${role} (${THEME_ROLE_HELP[role]})`).join("; ")}.`,
-    "`font` is a font-family list. Bundled: \"Geist Variable\", \"Inter Variable\", \"Geist Mono Variable\". A font installed on the computer works by name, and a font file can be a theme file loaded with @font-face.",
+    "`font` is a font-family list. Bundled: \"Atkinson Hyperlegible Next Variable\", \"Geist Variable\", \"Inter Variable\", \"Geist Mono Variable\". A font installed on the computer works by name, and a font file can be a theme file loaded with @font-face.",
     "",
     `CSS: \`css\` (up to ${THEME_LIMITS.cssChars.toLocaleString("en")} characters) applies after the app's own styles. Anything goes: borders, roundness, spacing, bubble shapes, backgrounds, @keyframes animations, hover effects.`,
     "The app's own rules can be more specific; add !important when a rule has no effect. Respect @media (prefers-reduced-motion: reduce) for big animations.",

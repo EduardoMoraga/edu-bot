@@ -4,12 +4,12 @@ import { t } from "@/lib/i18n";
 /** The colour behind a Simple row, which the status dot on its avatar is ring-cut against. */
 export function rowSurface(selected: boolean): string {
   return selected
-    ? "[--row:var(--color-raised)]"
+    ? "[--row:var(--color-raised-hover)]"
     : "[--row:var(--color-panel)] max-md:[--row:var(--color-app)] hover:[--row:color-mix(in_srgb,var(--color-ink)_6%,var(--color-panel))]";
 }
 
-/** The conversation the chat window has open: the same plain fill as a selected row. */
-export const rowSelectedSurface = "bg-raised";
+/** The row the chat window has open: the skin's selected fill with its accent mark on the leading edge. */
+export const rowSelectedSurface = "bg-raised-hover bg-[linear-gradient(var(--color-accent-text),var(--color-accent-text))] bg-[length:3px_50%] bg-[position:left_center] bg-no-repeat rtl:bg-[position:right_center]";
 
 export type RowActivity = "working" | "failed" | "teammate" | "queued";
 

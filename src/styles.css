@@ -2,6 +2,7 @@
 @import "@fontsource-variable/inter";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/atkinson-hyperlegible-next";
 
 /* Phones and tablets have no hover, and Tailwind only applies `hover:` and
    `group-hover:` under `@media (hover: hover)`. A control revealed on hover
@@ -880,9 +881,10 @@
   --color-scrollbar: #c3cdc6;
   --color-maus-line: #5a675f;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
-  --tracking-ui: 0.012em;
+  --font-sans: "Atkinson Hyperlegible Next Variable", "Geist Variable", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-weight-normal: 400;
+  --tracking-ui: 0;
   --radius-lg: 10px;
   --radius-xl: 16px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -1009,9 +1011,10 @@
   --color-scrollbar: #46514b;
   --color-maus-line: #b4beb7;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
-  --tracking-ui: 0.012em;
+  --font-sans: "Atkinson Hyperlegible Next Variable", "Geist Variable", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-weight-normal: 400;
+  --tracking-ui: 0;
   --radius-lg: 10px;
   --radius-xl: 16px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -1781,6 +1784,9 @@ body {
 [data-settings-look] :is([data-settings-control], [data-settings-actions], [data-settings-form-foot]) > .settings-quiet:last-child { margin-inline-end: -6px; }
 [data-settings-look] .settings-quiet:enabled:hover { color: var(--color-ink); background: color-mix(in srgb, var(--color-ink) 5%, transparent); }
 [data-settings-look] .settings-quiet[data-danger]:enabled:hover { color: var(--color-danger); }
+[data-settings-page-open]:not([data-settings-advanced]) :is([data-setting-row], [data-settings-row-button], [data-settings-empty]) {
+  padding-block: calc(var(--spacing) * 4);
+}
 /* Rows in a card part with a hairline that starts where their text starts: 16 in, 60 in a card whose rows lead with an icon. */
 /* A row wrapped in a `display: contents` element (for a data hook) parts from the one above all the same. */
 [data-settings-rows] > :not([hidden]) ~ :not([hidden], .contents),

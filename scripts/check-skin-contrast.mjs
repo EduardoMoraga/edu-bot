@@ -168,6 +168,8 @@ const PAIRS = [
   // borders and dots are UI components, not text — AA asks 3:1 of them
   ["--color-hairline", "--color-app", 1.5],
   ["--color-accent", "--color-app", 3],
+  // The mark on the sidebar's selected row.
+  ["--color-accent-text", "--color-raised-hover", 3],
   ["--color-scrollbar", "--color-app", 1.5],
   // The focus ring sits outside the control (outline-offset: 2px), on whatever
   // surface is behind it. WCAG 1.4.11 asks 3:1 of a non-text indicator.

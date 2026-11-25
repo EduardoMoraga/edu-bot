@@ -122,6 +122,18 @@ describe("Simple-mode sidebar layout", () => {
     expect(tree.some((node) => node.type === SidebarTileGrid)).toBe(false);
   });
 
+  it("gives Simple's rows and sections more room than Advanced's, on the same row", () => {
+    const spacing = () => {
+      const { tree } = render();
+      const sections = tree.filter((node) => node.props["data-sidebar-section-id"]);
+      const list = nodes(tree.find((node) => node.type === GlassScroller)!.props.children)[0]!;
+      return [String(list.props.className), ...sections.map((section) => String(section.props.className))].map((classes) => classes.split(" ").filter((name) => /^(gap|pt)-/.test(name)));
+    };
+    expect(spacing()).toEqual([["gap-1.5", "pt-2"], ["gap-1.5"], ["gap-1.5", "pt-2"], ["gap-1.5", "pt-2"]]);
+    fixture.advanced = true;
+    expect(spacing()).toEqual([["gap-0.5"], ["gap-0.5"], ["gap-0.5", "pt-3"], ["gap-0.5", "pt-3"]]);
+  });
+
   it("shows the Chief and the pinned bots as tiles above the rows, with no Pinned or Bots heading", () => {
     fixture.state = { ...fixture.state, bots: [bot("chief", { chiefOfStaff: true, pinned: true }), bot("atlas", { pinned: true }), bot("bea"), bot("dodo", { section: "Work", pinned: true })] };
     const { tree } = render();

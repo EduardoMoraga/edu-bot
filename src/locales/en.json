@@ -11816,5 +11816,10 @@
   "connectors.setup.keyRefused": "Composio did not accept that key. Copy it again from your Composio project.",
   "phone.signIn.chooseTitle": "Choose how your phone connects",
   "phone.signIn.chooseDetail": "Your phone connects straight to this computer. Choose how.",
-  "phone.signIn.wifi": "Pair on this Wi-Fi"
+  "phone.signIn.wifi": "Pair on this Wi-Fi",
+  "chat.empty.suggestions": "Ideas to start",
+  "chat.empty.suggest.summarize": "Summarize a document for me",
+  "chat.empty.suggest.email": "Help me write an email",
+  "chat.empty.suggest.plan": "Plan my week with me",
+  "chat.empty.suggest.explain": "Explain a topic in plain words"
 }

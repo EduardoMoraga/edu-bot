@@ -107,15 +107,21 @@ Rules:
 
 ## 4. Type
 
-Midnight and Daylight use **Geist** for text and **Geist Mono** for code, keys
-and paths. A skin may choose its own face; components never set `font-family`
-and never add fonts.
+Edu and Edu Night, the look of a new install, use **Atkinson Hyperlegible
+Next** for text: Edu Bot's own face, drawn so that letters people mix up
+(I, l and 1; O and 0; B and 8) stay apart at small sizes. Midnight and
+Daylight use **Geist**. Every skin uses **Geist Mono** for code, keys and
+paths. A skin may choose its own face; components never set `font-family` and
+never add fonts. Every bundled face ships inside the app
+(`@fontsource-variable/*`); nothing is fetched at run time.
 
-Regular text is weight 415 (`--font-weight-normal`, which `font-normal` uses):
-Geist is a variable font, so this sits a touch above 400 and a static face
-rounds it to 400. Text tracks at +0.012em (`--tracking-ui`, set once on
-`body`); a skin or a theme with its own face resets it to 0, and code and keys
-are never tracked. Titles of 17px and up keep `tracking-[-0.01em]`.
+Regular text is `--font-weight-normal`, which `font-normal` uses. On Geist it
+is 415: Geist is a variable font, so this sits a touch above 400 and a static
+face rounds it to 400. On Atkinson Hyperlegible Next it is 400. The table
+below writes it as 415. Text tracks at +0.012em on Geist (`--tracking-ui`,
+set once on `body`); a skin or a theme with its own face, the Edu pair
+included, sets it to 0, and code and keys are never tracked. Titles of 17px
+and up keep `tracking-[-0.01em]`.
 
 | Use | Size / line height | Weight | Ink |
 |---|---|---|---|
@@ -126,7 +132,7 @@ are never tracked. Titles of 17px and up keep `tracking-[-0.01em]`.
 | Menu item (`MENU_ITEM`) | 14 / 18px; the composer's menu 14 / 20px in 32px rows | 415 | `ink` |
 | Body, rows, menu rows (`MENU_ROW`) | 13 / 18px | 415 | `ink` or `ink-secondary` |
 | Names in lists (bots in the sidebar 14 / 20px) | 13 / 18px | 500 | `ink` |
-| Sidebar group labels ("Bots", "Tools", a department) | 13 / 18px | 415 | `ink-secondary` |
+| Sidebar group labels ("Bots", "Tools", a department) | 12 / 16px | 500 | `ink-secondary` |
 | Sidebar places (the rows under "Tools") | 14 / 20px | 415 | `ink` |
 | Pinned bot captions | 12 / 16px | 415 | `ink` |
 | Speaker names in transcripts (people and bots) | 13px | 600 | bot colour, else `ink-secondary` |
@@ -187,13 +193,28 @@ element's job and never a pixel value:
   are 36px. On touch screens, targets grow to 40–44px with the `touch:`
   variant.
 - **Sidebar rows:** Simple's rows have 8px padding and a 10px gap after the
-  36px avatar; every row hovers at `bg-ink/[0.06]`. The sidebar is 280px wide
+  36px avatar; every row hovers at `bg-ink/[0.06]`. The sidebar has three
+  levels: a group label, the bots and rooms under it, and a bot's
+  conversations indented under the bot. The open one wears `raised-hover`
+  with a 3px bar in `accent-text` on its leading edge (`rowSelectedSurface`);
+  nothing else in the sidebar is accent-coloured. The sidebar is 280px wide
   in both modes; pinned bots are 95 × 92px tiles with a 60px avatar. Pinned
   pages never join them: a bot's pages are in its bot panel's Library tab.
 - **The sidebar stays open beside a side panel** while the chat keeps 440px:
   from 1040px with a 320px panel (Simple's bot panel, a room, Simple's inbox,
   Notifications), from 1280px with a wider one. Narrower, it folds to its
   avatars.
+- **Simple mode has more air; Advanced stays dense.** The same rows at the
+  same sizes, with more room between them:
+
+  | Where | Simple | Advanced |
+  |---|---|---|
+  | Between sidebar rows | 6px (`gap-1.5`) | 2px (`gap-0.5`) |
+  | Above a sidebar group after the first | 8px over its 30px label | 12px |
+  | Above and below a Settings row | 16px (a one-line row is 52px) | 12px (44px) |
+
+  Switching modes changes these gaps and nothing else: no row changes height,
+  order or content because of spacing.
 - **Group with space before you group with lines.** Add a divider only between
   groups that space alone can't separate. Never a divider under a heading.
 - **No cards inside cards.** If a card needs sections, use spacing and a group
@@ -208,7 +229,7 @@ element's job and never a pixel value:
 
 - **Use `lucide-react` only.** No emoji as icons, no icon fonts, no
   hand-drawn SVGs for things Lucide has. Product marks (the Edu Bot mark, third-party
-  logos) are the exception.
+  logos) and the empty chat's drawing are the exception.
 - **Sizes:** 16px in menus, rows and toolbars, and in every 36px or 28px
   button; 14px next to 12–13px text; 12px for disclosure chevrons.
 - **Don't set `strokeWidth`.** The stylesheet draws every Lucide icon at 1.9,
@@ -310,6 +331,8 @@ talks.
   themes. "Your name · Not set yet" beats an empty field with grey text.
 - **Empty states are one line and one action.** Say what goes here and how
   to add the first one. No paragraphs, no illustrations made for the occasion.
+  The empty chat is the one screen with its own drawing
+  (see [section 12](#12-states)).
 - **Never promise.** No "coming soon" and no teasers for unbuilt features.
 - **Use "…" (one character)** for work in progress ("Saving…") and for a
   command that asks for more before acting ("Rename…").
@@ -330,6 +353,15 @@ Before a UI change is done, it handles each of these:
 - **Loading.** Keep the layout steady; reserve the space. A spinner only if it
   takes over 300ms. No skeletons for things that load in under a second.
 - **Empty.** See [section 11](#11-words).
+- **Empty chat** (`EmptyChat`). A conversation with no messages shows, centred
+  in the chat column: the Edu drawing (`EmptyChatArt`, an inline SVG painted
+  only with skin tokens, never a mascot), the bot's name at 17px, its
+  description or one line saying what to do, four things to ask as `.ui-pill`
+  buttons, and **New bot** as a plain `.ui-button`. A thing to ask fills the
+  composer and puts the cursor there; it is never sent, and pressing it twice
+  does not repeat it. Someone who cannot write here gets no things to ask,
+  and someone who may not add bots gets no New bot. It does not move: no
+  animation, no loop.
 - **Error.** Inline, next to what failed, with a way to retry.
 - **Long and odd content.** A 60-character name, a 2,000-row table, an emoji,
   Arabic or Hebrew text, no avatar.
