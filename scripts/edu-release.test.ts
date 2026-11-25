@@ -34,10 +34,10 @@ function resourcePaths(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-describe("Edu Bot 0.1.0 release metadata", () => {
-  it("pins package.json and the released data format to 0.1.0", () => {
-    expect(JSON.parse(read("package.json")).version).toBe("0.1.0");
-    expect(JSON.parse(read("server/data-format-released.json")).version).toBe("0.1.0");
+describe("Edu Bot 0.2.0 release metadata", () => {
+  it("pins package.json and the released data format to 0.2.0", () => {
+    expect(JSON.parse(read("package.json")).version).toBe("0.2.0");
+    expect(JSON.parse(read("server/data-format-released.json")).version).toBe("0.2.0");
   });
 
   it("does not package Android platform-tools or Chrome for Testing", () => {
@@ -125,7 +125,7 @@ describe("Edu Bot 0.1.0 release metadata", () => {
   });
 
   it("does not compare this version with the upstream release feed", () => {
-    expect(read("electron/desktop-updates.mjs")).toContain("export const DESKTOP_AUTO_UPDATE = false");
+    expect(read("electron/desktop-updates.mjs")).toContain('DESKTOP_AUTO_UPDATE_PLATFORMS = new Set(["win32", "linux"])');
     const updateCheck = read("server/update-check.ts");
     expect(updateCheck).toContain("https://api.github.com/repos/${PROJECT_REPOSITORY}/releases/latest");
     expect(updateCheck).toContain("https://raw.githubusercontent.com/${PROJECT_REPOSITORY}/channels/stable.json");

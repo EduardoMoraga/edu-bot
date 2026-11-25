@@ -29,7 +29,7 @@ Si aparece SmartScreen, elige Más información y después Ejecutar de todas for
 
 Cada versión incluye `SHA256SUMS`. Compara el archivo que descargaste con esa lista antes de abrirlo.
 
-La app no se actualiza sola. Descarga el instalador nuevo desde la misma página e instálalo del mismo modo. Tus chats siguen en `~/.edubot`.
+Desde la 0.2.0 la app se actualiza sola en Windows y Linux. En Mac, y para pasar desde la 0.1.0, descarga el instalador nuevo desde la misma página e instálalo del mismo modo. Tus chats siguen en `~/.edubot`.
 
 ## Primeros pasos
 
@@ -69,7 +69,7 @@ Detalle: [Perfiles](docs/profiles.md).
 
 ## Privacidad
 
-Edu Bot no envía analítica de uso. La app de escritorio no busca actualizaciones.
+Edu Bot no envía analítica de uso. En Windows y Linux la app de escritorio busca actualizaciones en las versiones de este repositorio; en Mac no.
 
 Al iniciar, Edu Bot consulta unas listas públicas de modelos y de versiones. Un motor que ya instalaste puede llamar a su propio servicio en ese momento. Cualquier otro contacto ocurre solo cuando usas esa función. La lista está en [Red](docs/edu-bot/network.md).
 

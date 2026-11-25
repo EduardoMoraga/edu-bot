@@ -26,8 +26,12 @@ Chromium, made no request outside this computer while loading, nor after opening
 from the connection service's catalog once connected apps are set up; until then the app draws bundled glyphs or
 the app's initial. It never asks a favicon service.
 
-The desktop app does not update itself and does not check for updates: auto-update stays off
-(`electron/desktop-updates.mjs`) until Edu Bot publishes its own signed releases.
+On Windows and Linux the desktop app updates itself from this repository's releases
+(`electron/desktop-updates.mjs`): 15 s after it starts and then every hour it reads
+`github.com/EduardoMoraga/edu-bot/releases.atom` and the release's `latest.yml` or `latest-linux.yml`, and downloads
+the new installer from `github.com/EduardoMoraga/edu-bot/releases/download/…` (served from
+`release-assets.githubusercontent.com`), checked by its SHA-512. On macOS it
+does not: the Mac builds are not signed yet, so you download the new version yourself.
 
 ## When you use a feature
 
