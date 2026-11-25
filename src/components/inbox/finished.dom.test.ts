@@ -44,6 +44,6 @@ describe("the finished list", () => {
     const rows = [...document.querySelectorAll<HTMLElement>("[data-inbox-finished] button")];
     expect(rows.map((row) => row.getAttribute("aria-current"))).toEqual(["page", null]);
     expect(rows.map((row) => row.hasAttribute("data-open-thread"))).toEqual([true, false]);
-    expect(rows[0]!.className.split(" ")).toContain("bg-raised");
+    expect(rows[0]!.className.split(" ")).toContain("bg-raised-hover");
   });
 });
