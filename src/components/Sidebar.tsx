@@ -1365,7 +1365,7 @@ export const Sidebar = memo(function Sidebar({ open, onClose, collapseToIcons = 
         onAvatars={(avatars) => setSidebarDensity(avatars ? "icons" : "comfortable")} style={windowNoDragStyle} />}
 
       <GlassScroller className={rail ? "[scrollbar-gutter:stable_both-edges]" : simpleDesk ? "px-3" : "px-2"}>
-        <div className={cn("flex flex-col", simpleDesk ? cn("gap-0.5 pb-2", !tiles && "pt-2") : advanced ? "gap-0.5" : "gap-1 pb-2 pt-2")}>
+        <div className={cn("flex flex-col", simpleDesk ? cn("gap-1.5 pb-2", !tiles && "pt-2") : advanced ? "gap-0.5" : cn(rail ? "gap-1" : "gap-1.5", "pb-2 pt-2"))}>
           {matchingBots.length === 0 && visibleGroups.length === 0 && q && q.length < MIN_QUERY && (
             <div className="px-3 py-6 text-center text-[13px] text-ink-secondary">{t("sidebar.noMatch", { query })}</div>
           )}
@@ -1414,8 +1414,8 @@ export const Sidebar = memo(function Sidebar({ open, onClose, collapseToIcons = 
                 {...drops.zone(id, layout.zone(id))}
                 className={cn(
                   "flex flex-col",
-                  advanced || simpleDesk ? "gap-0.5" : "gap-1",
-                  density !== "icons" && index > 0 && !simple && "pt-3",
+                  advanced ? "gap-0.5" : rail ? "gap-1" : "gap-1.5",
+                  density !== "icons" && index > 0 && (simple ? "pt-2" : "pt-3"),
                 )}
               >
                 {rail && index > 0 && <SidebarRailSeparator />}

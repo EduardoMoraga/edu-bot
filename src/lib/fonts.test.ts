@@ -36,16 +36,19 @@ describe("fonts", () => {
     for (const id of blocks) expect(FONT_IDS).toContain(id as (typeof FONT_IDS)[number]);
   });
 
-  it("leads every skin with the bundled Geist face, except the paper skins and Pop", () => {
+  it("leads the Edu skins with the bundled Atkinson Hyperlegible Next and every other skin with Geist, except the paper skins and Pop", () => {
     const skins = [...css.matchAll(/\[data-skin="([a-z-]+)"\]\s*\{[^}]*?--font-sans:\s*([^;]+);/g)];
     expect(skins.length).toBeGreaterThan(8);
     for (const [, skin, stack] of skins) {
       const first = stack.split(",")[0].trim();
       if (["atelier", "lagoon", "linen"].includes(skin)) expect(first, skin).toBe("system-ui");
       else if (skin === "pop") expect(first, skin).toBe('"Plus Jakarta Sans"');
+      else if (["meadow", "edu-night"].includes(skin)) expect(first, skin).toBe('"Atkinson Hyperlegible Next Variable"');
       else expect(first, skin).toBe('"Geist Variable"');
     }
+    expect(skins.map(([, skin]) => skin)).toEqual(expect.arrayContaining(["meadow", "edu-night"]));
     expect(css).toMatch(/@import "@fontsource-variable\/geist";/);
+    expect(css).toMatch(/@import "@fontsource-variable\/atkinson-hyperlegible-next";/);
     expect(css).toMatch(/--font-mono:\s*"Geist Mono Variable"/);
   });
 

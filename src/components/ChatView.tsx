@@ -1139,7 +1139,7 @@ export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = fal
           ) : hiddenCount > 0 || bot.hasMore ? (
             <div ref={topSentinelRef} className="h-2 w-full pointer-events-none" aria-hidden="true" />
           ) : null}
-          {windowedMessages.length === 0 && !bot.busy && <EmptyChat bot={bot} />}
+          {windowedMessages.length === 0 && !bot.busy && <EmptyChat bot={bot} canWrite={mayWrite} />}
           <ChatRowsContext.Provider value={rows}><TeamMemorySavesContext value={savesToTeamMemory(bot, Boolean(team))}><LiveToolsContext value={liveTools}><ChatBusyContext value={busy}><PagePaneContext value={pagePane}>
             <MessagesList
               messages={windowedMessages} drawFrom={drawFrom}

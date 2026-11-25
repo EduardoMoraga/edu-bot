@@ -11816,5 +11816,10 @@
   "connectors.setup.keyRefused": "Composio no aceptó esa clave. Cópiala de nuevo desde tu proyecto de Composio.",
   "phone.signIn.chooseTitle": "Elige cómo se conecta tu teléfono",
   "phone.signIn.chooseDetail": "Tu teléfono se conecta directo a este equipo. Elige cómo.",
-  "phone.signIn.wifi": "Vincular en esta Wi-Fi"
+  "phone.signIn.wifi": "Vincular en esta Wi-Fi",
+  "chat.empty.suggestions": "Ideas para empezar",
+  "chat.empty.suggest.summarize": "Resúmeme un documento",
+  "chat.empty.suggest.email": "Ayúdame a escribir un correo",
+  "chat.empty.suggest.plan": "Planifiquemos mi semana",
+  "chat.empty.suggest.explain": "Explícame un tema en palabras simples"
 }

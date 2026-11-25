@@ -60,7 +60,7 @@ describe("the pinned section", () => {
       [], { kind: "bot", botId: "eli", threadId: "open" });
     const rows = [...document.querySelectorAll<HTMLElement>("[data-pinned-row]")];
     expect(rows.map((row) => row.getAttribute("aria-current"))).toEqual(["page", null]);
-    expect(rows[0]!.className.split(" ")).toContain("bg-raised");
+    expect(rows[0]!.className.split(" ")).toContain("bg-raised-hover");
   });
 
   it("gathers a room's pinned conversation too", async () => {

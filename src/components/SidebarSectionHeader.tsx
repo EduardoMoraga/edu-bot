@@ -9,6 +9,8 @@ import {
 } from "@/lib/sidebar-attention";
 import type { SectionNaming } from "./SidebarBotDrag";
 
+const SECTION_LABEL = "truncate text-[12px] font-medium leading-4 text-ink-secondary";
+
 export function SidebarSectionHeader({
   name,
   collapsed,
@@ -102,13 +104,13 @@ export function SidebarSectionHeader({
             title={toggleTitle}
             className="flex min-w-0 flex-1 items-center gap-1.5 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
           >
-            <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-ink-secondary">{name}</span>
+            <span className={cn("min-w-0 flex-1", SECTION_LABEL)}>{name}</span>
             {collapsed && <SectionAttention attention={attention} label={attentionLabel} alert={alert} />}
             {tail}
           </button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-[13px] leading-[18px] text-ink-secondary">{name}</span>
+            <span className={cn("min-w-0 flex-1", SECTION_LABEL)}>{name}</span>
             {attentionLabel && <span className="sr-only">{attentionLabel}</span>}
             {tail}
           </div>
@@ -143,7 +145,7 @@ export function SidebarSectionHeader({
           title={toggleTitle}
           className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-raised/50"
         >
-          <span className="truncate text-[13px] leading-[18px] text-ink-secondary">
+          <span className={SECTION_LABEL}>
             {name}
           </span>
           <Chevron size={12} className="shrink-0 text-ink-secondary" aria-hidden="true" />
@@ -151,7 +153,7 @@ export function SidebarSectionHeader({
         </button>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-0.5">
-          <span className="truncate text-[13px] leading-[18px] text-ink-secondary">
+          <span className={SECTION_LABEL}>
             {name}
           </span>
           {attentionLabel && <span className="sr-only">{attentionLabel}</span>}

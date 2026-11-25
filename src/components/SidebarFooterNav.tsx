@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from "react";
 import { useAppTriggers } from "@/lib/app-triggers";
 import { automationsFrom, hasUnseenProblemRun } from "@/lib/automations";
 import { cn } from "@/lib/cn";
+import { rowSelectedSurface } from "./SidebarRowMarkers";
 import { useCloudFilesReady } from "@/lib/cloud-files";
 import { t } from "@/lib/i18n";
 import { useAdvancedMode } from "@/lib/interface-mode";
@@ -49,7 +50,7 @@ function NavRow({
         "relative flex items-center rounded-xl transition-colors",
         // A labelled row follows the bot rows: a 16px icon, a 10px gap, a regular 14/20 label and the ink hover.
         rail ? "size-9 shrink-0 justify-center" : iconsOnly ? "mx-auto size-[46px] shrink-0 justify-center" : "w-full min-h-9 gap-2.5 px-3 py-1.5 text-left",
-        active ? "bg-raised text-ink" : "text-ink hover:bg-ink/[0.06]",
+        active ? cn(rowSelectedSurface, "text-ink") : "text-ink hover:bg-ink/[0.06]",
       )}
     >
       {icon(active)}

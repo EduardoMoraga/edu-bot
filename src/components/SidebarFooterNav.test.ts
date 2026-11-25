@@ -113,7 +113,7 @@ describe("sidebar footer places", () => {
     expect(classes).not.toContain("hover:bg-raised/50");
     expect(row[2]).toMatch(/<svg[^>]*width="16" height="16"[^>]*class="lucide lucide-globe/);
     expect(row[2]).toContain('<span class="flex-1 truncate text-[14px] leading-5">Fleet board</span>');
-    expect(html).not.toContain("font-medium");
+    expect(row[0]).not.toContain("font-medium");
   });
 
   it("shows a pinned panel as an icon with its name as the label in the toolbar layout", () => {
