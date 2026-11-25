@@ -104,7 +104,7 @@ import { LiveCallBar } from "./LiveCallBar";
 import { LiveCallChip } from "./LiveCallPill";
 import { effectivePlace, toolPlace, type EffectivePlace } from "@/lib/place";
 import { cn } from "@/lib/cn";
-import { activeLocale, intlLocale, t } from "@/lib/i18n";
+import { activeLocale, intlLocale, t } from "@/lib/i18n"; import { useActiveLocale } from "@/lib/use-active-locale";
 import { COMPACT_BUBBLE } from "@/lib/compact-chip";
 import { groupTranscript, isStatusActivity, turnDurations, workedLabel } from "@/lib/activity-runs";
 import { StatusActivityRow } from "@/components/StatusActivityRow";
@@ -784,7 +784,7 @@ const CHATHEAD_PILL = `flex min-w-0 items-center gap-2 rounded-full py-0.5 pl-1.
 export const ChatView = memo(function ChatView({ bot: profile, inForkPanel = false }: { bot: Bot; inForkPanel?: boolean }) {
   const bot = useMemo(() => currentTaskBot(profile), [profile]);
   const state = useStoreSelector((s) => ({ computerStart: s.computerStarts[profile.id], mascotMotion: s.mascotMotion?.botId === profile.id ? s.mascotMotion : null, instances: s.instances, config: s.config, focusMessage: s.focusMessage, forkPanelOpen: s.forkPanel !== null, settingsOpen: s.settingsOpen, computerOpen: s.computerOpen, error: s.error, notice: s.notice }), sameFields), dispatch = useStoreDispatch(), store = useStoreRef();
-  const showThreads = useShowThreads();
+  const showThreads = useShowThreads(); useActiveLocale();
   const remoteClient = window.ogb?.remoteClient?.active === true;
   const { dragProps: headerDragProps, noDragStyle: headerNoDragStyle } = useCaptionChrome();
   const composerDockRef = useRef<HTMLDivElement>(null);

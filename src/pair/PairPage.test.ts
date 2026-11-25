@@ -38,6 +38,18 @@ it("opening My Cloud from the app needs no click and no code to type", async () 
   expect(replaced).toEqual(["/"]);
 });
 
+it("a desktop app pairs under its computer's name; a browser keeps naming itself", async () => {
+  vi.stubGlobal("window", { ogb: { workspaces: {} } });
+  vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) EduBot/0.1.0 Chrome/150.0.0.0 Electron/43.7.9 Safari/537.36" });
+  f.pair.mockResolvedValue({ ok: true });
+  f.effects = []; renderToStaticMarkup(createElement(PairPage, { initialCode: code, initialLabel: "FFM-EDUARDOMORAGA" }));
+  f.effects[0](); await flush();
+  expect(f.pair).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ code, label: "FFM-EDUARDOMORAGA" }));
+
+  vi.stubGlobal("window", {});
+  expect(render(code)).toContain('value="Chrome on Windows"');
+});
+
 it("a code that no longer works falls back to the form, with the reason", async () => {
   vi.stubGlobal("window", { ogb: { workspaces: {} } });
   f.pair.mockResolvedValue({ ok: false, error: "That pairing code has expired." });

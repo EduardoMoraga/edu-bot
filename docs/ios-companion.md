@@ -1,29 +1,22 @@
 # iOS companion architecture
 
-The iOS app is a thin, native client for the OpenMausBot instance running on
+The phone app is the **MausBot** app from the App Store or Google Play. Edu Bot uses that published app as it is:
+on the phone it is called MausBot, and it pairs with Edu Bot on your computer. This page describes its iOS side.
+
+The iOS app is a thin, native client for the Edu Bot instance running on
 your Mac. The Mac remains the only machine that persists agent processes,
 credentials, SQLite data, transcripts, and computers. The iPhone trusts a Mac
 by scanning the QR code shown in desktop **Settings → Phone & devices**; it does not need
-an OpenMausBot account of its own.
+an account of its own.
 
-## Use My Cloud on your phone
+## What Edu Bot does not offer
 
-With MausBot Cloud, pair the phone with your Cloud instead of your computer, and
-it keeps working while the computer is off.
-
-1. Install MausBot on your phone from the App Store or Google Play.
-2. In the desktop app, open the menu under your name and choose **Connect
-   your phone · to your Cloud (always on)**. (**Settings → MausBot Cloud → Use
-   My Cloud on your phone** does the same.) The app opens your Cloud in its
-   window, at the Cloud's phone pairing.
-3. Choose **Create pairing code** and scan the QR code with the phone app.
-
-On your computer, **Connect your phone** offers your Cloud first and this
-computer second, once your plan is paid and your Cloud is Ready. Until the Cloud
-is Ready it offers only *to this computer*, with a note that the Cloud will show
-there. With the Cloud open in the app window, the entry reads *to your Cloud*
-and pairs with it directly. On another server it pairs with that server, and it
-is shown only to a session allowed to make pairing codes there.
+- **MausBot Cloud (My Cloud).** There is no Cloud to pair the phone with. The app shows no Cloud sign-in unless the
+  person who runs it sets `OMB_CLOUD_ACCOUNT=1`, which points it at the upstream service.
+- **Hosted HTTPS and "Anywhere, through Edu Bot".** Both need a relay service, and none is set up
+  (`OMB_CONTROL_PLANE_URL` is empty by default). **Pair a phone** then offers two ways: **Pair on this Wi-Fi** and
+  **Pair using Tailscale**. The sections below that describe hosted HTTPS apply only where someone runs such a
+  service.
 
 ## Current status
 
@@ -58,7 +51,7 @@ automation are not part of this version. The optional hosted transport connects
 to the user's own computer; it is not a cloud transcript store and cannot wake
 a terminated iOS app.
 
-The Mac must be running OpenMausBot and must not be asleep. Desktop
+The Mac must be running Edu Bot and must not be asleep. Desktop
 **Settings → Phone & devices** offers an off-by-default **Keep this computer awake**
 switch that prevents system sleep while device access is on; the display may
 still turn off. A sleeping or powered-off computer cannot receive phone
@@ -100,7 +93,7 @@ of this version.
  credential ciphertext only)
             │ loopback only
             ▼
- OpenMausBot harness :8799
+ Edu Bot harness :8799
    HTTP API + event stream
    agent processes and approvals
             │ private Electron utility-process channel
@@ -170,7 +163,7 @@ Tailscale is an optional route away from home and on Wi-Fi networks that
 isolate clients. In desktop **Settings → Phone & devices**, open **More ways
 in** and turn **Tailscale** on: until you do, the app never runs Tailscale.
 Install or open Tailscale on both devices, sign in to the same tailnet and
-leave MagicDNS enabled, then choose **Pair a device**. OpenMausBot places the
+leave MagicDNS enabled, then choose **Pair a phone** and **Pair a device**. Edu Bot places the
 computer's tailnet name in the QR beside its other ways in; it never silently
 replaces the default route. Manual entry remains available as a fallback.
 
@@ -188,16 +181,18 @@ and `ios/project.yml` narrowly allows insecure HTTP for `ts.net` subdomains.
 Turning the switch off stops answering on the tailnet address; it never changes
 anything in your Tailscale.
 
-Each way in (Same Wi-Fi, Anywhere through MausBot, Tailscale, the HTTPS
+Each way in (Same Wi-Fi, Anywhere through Edu Bot, Tailscale, the HTTPS
 address) is its own switch and stays off until you turn it on. While nothing is
 paired and no code is open, the phone link sleeps: nothing listens and there is
 no relay connection. A desktop that is only a client of another computer starts
 none of it.
 
-Tailscale is optional. The direct path does not use an OpenMausBot-operated
+Tailscale is optional. The direct path does not use any
 relay or create a cloud copy of local transcript data.
 
 ### Optional hosted HTTPS
+
+Not offered in Edu Bot by default (see "What Edu Bot does not offer" above).
 
 In desktop **Settings → Phone & devices**, **Use your phone anywhere** accepts a
 passwordless email code and provisions one HTTPS address for that computer.
@@ -220,7 +215,7 @@ back. If no HTTPS address is free, the panel says when to try again, and
 Wi-Fi or Tailscale pairing still works.
 
 Cloudflare terminates and proxies the encrypted connection to the connector.
-The OpenMausBot control plane stores account and installation metadata plus
+The control plane stores account and installation metadata plus
 opaque tunnel/DNS identifiers in D1, but not bots, transcripts, approvals,
 screen frames, pairing tokens, or connector tokens. See `docs/ios-privacy.md`
 for data and deletion details.
@@ -259,7 +254,7 @@ event stream and in-memory chat state, but keeps every saved pairing; removing
 one computer deletes only that computer's Keychain credential from the phone.
 An app upgrade migrates the previous single saved pairing automatically.
 
-The Mac must remain awake with OpenMausBot running for chats, approvals, and
+The Mac must remain awake with Edu Bot running for chats, approvals, and
 routines to work, including through hosted HTTPS or Tailscale.
 
 After pairing, the phone periodically reads the authenticated, sidecar-owned
@@ -268,7 +263,7 @@ new hosted address—or its withdrawal—without another pairing ceremony. The
 route never reaches the harness and returns only the computer name plus a
 bounded list of connection origins.
 
-An OpenMausBot account is not required for nearby, manual, or Tailscale
+An account is not required for nearby, manual, or Tailscale
 connections. Only the desktop owner signs in when enabling the optional hosted
 HTTPS route; the iPhone always uses the same QR trust flow.
 

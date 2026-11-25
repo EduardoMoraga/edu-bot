@@ -1,5 +1,7 @@
 // "unavailable" (could not read) must never look like "empty": a caller would register a fresh installation over the real one.
 // macOS says "temporarily unavailable. Please try again." for a keychain that is busy at launch, so retry briefly first.
+import { consentGiven } from "./consent-dialog.mjs";
+
 export const CREDENTIAL_READ_DELAYS_MS = [100, 200, 400, 800];
 
 const message = (error) => (error instanceof Error ? error.message : String(error));
@@ -67,17 +69,13 @@ export function installCredentialStoreIpc({ ipcMain, localOnly, dialog, windowFo
   ipcMain.handle("credential-store:reset", localOnly("credential-store:reset", (event) => resetUnreadableCredentials({
     unreadable: unreadable(),
     confirm: async () => {
-      const options = {
+      return consentGiven(dialog, windowFor(event.sender), {
         type: "warning",
-        buttons: [t("native.dialog.resetSavedKeys.button"), t("native.common.cancel")],
-        defaultId: 1,
-        cancelId: 1,
+        grant: t("native.dialog.resetSavedKeys.button"),
+        refuse: t("native.common.cancel"),
         message: t("native.dialog.resetSavedKeys.title"),
         detail: t("native.dialog.resetSavedKeys.detail", { app: appName() }),
-      };
-      const parent = windowFor(event.sender);
-      const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
-      return response === 0;
+      });
     },
     quitting,
     moveAside,

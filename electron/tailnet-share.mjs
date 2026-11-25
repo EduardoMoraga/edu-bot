@@ -10,19 +10,21 @@ import { tailscaleEnvironment } from "./tailscale-check.mjs";
 const HTTPS_PORT = 443;
 const OFF = Object.freeze({ on: false, origin: null, https: false, problem: null });
 
-/** Whether `tailscale serve status --json` has anything on `port`, foreground sessions included. Unreadable counts as
- * taken: a share the person made themselves is never replaced on a guess. */
-export function servePortTaken(stdout, port = HTTPS_PORT) {
+/** What `tailscale serve status --json` says about `port`, foreground sessions included: "taken", "free", or "unreadable". */
+export function servePortState(stdout, port = HTTPS_PORT) {
   let parsed;
   try {
     parsed = JSON.parse(stdout);
   } catch {
-    return true;
+    return "unreadable";
   }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return true;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "unreadable";
   const holds = (config) => Boolean(config?.TCP && Object.hasOwn(config.TCP, String(port)));
-  return holds(parsed) || Object.values(parsed.Foreground ?? {}).some(holds);
+  return holds(parsed) || Object.values(parsed.Foreground ?? {}).some(holds) ? "taken" : "free";
 }
+
+/** Unreadable counts as taken: a share the person made themselves is never replaced on a guess. */
+export const servePortTaken = (stdout, port = HTTPS_PORT) => servePortState(stdout, port) !== "free";
 
 const readServeStatus = (cli) =>
   new Promise((resolve) => {
@@ -62,6 +64,7 @@ export function createTailnetShare({ check, allowed = () => true, spawn = spawnC
   let shown = OFF;
   let answered = () => {};
   let httpsBroken = false;
+  let httpsPortBusy = false;
   let queue = Promise.resolve();
 
   const enqueue = (work) => {
@@ -129,7 +132,9 @@ export function createTailnetShare({ check, allowed = () => true, spawn = spawnC
 
   /** The HTTPS origin once `tailscale serve` is up and Tailscale lists it, else null. */
   async function startServing(cli, name, port) {
-    if (servePortTaken(await serveStatus(cli))) {
+    const before = servePortState(await serveStatus(cli));
+    httpsPortBusy = before === "taken";
+    if (before !== "free") {
       log("tailnet: port 443 already serves something; listening on the tailnet instead");
       return null;
     }
@@ -198,13 +203,14 @@ export function createTailnetShare({ check, allowed = () => true, spawn = spawnC
       return shown;
     }
     if (serving && (serving.port !== server.port || serving.name !== name)) await stopServing();
+    httpsPortBusy = false;
     const origin = serving
       ? tailnetOrigin(name, HTTPS_PORT, true)
       : ready && status.https && status.cli && !httpsBroken ? await startServing(status.cli, name, server.port) : null;
     if (quitting) return shown;
     const reply = await tell(origin ? { name, served: origin } : { name });
     const reached = reply?.origin ?? null;
-    shown = { on: true, origin: reached, https: Boolean(origin), problem: reached ? null : ready ? "not-listening" : status.state };
+    shown = { on: true, origin: reached, https: Boolean(origin), problem: reached ? null : ready ? "not-listening" : status.state, ...(httpsPortBusy && !origin ? { httpsPortBusy: true } : {}) };
     return shown;
   }
 

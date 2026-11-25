@@ -156,6 +156,10 @@ describe("Apps with no Composio key", () => {
     await fill("not-a-key");
     expect(steps.querySelector('[role="alert"]')?.textContent).toBe(t("connectors.setup.wrongKey"));
     expect(saveCredential).not.toHaveBeenCalled();
+    vi.mocked(saveCredential).mockRejectedValueOnce(new Error("Error invoking remote method 'credential:set': Error: Invalid API key: ak_**ture"));
+    await fill("ak_refused");
+    expect(steps.querySelector('[role="alert"]')?.textContent).toBe(t("connectors.setup.keyRefused"));
+    vi.mocked(saveCredential).mockClear();
     await fill(" ak_fixture ");
     expect(saveCredential).toHaveBeenCalledExactlyOnceWith("composio", "ak_fixture", false);
     expect(fixture.dispatched).toContainEqual({ type: "configStatus", config: { composio: { configured: true } } });

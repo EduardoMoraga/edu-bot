@@ -1,5 +1,6 @@
 // This app's own prompt for a bot's ask: shown once nobody has touched the keyboard or mouse for a second, so a key meant
 // for something else never answers it, and never while the person is looking at that Cloud in this app, where the card is.
+import { askConsent } from "./consent-dialog.mjs";
 import { askPromptWords } from "./screen-words.mjs";
 import { deviceWord } from "./lending-indicator.mjs";
 import nativeText from "./native-text.cjs";
@@ -24,13 +25,13 @@ export function createAskPrompt({ dialog, window, idleSeconds = () => null, wait
     }
     if (signal.aborted || looking(env)) return null;
     const words = askPromptWords(ask, { cloud: env.name, device: deviceWord(platform), t });
-    const options = { type: "question", message: words.message, detail: words.detail, buttons: words.buttons, defaultId: 0, cancelId: 1, noLink: true, signal };
+    const question = { type: "question", message: words.message, detail: words.detail, grant: words.buttons[0], refuse: words.buttons[1], noLink: true, signal };
     // Electron 43 runs a message box without a window synchronously on macOS, where `signal` cannot close it.
     const parent = platform === "darwin" ? open() : null;
     if (platform === "darwin" && !parent) return null;
     if (parent && !parent.isVisible()) parent.show();
-    const { response } = await (parent ? dialog.showMessageBox(parent, options) : dialog.showMessageBox(options));
+    const answer = await askConsent(dialog, parent, question);
     if (signal.aborted) return null;
-    return response === 0 ? "turn-on" : "not-now";
+    return answer === "granted" ? "turn-on" : "not-now";
   };
 }

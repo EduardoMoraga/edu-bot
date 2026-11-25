@@ -99,6 +99,7 @@ const ALLOWED: Record<string, string> = {
   "connectors.notConfigured": OWN_COMPOSIO_KEY,
   "connectors.setup.step1": OWN_COMPOSIO_KEY,
   "connectors.setup.wrongKey": OWN_COMPOSIO_KEY,
+  "connectors.setup.keyRefused": OWN_COMPOSIO_KEY,
   "apps.start.needsKey": OWN_COMPOSIO_KEY,
   "apps.start.moreHelp": OWN_COMPOSIO_KEY,
   "connectors.setup.openComposio": OWN_COMPOSIO_KEY,

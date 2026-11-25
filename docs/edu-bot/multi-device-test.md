@@ -277,6 +277,22 @@ Lo que dice el código (revisado, sin cambios):
 6. El cambio de nombre a Edu Bot no rompe nada de esto: el teléfono y el cliente siguen viendo `openmausbot` donde
    lo esperan.
 
+### Corrección tras probar la app real aislada (25-11)
+
+Probado en omarchy con dos copias aisladas de la 0.1.0, una emparejada con la otra.
+
+- En la 0.1.0 el **＋** del borde izquierdo solo aparece cuando ya hay un servidor conectado. La primera vez se entra
+  por **Ajustes → Modo avanzado → Esta app → Tus ordenadores → Conectar a un servidor**.
+- **Ajustes → Servidores** no existe. Es **Ajustes → Esta app → Tus ordenadores**, con **Modo avanzado** encendido.
+- **Compartir este ordenador** y **Elegir qué puede usar** se ven desde **Este equipo**, no desde la ventana del home.
+- El cliente apareció como **"Chrome on Linux"** en **Emparejados** del home. Confirmado.
+
+En la versión siguiente (PR "Polish: connectors and remote connections"):
+
+- El cliente aparece con su nombre de equipo.
+- La app dice siempre **equipo** y **vincular**: **Tus otros equipos**, **Vincular un equipo**, **Vinculados**.
+- **Tú → Cambiar de lugar → Conectar a un servidor** abre la página correcta también sin Modo avanzado.
+
 ## Resultados: Mac mini (home)
 
 | # | Chequeo | Resultado |
@@ -450,10 +466,14 @@ Get-Process | Where-Object { $_.ProcessName -like "*cua*" } | Select-Object Proc
 
 **En FFM:**
 1. Abre Edu Bot.
-2. Pulsa **＋** (abajo a la izquierda) y luego **Conectar a un servidor**.
-3. Pega el enlace. Pulsa **Conectar a** Mac mini.
-4. Si pregunta "¿Dejar que … use este equipo?", pulsa **Permitir**.
-5. Ve a Ajustes, luego Servidores, luego **Elegir qué puede usar**. Elige solo **la carpeta `EduBotPrueba`**.
+2. Abre **Ajustes**. Abajo en la lista, enciende **Modo avanzado**.
+3. Entra a **Esta app**. En **Tus ordenadores**, pulsa **Conectar a un servidor**.
+   (En la versión 0.1.0 no hay un **＋** para esto hasta que ya existe un servidor conectado. Visto en la app real,
+   25-11.)
+4. Pega el enlace. Pulsa **Conectar a** Mac mini.
+5. Si pregunta "¿Dejar que … use este equipo?", pulsa **Permitir**.
+6. Vuelve a **Este equipo** (el ícono del portátil, arriba a la izquierda). Ve a **Ajustes → Esta app → Tus
+   ordenadores** y pulsa **Elegir qué puede usar**. Elige solo **la carpeta `EduBotPrueba`**.
    Nunca `C:\Cheil`.
 
 **Prueba con un bot (desde FFM o el Mac mini):**

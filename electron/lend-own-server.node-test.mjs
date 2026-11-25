@@ -206,7 +206,7 @@ test("the menu-bar item keeps its Clouds' terminal switch only while a Cloud is 
 });
 
 /** main's channels and popup, with this desktop's lending and native dialogs stood in for. */
-function mainLending({ response = 1, own = true, flag = false, offer } = {}) {
+function mainLending({ response = 0, dialogFails = false, own = true, flag = false, offer } = {}) {
   const handlers = new Map(), calls = { lent: [], declined: [], saved: [], revoked: [], boxes: [] };
   const win = { isDestroyed: () => false, webContents: { getURL: () => `${GARAGE}/` } };
   const info = { sessionId: randomUUID(), environmentId: randomUUID() };
@@ -220,7 +220,7 @@ function mainLending({ response = 1, own = true, flag = false, offer } = {}) {
     revoke: env => { calls.revoked.push(env.id); records[env.id] = { ...records[env.id], enabled: false }; return records[env.id]; },
     identity: async () => info, save: async (env, grant) => { calls.saved.push([env.id, grant]); return {}; }, observe: async () => info, decline: () => {}, activity: () => [],
   };
-  const dialog = { showMessageBox: async (...args) => { calls.boxes.push(args.at(-1)); return { response }; } };
+  const dialog = { showMessageBox: async (...args) => { calls.boxes.push(args.at(-1)); if (dialogFails) throw new Error("Gtk: cannot open display"); return { response }; } };
   const lending = installServerLending({ ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) }, guard: (_channel, handler) => handler, sharing: () => controller,
     dialogs: { chooseFolder: async () => null, confirmServerAccess: async () => true }, validate: async folders => folders ?? [], dialog, window: () => win,
     saved: id => { if (id !== garage.id) throw new Error("unknown"); return garage; }, candidate: env => !env.cloud && !env.team && !env.home, flag: async () => flag,
@@ -229,30 +229,39 @@ function mainLending({ response = 1, own = true, flag = false, offer } = {}) {
 }
 
 test("right after pairing a server of the person's own, one popup in main's own dialog: Allow lends the apps on the screen, Not now nothing", async () => {
-  const allowed = mainLending({ response: 0 });
+  const allowed = mainLending({ response: 1 });
   await allowed.lending.offer(allowed.win);
   assert.equal(allowed.calls.boxes.length, 1);
-  assert.deepEqual(allowed.calls.boxes[0], { type: "question", message: "Let Garage use this computer?", detail: allowed.calls.boxes[0].detail, buttons: ["Allow", "Not now"], defaultId: 1, cancelId: 1 });
+  assert.deepEqual(allowed.calls.boxes[0], { type: "question", message: "Let Garage use this computer?", detail: allowed.calls.boxes[0].detail, buttons: ["Not now", "Allow"], defaultId: 0, cancelId: 0 });
   assert.match(allowed.calls.boxes[0].detail, /apps on your screen.*folders you choose and run commands in a terminal/s);
   assert.deepEqual(allowed.calls.lent, [["garage", { folders: [], terminal: false, computer: true }]]);
 
-  const notNow = mainLending({ response: 1 });
+  const notNow = mainLending({ response: 0 });
   await notNow.lending.offer(notNow.win);
   assert.deepEqual(notNow.calls.lent, []);
   assert.deepEqual(notNow.calls.declined, [["garage", notNow.info]]);
 
-  const answered = mainLending({ response: 0, offer: null });
+  for (const failed of [mainLending({ dialogFails: true }), mainLending({ response: 0 }), mainLending({ response: 7 })]) {
+    await failed.lending.offer(failed.win);
+    assert.equal(failed.calls.boxes.length, 1);
+    assert.deepEqual(failed.calls.lent, [], "a dialog that could not open, or answered anything but Allow, lends nothing");
+  }
+  const switched = mainLending({ dialogFails: true });
+  assert.equal(await switched.handlers.get("sharing:allow")({}, "garage"), null);
+  assert.deepEqual(switched.calls.lent, []);
+
+  const answered = mainLending({ response: 1, offer: null });
   await answered.lending.offer(answered.win);
   assert.deepEqual(answered.calls.boxes, [], "a pairing already answered is never asked again");
 
-  const notOwn = mainLending({ response: 0, own: false });
+  const notOwn = mainLending({ response: 1, own: false });
   await notOwn.lending.offer(notOwn.win);
   assert.deepEqual(notOwn.calls.boxes, [], "another server is asked about only while the maintainer flag is on");
   assert.deepEqual(notOwn.calls.lent, []);
 });
 
 test("Settings: each server of the person's own has the switch, which asks the same popup; turning it off needs no flag", async () => {
-  const { handlers, calls } = mainLending({ response: 0 });
+  const { handlers, calls } = mainLending({ response: 1 });
   assert.deepEqual(await handlers.get("sharing:servers")({}), [{ id: "garage", enabled: false, connected: false, paused: false }], "never the team's server");
   assert.equal((await handlers.get("sharing:state")({}, "garage")).own, true, "its state reads without the maintainer flag");
   const lent = await handlers.get("sharing:allow")({}, "garage");
@@ -265,7 +274,7 @@ test("Settings: each server of the person's own has the switch, which asks the s
   await handlers.get("sharing:revoke")({}, "garage");
   assert.deepEqual(calls.revoked, ["garage"]);
 
-  const declined = mainLending({ response: 1 });
+  const declined = mainLending({ response: 0 });
   assert.equal(await declined.handlers.get("sharing:allow")({}, "garage"), null);
   assert.deepEqual(declined.calls.lent, []);
 

@@ -5,6 +5,7 @@ import vm from "node:vm";
 import localOrigin from "./local-origin.cjs";
 import environments from "./environments.cjs";
 import nativeText from "./native-text.cjs";
+import { consentGiven } from "./consent-dialog.mjs";
 
 const ORIGIN = "http://127.0.0.1:48994";
 const source = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
@@ -14,7 +15,7 @@ function section(start, end) {
   return source.slice(from, to);
 }
 
-function fixture(response = 0) {
+function fixture(response = 1) {
   const handlers = new Map(), calls = [];
   const frame = { url: `${ORIGIN}/` }, contents = { mainFrame: frame };
   const mainWindow = { webContents: contents, isDestroyed: () => false };
@@ -23,7 +24,7 @@ function fixture(response = 0) {
     ipcMain: { handle: (name, handler) => handlers.set(name, handler) },
     localOnly: localOrigin.localOnly, workspaceSenderAllowed: environments.workspaceSenderAllowed,
     mainWindow, rendererOrigin: () => ORIGIN, environmentsState: { activeId: "local", environments: [] },
-    dialog: { showMessageBox: async (...args) => { calls.push(args); return { response }; } }, nativeT: nativeText.englishText.t,
+    dialog: { showMessageBox: async (...args) => { calls.push(args); return { response }; } }, nativeT: nativeText.englishText.t, consentGiven,
   });
   vm.runInContext(section("const workspaceOnly =", 'ipcMain.handle("organization:settings-opened"')
     + section('ipcMain.handle("dialog:confirm"', 'ipcMain.handle("environments:state"'), context);
@@ -33,11 +34,11 @@ function fixture(response = 0) {
 test("local confirmation is parented, defaults to Cancel and accepts only explicit OK", async () => {
   for (const response of [0, 1, -1]) {
     const f = fixture(response);
-    assert.equal(await f.confirm(f.event, "Delete the fixture VM?"), response === 0);
+    assert.equal(await f.confirm(f.event, "Delete the fixture VM?"), response === 1);
     const [parent, options] = f.calls[0];
     assert.equal(parent, f.mainWindow);
     assert.deepEqual(JSON.parse(JSON.stringify(options)), {
-      type: "warning", message: "Delete the fixture VM?", buttons: ["OK", "Cancel"], defaultId: 1, cancelId: 1,
+      type: "warning", message: "Delete the fixture VM?", buttons: ["Cancel", "OK"], defaultId: 0, cancelId: 0,
     });
   }
 });

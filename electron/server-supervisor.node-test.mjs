@@ -1,3 +1,4 @@
+import { consentGiven } from "./consent-dialog.mjs";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -338,7 +339,8 @@ function runForget(state) {
     environmentsState: state,
     localSwitchInFlight: false,
     runningDataDir: null,
-    dialog: { showMessageBox: async (options) => { calls.dialogs.push(options); return { response: 0 }; } },
+    dialog: { showMessageBox: async (options) => { calls.dialogs.push(options); return { response: 1 }; } },
+    consentGiven,
     sharingController: () => ({ forget: (entry) => calls.shares.push(entry.id) }),
     persistEnvironments: (next) => { calls.persisted.push(next); context.environmentsState = next; },
     withoutEnvironment: env.withoutEnvironment,

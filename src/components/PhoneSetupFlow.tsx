@@ -53,7 +53,7 @@ import {
   pairThroughRelayWithoutAddress, relayServesPairing,
   secureAddressRequestLapsed,
   shouldArmPhoneSetupProvisioningTimeout,
-  shouldPrepareSecureAddress,
+  shouldPrepareSecureAddress, signInNotOffered,
   startNonOverlappingPhoneSetupPoll,
   type PhoneSetupPhase,
   type PhonePairingAttemptLock,
@@ -884,21 +884,21 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
   }
 
   if (c.phase === "sign-in") {
-    const unavailable = !c.account?.available;
-    const failed = c.account?.status === "error" || c.setupTimedOut;
+    const choosing = signInNotOffered(c.account), unavailable = !choosing && !c.account?.available;
+    const failed = !choosing && (c.account?.status === "error" || c.setupTimedOut);
     return (
       <div className="mx-auto flex w-full max-w-[430px] flex-col">
         <button onClick={c.cancel} className="mb-4 flex w-fit items-center gap-1.5 text-[12px] text-ink-secondary hover:text-ink">
           <ArrowLeft size={13} /> {t("phone.back")}
         </button>
         <div className="flex size-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
-          <Mail size={20} />
+          {choosing ? <Smartphone size={20} /> : <Mail size={20} />}
         </div>
         <h2 className="mt-3 text-[18px] font-semibold text-ink">
-          {unavailable || failed ? t("phone.signIn.attention") : t("phone.signIn.title")}
+          {choosing ? t("phone.signIn.chooseTitle") : unavailable || failed ? t("phone.signIn.attention") : t("phone.signIn.title")}
         </h2>
         <p role={c.setupTimedOut ? "alert" : undefined} className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
-          {unavailable
+          {choosing ? t("phone.signIn.chooseDetail") : unavailable
             ? t("phone.signIn.unavailable")
             : c.setupTimedOut
               ? t("phone.signIn.timedOut")
@@ -908,7 +908,7 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
         </p>
         {(unavailable || failed) && <PairingFailureCheck account={c.account} state={c.state} setupTimedOut={c.setupTimedOut} />}
 
-        {!unavailable && !failed && (
+        {!choosing && !unavailable && !failed && (
           <div className="mt-5 flex flex-col gap-3">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12px] font-medium text-ink-secondary">{t("phone.signIn.email")}</span>
@@ -975,8 +975,8 @@ export function PhoneSetupFlowView({ controller }: { controller: PhoneSetupContr
             {c.accountBusy ? t("remote.account.retrying") : t("phone.signIn.retry")}
           </button>
         )}
-        {actionError && <p role="alert" className="mt-3 text-[13px] text-danger">{actionError}</p>}
-        <PhoneSetupSignInRoutes c={c} />
+        {actionError && !choosing && <p role="alert" className="mt-3 text-[13px] text-danger">{actionError}</p>}
+        <PhoneSetupSignInRoutes c={c} only={choosing} />
       </div>
     );
   }

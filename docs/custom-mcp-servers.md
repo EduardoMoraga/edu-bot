@@ -1,9 +1,13 @@
 # Bring your own MCP servers
 
-Open **Plugins → MCP servers → Add server** to give your bots tools from an
-MCP server you trust. Paste what you were given into the one box: the
+Edu Bot does not offer MausBot Cloud (My Cloud or Team Clouds). Where this page says "a Cloud" or "Team Cloud", it
+describes the upstream service, and applies to Edu Bot only if the person who runs it turns that account on
+(`OMB_CLOUD_ACCOUNT=1`).
+
+In the sidebar, press **Connect apps**. Under **Start here**, press **Add** on **Your own MCP server** (or **Add MCP
+server** under **Your MCP servers**) to give your bots tools from an MCP server you trust. Paste what you were given into the one box: the
 server's link, a `claude mcp add …` or `claude mcp add-json …` command, an
-`npx`, `uvx` or `docker run` line, or an `mcpServers` JSON block. OpenMausBot
+`npx`, `uvx` or `docker run` line, or an `mcpServers` JSON block. Edu Bot
 works out the name, the connection, the headers and the environment, and asks
 only for what the paste left out: a value that was a variable from your
 terminal (`$CF_ID`, `${CF_ID}`) or a placeholder (`YOUR_API_KEY`, `<token>`)
@@ -50,7 +54,7 @@ checks (for Cloudflare Access, a service token's `CF-Access-Client-Id` and
 
 ### Whop
 
-In Plugins, find **Whop** alongside Gmail, Slack and the other apps and click **Connect**. The built-in card
+In **Apps**, find **Whop** alongside Gmail, Slack and the other apps and click **Connect**. The built-in card
 uses Whop's official hosted MCP endpoint and opens Whop's browser sign-in;
 no API key, local CLI or Composio connection is needed. After successful
 sign-in and tool discovery it enables the connection. A cancelled or failed
@@ -70,14 +74,14 @@ This is an optional connected tool, not a change to OMB's subscription billing.
 
 ### Agentcard
 
-In Plugins, find **Agentcard** beside Whop and click **Connect**. The card uses
+In **Apps**, find **Agentcard** beside Whop and click **Connect**. The card uses
 Agentcard's official hosted MCP endpoint, `https://mcp.agentcard.sh/mcp`, and
 opens Agentcard's browser sign-in with your own Agentcard account. No API key
 is needed. After sign-in and tool discovery it enables the connection, and
 **Disconnect** and **Bot access** work as they do for Whop.
 
-OpenMausBot owns no cards, approvals or orders here. Agentcard keeps your cards
-and handles purchase approvals; OpenMausBot stores no card details. A bot that
+Edu Bot owns no cards, approvals or orders here. Agentcard keeps your cards
+and handles purchase approvals; Edu Bot stores no card details. A bot that
 can use Agentcard can call all of its tools, including the ones that buy and
 the ones that show card details, so choose which bots get it under **Bot
 access**. Existing custom entries at the official HTTP endpoint are recognized
@@ -86,7 +90,7 @@ rather than replaced.
 ### Email, phone numbers and calls for your bots
 
 Four cards give bots their own email, numbers and calls on accounts you own,
-so each service bills you directly and OpenMausBot pays for none of it.
+so each service bills you directly and Edu Bot pays for none of it.
 
 | Card | Official endpoint | Connects with |
 | --- | --- | --- |
@@ -110,7 +114,7 @@ have a bot answer new mail, texts or calls, add a webhook for that bot in
 
 ### BubblaV
 
-In Plugins, find **BubblaV** and click **Connect**. The card uses BubblaV's
+In **Apps**, find **BubblaV** and click **Connect**. The card uses BubblaV's
 official hosted MCP endpoint, `https://www.bubblav.com/mcp`, and opens BubblaV's
 browser sign-in. Sign in (or create a free account), choose the one chatbot
 (website) the connection may reach, and choose **Full access** or **Read
@@ -124,7 +128,7 @@ tools, so choose which bots get it under **Bot access**; **Read only** lists
 and runs only BubblaV's read-only tools. BubblaV saves the sign-in as an API
 key named **MCP Client** under **Settings → API Keys**, where revoking it ends
 the connection. The key lasts one year, then the card asks you to sign in
-again. See [BubblaV's OpenMausBot guide](https://docs.bubblav.com/user-guide/integrations/openmausbot).
+again. See [BubblaV's guide, written for OpenMausBot](https://docs.bubblav.com/user-guide/integrations/openmausbot), which Edu Bot is a fork of.
 
 ### Servers that ask you to sign in
 
@@ -133,7 +137,7 @@ Some URL servers take no token; they want you to sign in with your browser
 details (RFC 9728 protected-resource metadata, then the authorization
 server's own metadata), the server shows **Needs sign-in** and a **Sign in**
 button. Sign in opens the provider's page in your browser, which returns to
-OpenMausBot when you approve. The server then shows **Signed in**, and Test
+Edu Bot when you approve. The server then shows **Signed in**, and Test
 lists its tools. A server that lists its tools before you sign in but refuses
 tool calls the same way (an HTTP 401 pointing at those sign-in details) shows
 **Sign in** too. Test first calls a tool name no server has. If the server
@@ -144,11 +148,11 @@ has nothing to work on. Background checks never do this.
 
 - **Which servers work.** The authorization server must support PKCE with
   S256. If it lets apps register themselves (dynamic client registration),
-  OpenMausBot registers a fresh app for each sign-in. If it only accepts an
+  Edu Bot registers a fresh app for each sign-in. If it only accepts an
   app registered in advance, add that app as described below. A 401 without
   sign-in details keeps the old message: check the address and headers.
-- **Where you can sign in.** Anywhere you use OpenMausBot: on the computer
-  it runs on, or in a browser on another computer (My Cloud, a hosted
+- **Where you can sign in.** Anywhere you use Edu Bot: on the computer
+  it runs on, or in a browser on another computer (a hosted
   workspace, a server of your own). See below.
 - **Bots never sign in.** A server that needs sign-in is left out of every
   turn until someone signs in from this page. A signed-in server gets
@@ -164,14 +168,14 @@ has nothing to work on. Background checks never do this.
 
 #### Signing in from another computer
 
-On the computer OpenMausBot runs on, your browser returns to it at
+On the computer Edu Bot runs on, your browser returns to it at
 `127.0.0.1`. In a browser on another computer that address is your own
-computer, where OpenMausBot is not, so sign-in comes back another way:
+computer, where Edu Bot is not, so sign-in comes back another way:
 
-- **Over https (My Cloud, a hosted workspace, a server behind https).** When
+- **Over https (a hosted workspace, a server behind https).** When
   the server lets apps register themselves, your browser returns to the
-  address you are using OpenMausBot at, at `/mcp-oauth/callback`, and the tab
-  says **Signed in. You can close this tab and return to OpenMausBot.** Nothing
+  address you are using Edu Bot at, at `/mcp-oauth/callback`, and the tab
+  says **Signed in. You can close this tab and return to Edu Bot.** Nothing
   to copy. Whop works this way. The address is the server's public address
   (a Cloud or hosted workspace's own, a connected domain, or `OMB_PUBLIC_URL`)
   when you are on it, or the https address your browser is on when none is
@@ -179,15 +183,15 @@ computer, where OpenMausBot is not, so sign-in comes back another way:
   returns to its listed public address instead.
 - **Otherwise, paste one address.** For an app registered in advance (it
   always returns to its registered `127.0.0.1` address), a server that will
-  not register OpenMausBot for your https address, or a server reached over
+  not register Edu Bot for your https address, or a server reached over
   plain http, the sign-in panel says: *After you approve, your browser shows a
   page that can't load. Copy that page's full address and paste it here.* Copy
   the **entire URL from the address bar**, paste it into **Redirect URL**, and
   choose **Complete sign-in**. The page that can't load is expected: it
-  refers to your computer, while OpenMausBot is on the server. No port
+  refers to your computer, while Edu Bot is on the server. No port
   forwarding is needed.
 
-On the computer OpenMausBot runs on, the same paste step is under **Signing
+On the computer Edu Bot runs on, the same paste step is under **Signing
 in from another computer?** for an SSH tunnel or a browser elsewhere. **Open
 sign-in page** reopens the approval page if your browser blocked the first
 attempt.
@@ -203,7 +207,7 @@ Corporate identity providers (Microsoft Entra ID, for example) and some
 hosted servers do not let apps register themselves. Register an app with the
 provider, then edit the server and fill in **Sign-in app**:
 
-- **Client ID** of that app. With a client ID set, OpenMausBot signs in as
+- **Client ID** of that app. With a client ID set, Edu Bot signs in as
   that app and never registers one.
 - **Client secret**, only for a confidential app. It is write-only like a
   header value: kept in `config.json`, never shown again, and sent only to
@@ -257,7 +261,7 @@ is ignored.
 
 The desktop app's first-run tour does the same for you in its **Bring what you
 already use** step (`server/setup-import.ts`). On the computer running
-OpenMausBot, and only for the desktop app's own window there, it reads the
+Edu Bot, and only for the desktop app's own window there, it reads the
 `mcpServers` of Claude Code (only the top-level key of `~/.claude.json`),
 Claude Desktop, Cursor (`~/.cursor/mcp.json`) and Gemini CLI
 (`~/.gemini/settings.json`), the `[mcp_servers.*]` tables of Codex's
@@ -271,7 +275,7 @@ Neither tool's `.env`, `auth.json`, `mcp-tokens/`, `secrets.json`,
 `credentials/`, sessions, state databases or memory files are ever opened. Each server goes through the import parser, switched off;
 one already here by command or address is left alone, a different server
 under a name already taken is skipped and named in the result, a name
-OpenMausBot keeps for itself (`browser`, `computer`, `data`…) gets an `mcp-`
+Edu Bot keeps for itself (`browser`, `computer`, `data`…) gets an `mcp-`
 prefix, a trailing comma is accepted, and the list stops at its limit. One
 entry or file it cannot read drops only itself, and a kind that cannot be
 saved is reported as failed while the other still comes in. With **Also use
@@ -305,7 +309,7 @@ change afterwards is left out until it is brought in again. A turn whose
 engine already loads the folder a skill came from leaves the copy out, so
 nothing is listed twice: Claude Code with **Also use my Claude Code skills**
 on, and Codex on the person's own `CODEX_HOME` (a ChatGPT plan's linked one
-included). The copies travel with backups and Copy to My Cloud. The step never
+included). The copies travel with backups. The step never
 opens credential, session or history files, and it is skipped when there is
 nothing new.
 
@@ -422,7 +426,7 @@ limit, or half of it or more.
 | URL, Streamable HTTP | yes | yes | yes | yes |
 | URL, SSE | yes | yes | yes | yes |
 
-Every engine except Claude Code reaches URL servers through OpenMausBot's own
+Every engine except Claude Code reaches URL servers through Edu Bot's own
 connector, the same one **Test** uses, so a server that passes Test works in
 chat too. Bots reach a URL server through the credential broker, which keeps
 its headers (a sign-in token, a key) out of the engine's settings; on a Cloud
@@ -441,7 +445,7 @@ engine allows (the connector adds no deadline of its own, except for the
 tool search used by bots that cannot search tools themselves, two minutes).
 An HTTP 401 tells the bot to send the message again (a sign-in is refreshed
 when a message starts) and, if that fails, to sign in again or check the
-server's header values in Plugins → MCP servers.
+server's header values in Apps → Your MCP servers.
 
 ### Which bot made a call, on a server that runs on a lent computer
 
@@ -455,7 +459,7 @@ in the call's `_meta`:
 
 It is a hint for the server's own logs or per-bot settings, never proof of
 who called: the Cloud says it, the computer passes it on as it is, and
-OpenMausBot never uses it to allow or refuse anything. The Cloud sends it
+Edu Bot never uses it to allow or refuse anything. The Cloud sends it
 only to a desktop app new enough to pass it on, so an older one keeps running
 calls as before; a listing of the server's tools never carries it.
 
@@ -473,7 +477,7 @@ MCP servers in `~/.codex/config.toml`, which is why the two engines looked
 different.
 
 If you want Claude bots to see your own Claude Code MCP servers too, switch on
-**Also use my Claude Code MCP servers** at the top of Plugins → MCP servers.
+**Also use my Claude Code MCP servers** under Apps → Your MCP servers.
 With it on, every Claude bot also loads the servers and connectors from your
 Claude Code config on every message; skills, hooks and the personal
 `CLAUDE.md` still stay out. More tools means more tokens per message, so keep
@@ -481,7 +485,7 @@ it off unless you need those servers — the recommended way to give a bot a
 server is still this page or the bot project's `.mcp.json`.
 
 **Also use my Claude Code skills**, just below it, gives Claude bots the skills
-in your own `~/.claude/skills` and nothing else from your setup. OpenMausBot
+in your own `~/.claude/skills` and nothing else from your setup. Edu Bot
 keeps one link to that folder (in its data folder, `claude-user-skills/`) and
 passes it with `--add-dir`, so each skill loads as it is on disk, scripts and
 reference files included, and Claude Code picks up your edits within the
@@ -509,10 +513,10 @@ bot or team package.
 
 The switch drops the CLI flag `--strict-mcp-config` (Claude Code 1.0.60+)
 while keeping `--setting-sources project` (1.0.122+). The environment variable
-`OMB_CLAUDE_INHERIT_USER_CONFIG=1` on the OpenMausBot process remains the full
+`OMB_CLAUDE_INHERIT_USER_CONFIG=1` on the Edu Bot process remains the full
 escape hatch back to the old launch: it restores everything, for every Claude
 bot, until you remove it. The harness also picks the session's compaction
-window with `--autocompact` (2.1.122+). OpenMausBot reads `claude --version`
+window with `--autocompact` (2.1.122+). Edu Bot reads `claude --version`
 whenever it lists engines (app load, the Engines page, after an update) and
 only passes each flag to a CLI that accepts it, so an older CLI keeps working
 — without the controls it predates — and the Engines page shows an update
@@ -536,7 +540,7 @@ Address entries are HTTPS only. The host is compared label by label, where
 and the path separately, where `*` matches anything.
 
 Limits: a personal **Codex** engine also loads MCP servers from your own
-`~/.codex/config.toml`, which OpenMausBot does not filter. A server here that
+`~/.codex/config.toml`, which Edu Bot does not filter. A server here that
 `config.toml` already runs, with the same command, arguments and environment
 or the same address and headers (as one brought in from there is), is not
 mounted a second time on a turn without a tool selection. An organization that
@@ -574,7 +578,7 @@ The same registry lives in `~/.edubot/config.json`:
 `type` is `http` (Streamable HTTP, the default) or `sse`. A command entry may
 say `"type": "stdio"`, as other MCP clients write it; it changes nothing.
 `oauth` is the optional sign-in app; `clientSecret` and `scopes` may be left
-out. If you edit the file by hand, restart OpenMausBot. Every bot whose
+out. If you edit the file by hand, restart Edu Bot. Every bot whose
 engine can mount custom MCP servers gets the enabled tools on its next task.
 
 ## Rules that keep this safe
@@ -590,8 +594,8 @@ engine can mount custom MCP servers gets the enabled tools on its next task.
   32 chars, starting with a letter.
 - **Environment names are checked.** `OMB_*` and `OGB_*` are refused: Codex
   hands MCP children their variables from one shared environment, and those
-  names carry OpenMausBot's own routing and bearers. `ELECTRON_RUN_AS_NODE`
-  is accepted as `1` only — the value OpenMausBot's own proxies use — so a
+  names carry Edu Bot's own routing and bearers. `ELECTRON_RUN_AS_NODE`
+  is accepted as `1` only — the value Edu Bot's own proxies use — so a
   server bundled inside an Electron app (its binary as the command) can run
   as node; any other value would overwrite what the built-in proxies need.
 - **One bad entry never takes the fleet down.** Invalid entries are skipped
@@ -602,7 +606,7 @@ engine can mount custom MCP servers gets the enabled tools on its next task.
 - **Credentials stay off argv.** `env` values travel in the child
   environment (Codex argv carries env *names* only; Claude uses the private
   0600 mcp-config file; ACP passes them in the session payload with the
-  wire log redacted). Header values do the same: OpenMausBot's connector
+  wire log redacted). Header values do the same: Edu Bot's connector
   reads them from a private environment record (Codex names only the
   record's variable on argv; ACP gets it in the session payload), Claude
   Code from the 0600 file. They do persist as plaintext in the 0600 config file — prefer
@@ -610,7 +614,7 @@ engine can mount custom MCP servers gets the enabled tools on its next task.
   variables from the same environment it runs the bot's shell commands in,
   so each variable a server needs there is excluded from that shell; a value
   you already had in your own environment, like a proxy setting, stays.
-- **Proxies.** Where OpenMausBot's own remote proxy connects to a URL
+- **Proxies.** Where Edu Bot's own remote proxy connects to a URL
   server, an `https://` server goes through your `HTTPS_PROXY` /
   `HTTP_PROXY` (CONNECT), with this computer's loopback names always added
   to `NO_PROXY` (`[::1]` included). An `http://` server goes through your
@@ -621,7 +625,7 @@ engine can mount custom MCP servers gets the enabled tools on its next task.
   System Settings are not read.
 - **Testing is bounded.** A command is stopped after the handshake (or eight
   seconds), its output is capped, and its stderr is never sent to the UI. It
-  inherits none of OpenMausBot's workspace or provider credentials; only the
+  inherits none of Edu Bot's workspace or provider credentials; only the
   environment variables configured for that MCP server are added. Where bots
   are boxed, a command server is tested in the box, as a bot's turn starts
   it, and its configured variables pass the box's allow-list there, in the

@@ -191,7 +191,10 @@ export function parseServerInput(addressInput, codeInput = "") {
   };
 }
 
-/** The page that finishes pairing on the server itself, with the code in the fragment so it never reaches a log. */
-export function pairingPageUrl(origin, secret) {
-  return secret ? `${origin}/pair#code=${encodeURIComponent(secret)}` : origin;
+/** The page that finishes pairing on the server itself, with the code in the fragment so it never reaches a log.
+ * `computerName` is what the server's list of paired devices calls this computer. */
+export function pairingPageUrl(origin, secret, computerName = "") {
+  if (!secret) return origin;
+  const name = String(computerName ?? "").trim();
+  return `${origin}/pair#code=${encodeURIComponent(secret)}${name ? `&device=${encodeURIComponent(name)}` : ""}`;
 }

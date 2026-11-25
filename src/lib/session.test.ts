@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   BROWSER_SIGN_IN_FAILED, cloudOwnerOf, isConnected, isOwnerOrAdmin, previewBrowserSignIn, profileForSession, readSessionState, reasonWorthShowing, SERVICE_TRUST_REASON, signInWithBrowserGrant,
-  takeBrowserSignInFromLocation, takeInvitedEmailFromLocation, takePairingCodeFromLocation,
+  pairingDeviceName, takeBrowserSignInFromLocation, takeInvitedEmailFromLocation, takePairingCodeFromLocation,
   type SessionState,
 } from "./session";
 
@@ -13,6 +13,22 @@ describe("what the pair page says about why it was shown", () => {
     expect(reasonWorthShowing("403")).toBeNull();
     expect(reasonWorthShowing(undefined)).toBeNull();
     expect(reasonWorthShowing("unauthorized: this session has expired or was revoked; pair this device again")).toMatch(/expired or was revoked/);
+  });
+});
+
+describe("the computer name on a desktop app's pair link", () => {
+  it("reads the name the desktop sent, and nothing from a link without one", () => {
+    expect(pairingDeviceName("#code=ABCD-EFGH-JK23&device=FFM-EDUARDOMORAGA")).toBe("FFM-EDUARDOMORAGA");
+    expect(pairingDeviceName("#code=ABCD-EFGH-JK23&device=Mac%20mini%20de%20Edu")).toBe("Mac mini de Edu");
+    expect(pairingDeviceName("#code=ABCD-EFGH-JK23")).toBeNull();
+    expect(pairingDeviceName("")).toBeNull();
+  });
+
+  it("keeps it one short printable line", () => {
+    expect(pairingDeviceName(`#code=x&device=${encodeURIComponent("  my\npc\u0000 ")}`)).toBe("my pc");
+    expect(pairingDeviceName(`#code=x&device=${"a".repeat(200)}`)).toHaveLength(80);
+    expect(pairingDeviceName("#code=x&device=%E0%A4%A")).toBeNull();
+    expect(pairingDeviceName("#code=x&device=%20")).toBeNull();
   });
 });
 

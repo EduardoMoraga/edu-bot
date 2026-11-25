@@ -179,7 +179,7 @@ test("a prompt closes when the ask was answered elsewhere, and doesn't come up w
   await until(() => closed.length === 1, "the prompt to close");
 
   const shown = [];
-  const dialog = { showMessageBox: async (...args) => { shown.push(args); return { response: 0 }; } };
+  const dialog = { showMessageBox: async (...args) => { shown.push(args); return { response: 1 }; } };
   const focused = { isDestroyed: () => false, isFocused: () => true, isVisible: () => true, show: () => {}, webContents: { getURL: () => `${HOME}/chat` } };
   const prompt = createAskPrompt({ dialog, window: () => focused, platform: "win32" });
   assert.equal(await prompt({ id: "my-cloud", name: "My Cloud", origin: HOME }, ask(), new AbortController().signal), null, "the card is right there");

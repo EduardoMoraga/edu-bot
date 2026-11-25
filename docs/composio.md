@@ -8,7 +8,7 @@ Without a key, **Apps** shows these steps, each app says **Needs a Composio key*
 
 1. Create a free project at [Composio](https://dashboard.composio.dev) (sign in or sign up first if asked).
 2. Open the project's [API Keys page](https://dashboard.composio.dev/~/project/settings/api-keys), create a project key if it has none, and copy it. It starts with `ak_`. The `ck_` key on the personal **Sessions & API Key** page is a different key and won't work.
-3. In Edu Bot, open **Apps** and press **Paste key**, or go to **Settings → AI → Other services → Apps and tools → Composio project key**. Paste the key there.
+3. In Edu Bot, press **Connect apps** in the sidebar. Under **Start here**, press **Set up** on **Gmail and Google Calendar** or **Slack** (or open **More apps (advanced)**). Paste the key and press **Save**. **Settings → AI → Other services → Apps and tools → Composio project key** takes the same key. A key Composio does not know is answered with "Composio did not accept that key. Copy it again from your Composio project."
 4. Come back to **Apps** and press **Connect** on Gmail, GitHub, Slack or another app. Enter a unique label such as `work` or `personal`, then finish the sign-in in your normal browser.
 5. To connect another account for the same app, choose **Add account**, give it a unique label, and finish the second sign-in in your browser.
 
@@ -23,7 +23,7 @@ Edu Bot does not use any hosted connection service by default. An operator who r
 - With your own project key saved, the key wins: the app sends the service nothing, not even its start-up check, and apps go to Composio directly.
 - **`OMB_COMPOSIO_BROKER=off`** turns the service off whether or not a key is saved: no registration, check-in, tool calls or app events.
 - While a named service is not answering, **Apps** says so and suggests restarting the app or adding your own key; it never shows a broken page.
-- A Cloud home that uses such a service keeps its installation token in `connected-apps-installation.json` in the data folder, owner-only (0600). The token is never written to `config.json`, sent to a client or logged, and never goes into a backup or a move to another computer (`server/workspace-backup-policy.ts`).
+- A Cloud home (upstream MausBot Cloud, not offered by Edu Bot) that uses such a service keeps its installation token in `connected-apps-installation.json` in the data folder, owner-only (0600). The token is never written to `config.json`, sent to a client or logged, and never goes into a backup or a move to another computer (`server/workspace-backup-policy.ts`).
 
 The server run from source registers only with an explicitly named service, so development and tests never create installations anywhere by themselves.
 
@@ -49,6 +49,8 @@ With a connection service:
 Gmail and other polled apps are checked every 15 minutes, the minimum for Composio-managed sign-ins.
 
 ## Your key, the service and Team Clouds
+
+Edu Bot does not offer MausBot Cloud or Team Clouds. The Team Cloud paragraphs below describe the upstream service and apply only where someone runs one.
 
 An app-event automation made through a connection service before your key was saved can still be paused, deleted or restored, but only here: its copy on the service is left alone and removed if you later go back to the service.
 

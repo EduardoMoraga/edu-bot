@@ -262,7 +262,7 @@ it("Connect to a server never sits grey without saying why: it says it is lookin
   expect(form.querySelector("[data-connect-problem]")?.textContent).toBe("Can't reach 192.168.1.21:8799. Check the server is running and reachable from this computer.");
 });
 
-it("Connect to a server says how another computer's desktop app is opened from here: its Your other computers link, or My Cloud", async () => {
+it("Connect to a server says how another computer's desktop app is opened from here: its Your other computers link", async () => {
   const probe = vi.fn(async (address: string): Promise<unknown> => (address === "123456"
     ? { outcome: "problem", problem: "oldCode" }
     : { outcome: "problem", problem: "desktopApp", host: "192.168.1.30:8799" }));
@@ -276,14 +276,14 @@ it("Connect to a server says how another computer's desktop app is opened from h
   await settle();
   const line = form.querySelector("[data-connect-problem]")?.textContent ?? "";
   expect(line).toContain("192.168.1.30:8799 is an Edu Bot desktop app. To open it from here, turn on Tailscale and Your other computers in its Settings → Phone & devices, then use the link shown there.");
-  expect(line).toContain("My Cloud");
+  expect(line).not.toContain("My Cloud");
   expect(line).not.toMatch(/can't connect to another|isn't an Edu Bot server/);
   expect((form.querySelector("[data-own-server-connect]") as HTMLButtonElement).disabled).toBe(true);
   await type(form.querySelector("[data-own-server-link]"), "123456");
   await settle();
   const code = form.querySelector("[data-connect-problem]")?.textContent ?? "";
   expect(code).toContain("That code is for the phone app. To open that computer from here, turn on Tailscale and Your other computers in its Settings → Phone & devices, then use the link shown there.");
-  expect(code).toContain("My Cloud");
+  expect(code).not.toContain("My Cloud");
   expect(code).not.toMatch(/can't connect to another|older Edu Bot/);
 });
 

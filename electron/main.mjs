@@ -87,7 +87,7 @@ import {
 } from "./companion-account-service.mjs";
 import capabilitiesModule from "./capabilities.cjs";
 import environmentsModule from "./environments.cjs";
-import { pairingPageUrl, vouchForPlainHttpServers } from "./server-address.mjs"; import { createServerConnect } from "./server-probe.mjs"; import { createTailnetShare, remotePolicyAllows } from "./tailnet-share.mjs"; import { checkTailscale } from "./tailscale-check.mjs"; import { onTailnet } from "./tailnet.mjs"; import { checkServer, createServerStatus, installServerStatus } from "./server-status.mjs";
+import { consentGiven } from "./consent-dialog.mjs"; import { pairingPageUrl, vouchForPlainHttpServers } from "./server-address.mjs"; import { createServerConnect } from "./server-probe.mjs"; import { createTailnetShare, remotePolicyAllows } from "./tailnet-share.mjs"; import { checkTailscale } from "./tailscale-check.mjs"; import { onTailnet } from "./tailnet.mjs"; import { checkServer, createServerStatus, installServerStatus } from "./server-status.mjs";
 import localOriginModule from "./local-origin.cjs";
 import { buildApplicationMenu } from "./menu.mjs";
 import { createComputerSharing, isHomeFolder, validateSharedFolders } from "./computer-sharing.mjs"; import { installServerLending } from "./server-lending.mjs"; import { ownEnvironmentIds } from "./lent-mcp.mjs";
@@ -152,7 +152,7 @@ const cloudEntry = createCloudEntry({
     return delivered;
   },
 });
-cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: async (message, detail, button) => (await dialog.showMessageBox({ type: "question", buttons: [button, nativeT("native.common.cancel")], defaultId: 0, cancelId: 1, message, detail })).response === 0, t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
+cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: (message, detail, button) => consentGiven(dialog, null, { type: "question", grant: button, refuse: nativeT("native.common.cancel"), message, detail }), t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
 let pendingPackageInstallUrl = pendingOrganizationEntry ? null : packageUrlFromCommandLine(process.argv);
 let pendingChatLink = pendingOrganizationEntry ? null : chatLinkFromCommandLine(process.argv);
 let organizationEntryReady = false;
@@ -1690,14 +1690,12 @@ const organizationEntry = createOrganizationEntry({
   readState: () => ({ environments: environmentsState, remoteAccess: desktopRemoteAccess,
     restartIntent: organizationRestartIntent(secureCredentialState?.read() ?? secureCredentials) }),
   confirm: async ({ kind, name, origin }) => {
-    const { response } = await dialog.showMessageBox({
+    return consentGiven(dialog, null, {
       type: "question",
-      buttons: [nativeT(kind === "companion" ? "native.dialog.org.disconnect" : "native.dialog.org.useHere"), nativeT("native.common.cancel")],
-      defaultId: 1, cancelId: 1,
+      grant: nativeT(kind === "companion" ? "native.dialog.org.disconnect" : "native.dialog.org.useHere"), refuse: nativeT("native.common.cancel"),
       message: nativeT(kind === "companion" ? "native.dialog.org.msgCompanion" : "native.dialog.org.msgHosted", { name }),
       detail: `${origin}\n\n${nativeT("native.dialog.org.detail", { consequence: nativeT(kind === "companion" ? "native.dialog.org.consCompanion" : "native.dialog.org.consHosted") })}`,
     });
-    return response === 0;
   },
   saveEnvironments: persistEnvironments,
   disconnectAndRemember: async expected => {
@@ -1786,12 +1784,12 @@ async function addServerFromClipboard() {
 
 const serverConnect = createServerConnect({ fetch: (...args) => session.defaultSession.fetch(...args), t: nativeT, tailnet: () => onTailnet(os.networkInterfaces()),
   ownEnvironmentId: async () => (await (await localServerRequest("/.well-known/openmausbot/environment")).json())?.environmentId ?? null,
-  ask: async (found) => (await dialog.showMessageBox({ type: "question", buttons: [nativeT("native.dialog.connect.button"), nativeT("native.common.cancel")], defaultId: 0, cancelId: 1,
-    message: nativeT("native.dialog.connect.title", { host: found.label }), detail: nativeT(found.code || found.credential ? "native.dialog.connect.withCode" : "native.dialog.connect.noCode") })).response === 0,
+  ask: (found) => consentGiven(dialog, null, { type: "question", grant: nativeT("native.dialog.connect.button"), refuse: nativeT("native.common.cancel"),
+    message: nativeT("native.dialog.connect.title", { host: found.label }), detail: nativeT(found.code || found.credential ? "native.dialog.connect.withCode" : "native.dialog.connect.noCode") }),
   open: (found, name) => {
     const next = withEnvironment(environmentsState, { origin: found.origin, name: name ?? environmentsState.environments.find((e) => e.origin === found.origin)?.name ?? found.label }, () => randomUUID());
     persistEnvironments(withActive(next, next.environments.find((e) => e.origin === found.origin).id));
-    navigateMainWindow(pairingPageUrl(found.origin, found.code ?? found.credential));
+    navigateMainWindow(pairingPageUrl(found.origin, found.code ?? found.credential, os.hostname()));
   } });
 const connectHostedWorkspace = (input, name) => serverConnect.connectAsking(input, name);
 
@@ -1843,17 +1841,13 @@ function askRemoteMicrophone(origin) {
   if (!env || env.origin !== origin || env.microphone === true || remoteMicrophoneRefused.has(origin)) return null;
   if (!remoteMicrophoneAsks.has(origin)) {
     const ask = (async () => {
-      const options = {
+      const allowed = await consentGiven(dialog, mainWindow && !mainWindow.isDestroyed() ? mainWindow : null, {
         type: "question",
-        buttons: [nativeT("native.dialog.mic.allow"), nativeT("native.dialog.mic.deny")],
-        defaultId: 1,
-        cancelId: 1,
+        grant: nativeT("native.dialog.mic.allow"), refuse: nativeT("native.dialog.mic.deny"),
         message: nativeT("native.dialog.mic.title", { name: env.name }),
         detail: nativeT("native.dialog.mic.detail", { host: new URL(origin).host }),
-      };
-      const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : null;
-      const { response } = parent ? await dialog.showMessageBox(parent, options) : await dialog.showMessageBox(options);
-      if (response !== 0) return void remoteMicrophoneRefused.add(origin);
+      });
+      if (!allowed) return void remoteMicrophoneRefused.add(origin);
       if (environmentsState.environments.some((e) => e.id === env.id && e.origin === origin)) persistEnvironments(withMicrophone(environmentsState, env.id));
     })().finally(() => remoteMicrophoneAsks.delete(origin));
     remoteMicrophoneAsks.set(origin, ask);
@@ -1866,15 +1860,13 @@ async function forgetEnvironment(id, purge = false, confirmed = false) {
   if (!env) return;
   if (env.kind === "local" && environmentsState.activeId === id) return { ok: false, error: "active" };
   if (env.kind !== "local" && !confirmed) {
-    const { response } = await dialog.showMessageBox({
+    const remove = await consentGiven(dialog, null, {
       type: "warning",
-      buttons: [nativeT("native.dialog.removeServer.button"), nativeT("native.common.cancel")],
-      defaultId: 1,
-      cancelId: 1,
+      grant: nativeT("native.dialog.removeServer.button"), refuse: nativeT("native.common.cancel"),
       message: nativeT("native.dialog.removeServer.title", { name: env.name }),
       detail: nativeT("native.dialog.removeServer.detail"),
     });
-    if (response !== 0) return;
+    if (!remove) return;
   }
   sharingController().forget(env);
   remoteMicrophoneRefused.delete(env.origin);
@@ -2552,7 +2544,7 @@ const ownCloudPage = event => {
   if (!origin || origin === myCloud() || !cloudAccount?.isOwnCloud(origin) || !cloudPageSenderAllowed(event, { contents, homeOrigin: origin, activeOrigin: origin })) return null;
   return otherOwnClouds(cloudAccount.state().clouds).find(cloud => cloud.origin === origin) ?? null;
 };
-const updaterPageAllowed = event => cloudPageAsking(event) !== null || ownCloudPage(event) !== null; const activePageOrigin = event => { const origin = activeEnvironment(environmentsState)?.origin, contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null; return origin && cloudPageSenderAllowed(event, { contents, homeOrigin: origin, activeOrigin: origin }) ? origin : null; }; const confirmTeamMove = async words => mainWindow && !mainWindow.isDestroyed() && (await dialog.showMessageBox(mainWindow, { type: "warning", ...words, defaultId: 1, cancelId: 1, noLink: true })).response === 0;
+const updaterPageAllowed = event => cloudPageAsking(event) !== null || ownCloudPage(event) !== null; const activePageOrigin = event => { const origin = activeEnvironment(environmentsState)?.origin, contents = mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null; return origin && cloudPageSenderAllowed(event, { contents, homeOrigin: origin, activeOrigin: origin }) ? origin : null; }; const confirmTeamMove = async ({ buttons: [grant, refuse], ...words }) => Boolean(mainWindow && !mainWindow.isDestroyed()) && consentGiven(dialog, mainWindow, { type: "warning", ...words, grant, refuse, noLink: true });
 const updaterPageOffered = event => {
   if (updaterPageAllowed(event)) return true;
   if (desktopRemoteAccess || cloudSignInRestored) return false;
@@ -2633,14 +2625,7 @@ const cloudSync = installCloudFiles({ t: nativeT,
 // window.confirm() has no parent window, so (tiling) window managers cannot center it over the app.
 ipcMain.handle("dialog:confirm", localWorkspaceOnly("dialog:confirm", async (_event, message) => {
   if (typeof message !== "string" || !message.trim() || message.length > 4096 || !mainWindow || mainWindow.isDestroyed()) return false;
-  const { response } = await dialog.showMessageBox(mainWindow, {
-    type: "warning",
-    message,
-    buttons: [nativeT("native.common.ok"), nativeT("native.common.cancel")],
-    defaultId: 1,
-    cancelId: 1,
-  });
-  return response === 0;
+  return consentGiven(dialog, mainWindow, { type: "warning", message, grant: nativeT("native.common.ok"), refuse: nativeT("native.common.cancel") });
 }));
 
 ipcMain.handle("environments:state", localWorkspaceOnly("environments:state", (event) => ({

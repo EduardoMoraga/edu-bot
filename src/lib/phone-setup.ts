@@ -483,3 +483,7 @@ export function normalizePhoneSetupActionError(cause: unknown, fallback: string)
     : fallback;
   return reference ? t("phone.error.reference", { message: publicMessage, reference }) : publicMessage;
 }
+
+/** No relay service is set up for this app (OMB_CONTROL_PLANE_URL), so there is no sign-in to offer or to retry: the
+ * phone pairs on the same Wi-Fi or through Tailscale. */
+export const signInNotOffered = (account: CompanionAccountState | null): boolean => account?.problem === "unconfigured";

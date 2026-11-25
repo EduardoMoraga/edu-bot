@@ -28,6 +28,8 @@ export interface TailnetShareState {
   https: boolean;
   /** Why nothing answers: "not-listening", or the state Tailscale reported. */
   problem: string | null;
+  /** The tailnet hands out certificates, but another `tailscale serve` on this computer already holds port 443. */
+  httpsPortBusy?: boolean;
 }
 
 export interface CompanionState {

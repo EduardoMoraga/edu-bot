@@ -83,9 +83,9 @@ export function TeamLeftPage({ team }: { team: string | null }) {
   </main>;
 }
 
-export function PairPage({ initialCode, initialEmail = null, reason }: { initialCode: string | null; initialEmail?: string | null; reason?: string }) {
+export function PairPage({ initialCode, initialEmail = null, initialLabel = null, reason }: { initialCode: string | null; initialEmail?: string | null; initialLabel?: string | null; reason?: string }) {
   const [code, setCode] = useState(initialCode ?? "");
-  const [label, setLabel] = useState(defaultDeviceLabel());
+  const [label, setLabel] = useState(initialLabel ?? defaultDeviceLabel());
   const [environment, setEnvironment] = useState<EnvironmentDescriptor | null>(null);
   const [session, setSession] = useState<SessionState | null>(null);
   const [busy, setBusy] = useState(false);

@@ -435,7 +435,7 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
       })).servers);
       const tested = await signedInToolsCheck(name, api, undefined, app.label, "hostedMcp.keyTestFailed");
       if (!mounted.current) return;
-      setProbe((current) => ({ ...current, [name]: tested.reason === "keys" ? { ...tested, error: t("hostedMcp.keyRefused", { service: app.label }) } : tested }));
+      setProbe((current) => ({ ...current, [name]: tested.reason === "keys" || tested.auth === "required" ? { ...tested, error: t("hostedMcp.keyRefused", { service: app.label }) } : tested }));
       if (!tested.ok) return;
       listed((await api(`/api/mcp/servers/${name}`, { method: "PATCH", body: JSON.stringify({ enabled: true }) })).servers);
       setKeys((current) => ({ ...current, [app.id]: "" }));

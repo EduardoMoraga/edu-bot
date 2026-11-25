@@ -83,6 +83,10 @@ export function computerLink(offer: Pick<PairingOffer, "url" | "code">, address:
   }
 }
 
+/** How often Your other computers reads the paired list again while it is on screen, so a computer that just used its
+ * code shows up without leaving the page. */
+export const PAIRED_REFRESH_MS = 5_000;
+
 export function shownDevices(devices: PairedDevice[], cloudHome: boolean): PairedDevice[] {
   return cloudHome ? devices.filter((device) => device.scopes.includes("admin")) : devices;
 }
@@ -103,13 +107,13 @@ export function ServerPairingCard({ initialSession = null, initialPairingCodes =
   const root = useRef<HTMLDivElement>(null);
   const revealed = useRef(0);
 
-  async function loadDevices() {
+  async function loadDevices(quiet = false) {
     try {
       const body = await api("/api/auth/sessions");
       setDevices(Array.isArray(body?.sessions) ? body.sessions : []);
       setCurrent(typeof body?.current === "string" ? body.current : null);
     } catch (e) {
-      setError(t("remote.serverPairing.error", { error: e instanceof Error ? e.message : String(e) }));
+      if (!quiet) setError(t("remote.serverPairing.error", { error: e instanceof Error ? e.message : String(e) }));
     }
   }
 
@@ -133,6 +137,13 @@ export function ServerPairingCard({ initialSession = null, initialPairingCodes =
       if (canPairDevices(session) && takePairOnOpen()) void create();
     }
   }, [focusRequest, session]);
+
+  const listsComputers = forComputer && canPairDevices(session);
+  useEffect(() => {
+    if (!listsComputers) return;
+    const timer = setInterval(() => { if (document.visibilityState !== "hidden") void loadDevices(true); }, PAIRED_REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [listsComputers]);
 
   useEffect(() => {
     if (!offer) return;
