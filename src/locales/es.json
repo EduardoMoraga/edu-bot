@@ -10882,7 +10882,7 @@
   "devices.computers.detail": "Abre los bots de este equipo desde otro equipo con sesión iniciada en la misma cuenta de Tailscale. Necesita Tailscale en ambos.",
   "devices.computers.pairButton": "Vincular un equipo",
   "devices.computers.pairTitle": "Vincular otro equipo",
-  "devices.computers.typeCode": "En tu otro equipo, abre {app} y ve a Ajustes → Esta app → Tus equipos → Conectar a un servidor. Pega el enlace que copies aquí, o escribe allí esta dirección y este código.",
+  "devices.computers.typeCode": "En tu otro equipo, abre {app}, ve a Ajustes → Esta app → Tus equipos y elige Conectar a un servidor. Pega el enlace que copies aquí, o escribe allí esta dirección y este código.",
   "devices.computers.address": "Dirección",
   "devices.computers.pairLine": "Crea un enlace que abre tu otro equipo. Sirve una sola vez.",
   "devices.computers.https": "Listo en {address}, con el certificado HTTPS de Tailscale.",

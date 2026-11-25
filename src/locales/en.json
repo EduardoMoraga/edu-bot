@@ -10882,7 +10882,7 @@
   "devices.computers.detail": "Open this computer's bots from another computer signed in to the same Tailscale account. Needs Tailscale on both.",
   "devices.computers.pairButton": "Pair a computer",
   "devices.computers.pairTitle": "Pair another computer",
-  "devices.computers.typeCode": "On your other computer, open {app}, then Settings → This app → Your computers → Connect to a server. Paste the link you copy here, or type this address and code there.",
+  "devices.computers.typeCode": "On your other computer, open {app}, go to Settings → This app → Your computers and choose Connect to a server. Paste the link you copy here, or type this address and code there.",
   "devices.computers.address": "Address",
   "devices.computers.pairLine": "Makes a link your other computer opens. It works once.",
   "devices.computers.https": "Ready at {address}, with Tailscale's HTTPS certificate.",
