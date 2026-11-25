@@ -94,6 +94,40 @@ Cómo leer la salida:
 - `serve status` dice a dónde apunta el 443 viejo. Si es un resto de una prueba vieja de Edu Bot u OpenMausBot,
   Eduardo puede decidir si lo borra (`tailscale serve reset`). No lo borro yo.
 
+### Causa de L2 (Edu Git en FFM, 24-11, después de las 23:57 UTC)
+
+**Edu Bot no estaba abierto en FFM.** Lo dice el log del servidor:
+
+- 16:40 en Chile (19:40 UTC): el servidor partió y dijo `tailnet: listening on 100.124.16.12:8799`. O sea,
+  **Tus otros ordenadores estuvo encendido** y la app sí escuchó en la dirección de Tailscale.
+- 16:57 en Chile (19:57 UTC): la app se cerró (`exited code=0`) con
+  `server child did not stop before desktop exit; retaining the data-directory lease`.
+- Ahora nadie escucha en 8799, 8800, 8810, 8811, 18799 ni 28799, tampoco en `127.0.0.1`.
+
+Mis dos intentos desde omarchy (18:29 y 23:57 UTC) quedaron fuera de esa ventana de 17 minutos. Por eso no
+contestó, y todavía no se sabe si el firewall deja pasar.
+
+Otros datos de FFM:
+
+- El 443 lo atiende `tailscaled`, en `100.124.16.12` y `fd7a:115c:a1e0::2638:100d`.
+  `tailscale serve status`: `https://ffm-eduardomoraga.tail9f9734.ts.net (tailnet only)` → `proxy http://127.0.0.1:3773`.
+  Es un `serve` viejo, y como nada escucha en el 3773, da el 502. Borrarlo (`tailscale serve reset`) lo decide
+  Eduardo. No molesta: Edu Bot comparte por `:8799` si el 443 está ocupado.
+- Perfiles de red: Tailscale = **Private**, WIFI = DomainAuthenticated, OpenVPN = Public.
+- Firewall de Windows: Domain, Private y Public encendidos, `DefaultInboundAction = NotConfigured`.
+
+**Siguiente paso** (cuando Eduardo vuelva a FFM): abrir Edu Bot, revisar que **Tus otros ordenadores** diga
+"Listo en …", avisar y repito L2 de inmediato. Si 8799 sigue sin contestar con la app abierta, el bloqueo es del
+firewall.
+
+**Nota de producto (cerrar la app).** Al cerrar, el servidor no paró dentro de los 9,5 s que la app espera
+(`UTILITY_SERVER_STOP_TIMEOUT_MS`, `electron/main.mjs`). Por eso guardó el bloqueo de la carpeta de datos
+(`retaining the data-directory lease`). Está hecho así a propósito: así una app nueva no arranca un segundo
+servidor mientras el viejo todavía escribe. Después el servidor sí terminó: ya no queda nada escuchando. El
+bloqueo guarda el pid, y la app siguiente lo recupera si ese proceso ya no existe. **No bloquea la prueba.**
+Revisarlo al abrir de nuevo: si Edu Bot no abre o dice que otra copia está corriendo, eso sí es un error. Sigue sin
+saberse por qué el servidor tardó más de 9,5 s en parar en FFM.
+
 ### (a) Emparejar el S24 con FFM: pasos para Eduardo
 
 **En el S24:**
@@ -144,7 +178,7 @@ revisan. Si no hay ninguno, inicia sesión en **Ajustes → IA → Proveedores**
 | # | Chequeo | Resultado |
 | --- | --- | --- |
 | L1 | **Tus otros ordenadores** dice "Listo en …" (anota la dirección) | pendiente |
-| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | **Falla** (24-11, 23:57 UTC): el 443 da `HTTP/2 502` vacío; 8799, 18799, 28799, 8810 y 8811 no contestan. Ver "Intento L2" |
+| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | **En pausa**: a las 23:57 UTC no contestó porque **Edu Bot estaba cerrado** en FFM (se cerró a las 19:57 UTC). Hay que repetirlo con la app abierta. El firewall no está descartado ni confirmado. Ver "Intento L2" y "Causa de L2" |
 | L3 | El bot lista `EduBotPrueba` y lee `hola.txt` | pendiente |
 | L4 | Control de pantalla corre en FFM | pendiente |
 | L5 | El bot toma una captura de la pantalla de FFM | pendiente |
