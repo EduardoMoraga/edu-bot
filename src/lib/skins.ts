@@ -74,17 +74,21 @@ function getStore(): Storage | undefined {
 }
 
 /** The pair this install's System, Light and Dark wear, settled once: the Edu pair for a new install or one whose saved
- * skin was retired, the classic pair for any other install that ran before. */
+ * skin was retired, the classic pair for any other install that ran before. Unreadable storage counts as an install
+ * that ran before, as `readSkinChoice` does. */
 export function themeSkins(): ThemeSkins {
   try {
     const store = getStore();
+    const pair = hasPriorRun(store) && !isRetiredSkin(store?.getItem(KEY)) ? "classic" : "edu";
     const settled = store?.getItem(PAIR_KEY);
     if (settled === "edu" || settled === "classic") return PAIRS[settled];
-    const pair = hasPriorRun(store) && !isRetiredSkin(store?.getItem(KEY)) ? "classic" : "edu";
-    store?.setItem(PAIR_KEY, pair);
+    try {
+      store?.setItem(PAIR_KEY, pair);
+    } catch {
+    }
     return PAIRS[pair];
   } catch {
-    return THEME_SKINS;
+    return CLASSIC_THEME_SKINS;
   }
 }
 

@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const values = new Map<string, string>();
+const failingWrites = new Set<string>();
+let onRead: ((key: string) => void) | null = null;
 const os = { dark: false, listeners: new Set<() => void>() };
 
 // Each case loads fresh modules over the same storage, as a launch would (main.tsx's order); interface-mode keeps a
@@ -22,11 +24,20 @@ function setOsDark(dark: boolean) {
 
 beforeEach(() => {
   values.clear();
+  failingWrites.clear();
+  onRead = null;
   os.dark = false;
   os.listeners.clear();
   vi.stubGlobal("localStorage", {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => { values.set(key, value); },
+    getItem: (key: string) => {
+      const value = values.get(key) ?? null;
+      onRead?.(key);
+      return value;
+    },
+    setItem: (key: string, value: string) => {
+      if (failingWrites.has(key)) throw new DOMException("full", "QuotaExceededError");
+      values.set(key, value);
+    },
     removeItem: (key: string) => { values.delete(key); },
   });
   vi.stubGlobal("window", new EventTarget());
@@ -68,6 +79,29 @@ describe("default skin", () => {
     expect(renderToStaticMarkup(createElement(ThemeRow))).toMatch(/aria-checked="true"[^>]*>Light</);
     chooseSkinChoice("system");
     expect(document.documentElement.dataset.skin).toBe("midnight");
+  });
+
+  it("keeps Daylight and Classic for an install that followed the computer when the pair cannot be saved", async () => {
+    values.set("omb-skin", "system");
+    values.set("omb-installed", "2026-10-17T00:00:00.000Z");
+    failingWrites.add("omb-theme-skins");
+    expect(await boot()).toMatchObject({ skin: "daylight", stored: "system" });
+    setOsDark(true);
+    expect(document.documentElement.dataset.skin).toBe("midnight");
+    expect(values.has("omb-theme-skins")).toBe(false);
+  });
+
+  it("agrees with another window of a new install that settles its look while this one is reading", async () => {
+    vi.resetModules();
+    const skins = await import("./skins");
+    onRead = (key) => {
+      if (key !== "omb-theme-skins") return;
+      onRead = null;
+      values.set("omb-theme-skins", "edu");
+      values.set("omb-skin", "system");
+    };
+    expect(skins.themeSkins()).toEqual({ light: "meadow", dark: "edu-night" });
+    expect(values.get("omb-theme-skins")).toBe("edu");
   });
 
   it.each(["halloween", "diwali"])("moves a saved %s skin to the Edu look that follows the computer", async (retired) => {
