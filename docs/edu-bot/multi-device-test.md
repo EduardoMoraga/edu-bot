@@ -44,6 +44,56 @@ Los comandos son para Edu Git; los pasos con las manos son para Eduardo.
 - **Riesgo**: si después de encender **Tus otros ordenadores** siguen sin contestar, el sospechoso es el
   Firewall de Windows. En un PC de empresa no se puede cambiar sin admin. Los comandos de (c) lo revisan.
 
+### Intento L2 (desde omarchy, 24-11, 23:57 UTC)
+
+No se sabe si **Tus otros ordenadores** ya estaba encendido en FFM: nadie lo confirmó en la pantalla.
+
+Errores exactos:
+
+| Dirección | Resultado |
+| --- | --- |
+| `https://ffm-eduardomoraga.tail9f9734.ts.net/` (y `/api/health`, `/pair`, `/.well-known/openmausbot/environment`) | `HTTP/2 502`, `content-length: 0`, en 0,65 s |
+| `http://ffm-eduardomoraga.tail9f9734.ts.net:8799` | `curl: (28) Connection timed out after 10001 milliseconds` |
+| `http://…:18799` y `http://…:28799` | `curl: (28) Connection timed out after 10001 milliseconds` |
+| `100.124.16.12:8810` y `:8811` (teléfono) | sin respuesta en 6 s |
+| `tailscale ping` | responde, pero `direct connection not established` (va por relé) |
+
+Como no hubo respuesta, no se pudieron probar el rechazo del `Host` falso (421) ni `/api/bots` sin sesión (403).
+
+Qué significa:
+
+1. **El 502 del 443 no es de Edu Bot.** Ahí responde un `tailscale serve` que ya estaba en FFM. Su certificado
+   es de Let's Encrypt, sacado alrededor del 9-11 (`expire date: Feb 7 00:47:38 2027 GMT`), y reenvía a un programa
+   que no está corriendo. Edu Bot no lo pisa: si el 443 está ocupado, la app comparte por `http://…:8799` en vez de
+   https (`electron/tailnet-share.mjs`, "port 443 already serves something").
+2. **El 8799 no contesta por Tailscale.** Hay dos causas posibles:
+   - **Tus otros ordenadores** sigue apagado. Entonces la app escucha solo en `127.0.0.1` y esto es lo esperado.
+   - Está encendido, pero el **Firewall de Windows** bloquea la entrada a Edu Bot por la red de Tailscale. Un
+     puerto que se agota sin rechazo calza con el firewall. En el PC de Cheil no se cambia sin admin.
+
+Para saber cuál de las dos es (Edu Git, en FFM, PowerShell sin admin):
+
+```powershell
+$ts = (Get-Command tailscale -ErrorAction SilentlyContinue).Source
+if (-not $ts) { $ts = "C:\Program Files\Tailscale\tailscale.exe" }
+& $ts serve status
+& $ts serve status --json
+Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
+  Where-Object LocalPort -in 443,8799,8800,8810,8811,18799,28799 |
+  Select-Object LocalAddress, LocalPort, @{n="Proceso";e={(Get-Process -Id $_.OwningProcess).ProcessName}}
+Get-Content "$env:APPDATA\Edu Bot\logs\server.log" -Tail 60 -ErrorAction SilentlyContinue | Select-String "tailnet"
+Get-NetConnectionProfile | Select-Object InterfaceAlias, NetworkCategory
+Get-NetFirewallProfile -ErrorAction SilentlyContinue | Select-Object Name, Enabled, DefaultInboundAction
+```
+
+Cómo leer la salida:
+
+- Si `8799` aparece **solo** con `127.0.0.1`: el compartir está apagado. Eduardo lo enciende y repito L2.
+- Si `8799` aparece también con `100.124.16.12`: el compartir está encendido y lo bloquea el firewall. Eso no se
+  arregla sin admin en el PC de Cheil. Se anota como bloqueo y se prueba con el Mac mini como home.
+- `serve status` dice a dónde apunta el 443 viejo. Si es un resto de una prueba vieja de Edu Bot u OpenMausBot,
+  Eduardo puede decidir si lo borra (`tailscale serve reset`). No lo borro yo.
+
 ### (a) Emparejar el S24 con FFM: pasos para Eduardo
 
 **En el S24:**
@@ -94,7 +144,7 @@ revisan. Si no hay ninguno, inicia sesión en **Ajustes → IA → Proveedores**
 | # | Chequeo | Resultado |
 | --- | --- | --- |
 | L1 | **Tus otros ordenadores** dice "Listo en …" (anota la dirección) | pendiente |
-| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | pendiente |
+| L2 | Desde omarchy: FFM responde por Tailscale; rechaza `Host` falso (421) y `/api/bots` sin sesión (403) | **Falla** (24-11, 23:57 UTC): el 443 da `HTTP/2 502` vacío; 8799, 18799, 28799, 8810 y 8811 no contestan. Ver "Intento L2" |
 | L3 | El bot lista `EduBotPrueba` y lee `hola.txt` | pendiente |
 | L4 | Control de pantalla corre en FFM | pendiente |
 | L5 | El bot toma una captura de la pantalla de FFM | pendiente |
