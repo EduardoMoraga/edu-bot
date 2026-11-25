@@ -59,11 +59,14 @@ export function ThemeEditor({ id, onClose, foot }: { id: string; onClose: () => 
   const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (drafts.has(id)) return;
+    let open = true;
     void api<{ theme: ThemeFile }>(`/api/themes/${id}`).then((answer) => {
+      if (!open) return;
       const fresh = { saved: answer.theme, draft: answer.theme };
       drafts.set(id, fresh);
       setKept(fresh);
-    }, (error: unknown) => setStatus(errorText(error)));
+    }, (error: unknown) => { if (open) setStatus(errorText(error)); });
+    return () => { open = false; };
   }, [id]);
   const draft = kept?.draft;
   const problem = draft?.css ? themeCssProblem(draft.css) : null;
@@ -119,9 +122,9 @@ export function ThemeEditor({ id, onClose, foot }: { id: string; onClose: () => 
           aria-label={t("settings.customThemes.css")} value={draft.css ?? ""} onChange={(event) => edit({ ...draft, css: event.target.value })} />
       </SettingsField>
       <SettingsFormFoot status={status}>
-        <div className="me-auto flex flex-wrap gap-1.5">{foot(kept.saved)}</div>
-        <button type="button" className="ui-button" onClick={cancel}>{t("common.cancel")}</button>
-        <button type="button" className="ui-button ui-button-primary" disabled={saving || Boolean(problem) || !draft.name.trim()} onClick={() => void save()}>
+        <div className="me-auto flex shrink-0 gap-1.5">{foot(kept.saved)}</div>
+        <button type="button" className="ui-button shrink-0" onClick={cancel}>{t("common.cancel")}</button>
+        <button type="button" className="ui-button ui-button-primary shrink-0" disabled={saving || Boolean(problem) || !draft.name.trim()} onClick={() => void save()}>
           {t(inUse ? "common.save" : "settings.customThemes.saveAndUse")}
         </button>
       </SettingsFormFoot>

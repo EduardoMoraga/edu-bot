@@ -150,3 +150,29 @@ it("keeps unsaved edits through a stray click elsewhere, and Cancel lets them go
   expect(document.documentElement.dataset.theme).toBeUndefined();
   expect(saved.get("one")).toEqual({ name: "One" });
 });
+
+it("forgets a theme that finishes loading after its editor closed, so the next open reads it again", async () => {
+  saved.set("one", { name: "One" });
+  let release: () => void = () => {};
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  vi.stubGlobal("fetch", async (input: string, init?: RequestInit) => {
+    const path = String(input).replace(/^https?:\/\/[^/]+/, "");
+    if (path === "/api/themes/one" && (init?.method ?? "GET") === "GET") await held;
+    return new Response(JSON.stringify(respond(path, init)));
+  });
+  const { ThemeEditor } = await import("../../ThemeEditor");
+  const open = () => {
+    root = createRoot(document.body.appendChild(document.createElement("div")));
+    flushSync(() => root!.render(createElement(ThemeEditor, { id: "one", onClose: () => {}, foot: () => null })));
+  };
+  open();
+  await settle();
+  flushSync(() => root!.unmount());
+  release();
+  await settle();
+  saved.set("one", { name: "One, saved elsewhere" });
+  open();
+  await settle();
+  expect(requests.filter((each) => each === "GET /api/themes/one")).toHaveLength(2);
+  expect(editor()!.querySelector<HTMLInputElement>("input")!.value).toBe("One, saved elsewhere");
+});
