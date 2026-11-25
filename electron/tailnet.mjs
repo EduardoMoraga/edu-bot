@@ -98,3 +98,62 @@ export function tailnetHosts({ name, addresses = [], port }) {
   }
   return hosts;
 }
+
+/** Keeps a `UserID` exactly as written: Tailscale's ids are int64 and pass 2^53, where two can round to the same number. */
+function exactUserIds(key, value, context) {
+  if (key !== "UserID" && key !== "AltSharerUserID") return value;
+  if (typeof context?.source === "string" && /^\d+$/.test(context.source)) return context.source;
+  return typeof value === "number" && Number.isSafeInteger(value) ? String(value) : null;
+}
+
+const ownerId = (value) => (typeof value === "string" && /^[1-9]\d*$/.test(value) ? value : null);
+const magicDns = (value) => (typeof value === "string" ? value.trim().toLowerCase().replace(/\.$/, "") : "");
+const suffixOf = (name) => name.slice(name.indexOf(".") + 1);
+
+/**
+ * Security: a peer counts as the person's own computer only when Tailscale says so on every count: the same `UserID` as
+ * this computer, no `Tags`, a MagicDNS name directly in this computer's tailnet, and not a node shared with this tailnet
+ * from another one. Tailscale 1.104 (checked 2026-11-25) lists a shared-in node under the sharing tailnet's own MagicDNS
+ * suffix, and marks shared nodes with `AltSharerUserID` and `ShareeNode` (`ipn/ipnstate` PeerStatus). Anything missing
+ * or unreadable drops the peer.
+ */
+function ownPeer(peer, self) {
+  if (!peer || typeof peer !== "object" || Array.isArray(peer)) return false;
+  const name = magicDns(peer.DNSName);
+  if (!isTailnetName(name) || suffixOf(name) !== self.suffix || name.split(".").length !== self.suffix.split(".").length + 1) return false;
+  if (ownerId(peer.UserID) !== self.userId) return false;
+  if (peer.Tags !== undefined && peer.Tags !== null && !(Array.isArray(peer.Tags) && peer.Tags.length === 0)) return false;
+  if (peer.ShareeNode !== undefined && peer.ShareeNode !== false) return false;
+  return peer.AltSharerUserID === undefined || peer.AltSharerUserID === null || peer.AltSharerUserID === "0";
+}
+
+/**
+ * The person's own other computers in one `tailscale status --json`: `{ ready, peers, dropped }`. `ready` needs Tailscale
+ * running and signed in, with this computer's owner and tailnet readable; without it `peers` is empty. Each peer has
+ * `name` (its MagicDNS name), `hostName`, `os`, `online` and `addresses`; `dropped` counts the others.
+ */
+export function readTailnetPeers(stdout) {
+  const none = { ready: false, peers: [], dropped: 0 };
+  let parsed;
+  try {
+    parsed = JSON.parse(String(stdout ?? ""), exactUserIds);
+  } catch {
+    return none;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || parsed.BackendState !== "Running") return none;
+  const selfNode = parsed.Self && typeof parsed.Self === "object" ? parsed.Self : {};
+  const selfName = magicDns(selfNode.DNSName);
+  const userId = ownerId(selfNode.UserID);
+  if (!userId || !isTailnetName(selfName)) return none;
+  const self = { userId, suffix: suffixOf(selfName) };
+  if (typeof parsed.MagicDNSSuffix === "string" && magicDns(parsed.MagicDNSSuffix) !== self.suffix) return none;
+  const all = parsed.Peer && typeof parsed.Peer === "object" && !Array.isArray(parsed.Peer) ? Object.values(parsed.Peer) : [];
+  const peers = all.filter((peer) => ownPeer(peer, self)).map((peer) => ({
+    name: magicDns(peer.DNSName),
+    hostName: typeof peer.HostName === "string" ? peer.HostName : "",
+    os: typeof peer.OS === "string" ? peer.OS : "",
+    online: peer.Online === true,
+    addresses: (Array.isArray(peer.TailscaleIPs) ? peer.TailscaleIPs : []).map(bareAddress).filter(inTailscaleRange),
+  }));
+  return { ready: true, peers: peers.sort((a, b) => a.name.localeCompare(b.name)), dropped: all.length - peers.length };
+}

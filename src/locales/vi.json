@@ -5880,6 +5880,7 @@
   "composer.command.burstDesc": "Chạy nhiều phần của một công việc cùng lúc, rồi gộp kết quả",
   "devices.computers.pairButton": "Ghép nối máy tính",
   "devices.computers.title": "Các máy tính khác của bạn",
+  "devices.mine.title": "Máy tính của tôi",
   "devices.computers.pairTitle": "Ghép nối máy tính khác",
   "remote.tailscale.needsApproval": "Máy tính này đang chờ được phê duyệt trên mạng Tailscale của bạn. Hãy phê duyệt trong bảng điều khiển quản trị Tailscale, rồi thử lại.",
   "together.switch.title": "Máy tính này và My Cloud cùng nhau",

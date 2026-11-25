@@ -4141,6 +4141,7 @@
   "composer.command.burstDesc": "Viele Teile einer Aufgabe gleichzeitig ausführen und die Ergebnisse zusammenführen",
   "devices.computers.pairButton": "Computer koppeln",
   "devices.computers.title": "Deine anderen Computer",
+  "devices.mine.title": "Meine Computer",
   "devices.computers.pairTitle": "Anderen Computer koppeln",
   "remote.tailscale.needsApproval": "Dieser Computer wartet auf die Genehmigung in Ihrem Tailscale-Netzwerk. Genehmigen Sie ihn in der Tailscale-Admin-Konsole und versuchen Sie es dann erneut.",
   "together.switch.title": "Dieser Computer und Meine Cloud zusammen",

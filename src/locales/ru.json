@@ -7135,6 +7135,7 @@
   "composer.command.burstDesc": "Запускает много частей задачи сразу и объединяет результаты",
   "devices.computers.pairButton": "Подключить компьютер",
   "devices.computers.title": "Ваши другие компьютеры",
+  "devices.mine.title": "Мои компьютеры",
   "devices.computers.pairTitle": "Подключить другой компьютер",
   "remote.tailscale.needsApproval": "Этот компьютер ждёт одобрения в вашей сети Tailscale. Одобрите его в консоли администратора Tailscale, затем попробуйте снова.",
   "together.switch.title": "Этот компьютер и Моё облако вместе",

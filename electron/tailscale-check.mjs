@@ -38,7 +38,8 @@ export const tailscaleEnvironment = (env = process.env) => ({
   TAILSCALE_BE_CLI: "1",
 });
 
-const runStatus = (cli) =>
+/** One `tailscale status --json`, read only. */
+export const runTailscaleStatus = (cli) =>
   new Promise((resolve) => {
     execFile(cli, ["status", "--json"], { timeout: 5_000, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024, env: tailscaleEnvironment(), windowsHide: true },
       (error, stdout, stderr) => resolve({ missing: error?.code === "ENOENT", stdout: String(stdout ?? ""), stderr: String(stderr ?? "") }));
@@ -74,7 +75,7 @@ export async function magicDnsName(address, { resolver = new Resolver({ timeout:
 }
 
 /** `cli` is the command-line tool that answered, for `tailscale serve`; null when the name came from MagicDNS. */
-export async function checkTailscale({ run = runStatus, install = () => tailscaleInstall(), candidates = TAILSCALE_CLI_PATHS, interfaces = () => os.networkInterfaces(), reverse = magicDnsName } = {}) {
+export async function checkTailscale({ run = runTailscaleStatus, install = () => tailscaleInstall(), candidates = TAILSCALE_CLI_PATHS, interfaces = () => os.networkInterfaces(), reverse = magicDnsName } = {}) {
   const found = install();
   if (found === "none") return { state: "not-installed" };
   if (found === "app-only") {

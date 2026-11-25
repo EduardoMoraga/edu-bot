@@ -1,11 +1,14 @@
+import { useEffect, useState } from "react";
+
 import { t } from "@/lib/i18n";
 import { productName } from "../lib/brand";
-import type { TailnetShareState } from "../lib/companion-types";
+import { companionBridge, pageIsThisComputer } from "../lib/companion-bridge";
+import type { TailnetComputer, TailnetComputers as TailnetComputersList, TailnetShareState } from "../lib/companion-types";
 import { usePhoneSetupController, type CompanionState, type PhoneSetupController } from "./PhoneSetupFlow";
 import { deriveTailscalePairingStatus, type TailscalePairingStatus } from "./PhoneDevicesSection";
 import { useStore } from "@/state/store";
 import { ServerPairingCard } from "./ServerPairingCard";
-import { SettingRow, SettingsGroup, SettingsRows, Switch } from "./SettingsPrimitives";
+import { SettingRow, SettingsEmptyRow, SettingsGroup, SettingsRows, StatusDot, Switch } from "./SettingsPrimitives";
 
 /** What the row says about the share right now; null while it is off. */
 export function tailnetShareLine(share: TailnetShareState | undefined): string | null {
@@ -42,6 +45,7 @@ export function TailnetComputers({ c, state, blocked, simple, status }: { c: Pho
         </SettingsRows>
       </SettingsGroup>
       {address && <ServerPairingCard simple={simple} reveal={false} forComputer address={address} />}
+      {pageIsThisComputer() && <MyComputers />}
     </>
   );
 }
@@ -53,4 +57,69 @@ export function OtherComputersSetting({ simple = true }: { simple?: boolean }) {
   if (!c.state) return null;
   const blocked = policy?.remoteAccess === false ? t("policy.managedBy", { organization: policy.organizationName }) : null;
   return <TailnetComputers c={c} state={c.state} blocked={blocked} simple={simple} status={deriveTailscalePairingStatus(c.state)} />;
+}
+
+export const MY_COMPUTERS_REFRESH_MS = 60_000;
+
+export type MyComputersView = TailnetComputersList | "loading" | "failed";
+
+/** The list while it is on screen: once at once, then every minute while the window is visible; nothing once it closes. */
+function useMyComputers(): MyComputersView {
+  const [view, setView] = useState<MyComputersView>("loading");
+  useEffect(() => {
+    const source = companionBridge()?.tailnetComputers;
+    if (!source) return;
+    let live = true;
+    let busy = false;
+    const look = () => {
+      if (busy || document.visibilityState === "hidden") return;
+      busy = true;
+      source().then((next) => { if (live) setView(next); }, () => { if (live) setView("failed"); }).finally(() => { busy = false; });
+    };
+    look();
+    const timer = window.setInterval(look, MY_COMPUTERS_REFRESH_MS);
+    return () => {
+      live = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+  return view;
+}
+
+const OS_NAMES: Record<string, string> = { windows: "Windows", linux: "Linux", android: "Android", macos: "macOS", ios: "iOS", freebsd: "FreeBSD" };
+
+function computerLine(computer: TailnetComputer): string {
+  const app = productName();
+  const status = computer.status === "eduBot"
+    ? computer.version ? t("devices.mine.eduBotVersion", { app, version: computer.version }) : t("devices.mine.eduBot", { app })
+    : computer.status === "noEduBot" ? t("devices.mine.noEduBot", { app }) : t("devices.mine.offline");
+  const os = computer.os ? OS_NAMES[computer.os.toLowerCase()] ?? computer.os : null;
+  return os ? `${os} · ${status}` : status;
+}
+
+/** My computers: the person's own other computers on Tailscale, and which have Edu Bot open. Only shows them. */
+export function MyComputersList({ view }: { view: MyComputersView }) {
+  const app = productName();
+  const empty = view === "loading" ? t("devices.mine.looking")
+    : view === "failed" ? t("devices.mine.failed")
+    : view.tailscale === "off" ? t("devices.mine.tailscaleOff")
+    : view.computers.some((computer) => computer.status === "eduBot") ? null : t("devices.mine.none", { app, switch: t("devices.computers.title") });
+  const computers = typeof view === "object" && view.tailscale === "ready" ? view.computers : [];
+  return (
+    <SettingsGroup block="my-computers" label={t("devices.mine.title")} description={t("devices.mine.detail", { app })}>
+      <SettingsRows>
+        {empty && <SettingsEmptyRow><span aria-live="polite" data-my-computers-empty="">{empty}</span></SettingsEmptyRow>}
+        {computers.map((computer) => (
+          <SettingRow key={computer.id} title={computer.name}
+            subtitle={<span data-my-computer={computer.status}><StatusDot tone={computer.status === "eduBot" ? "success" : null} />{computerLine(computer)}</span>}>
+            {null}
+          </SettingRow>
+        ))}
+      </SettingsRows>
+    </SettingsGroup>
+  );
+}
+
+function MyComputers() {
+  return <MyComputersList view={useMyComputers()} />;
 }

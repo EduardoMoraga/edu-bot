@@ -32,6 +32,18 @@ export interface TailnetShareState {
   httpsPortBusy?: boolean;
 }
 
+/** One of the person's own other computers on Tailscale, as My computers lists it. */
+export type TailnetComputer = { id: string; name: string; os: string | null } & (
+  | { status: "offline" | "noEduBot" }
+  | { status: "eduBot"; version: string | null; platform: string | null; address: string }
+);
+
+/** `tailscale` is "off" unless Tailscale runs signed in on this computer. */
+export interface TailnetComputers {
+  tailscale: "ready" | "off";
+  computers: TailnetComputer[];
+}
+
 export interface CompanionState {
   enabled: boolean;
   keepAwake: boolean;
@@ -83,6 +95,8 @@ export type CompanionBridge = {
   setTailscale?: (on: boolean) => Promise<CompanionState>;
   /** Whether the person's other computers may open this one over Tailscale. */
   setTailscaleComputers?: (on: boolean) => Promise<CompanionState>;
+  /** The person's own other computers on Tailscale and which run Edu Bot. Only looks; absent on older builds. */
+  tailnetComputers?: () => Promise<TailnetComputers>;
   setRoute?: (route: CompanionRoute, on: boolean) => Promise<CompanionState>;
   dismissNotice?: (route: CompanionRoute) => Promise<CompanionState>;
   pairing: (open: boolean, expectedToken?: string) => Promise<CompanionState>;

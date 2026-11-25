@@ -15,7 +15,7 @@ vi.mock("./ServerPairingCard", async () => {
 vi.mock("../lib/session", async (original) => ({ ...await original<typeof import("../lib/session")>(), readSessionState: async () => ({ kind: "loopback" }) }));
 
 const { deriveTailscalePairingStatus } = await import("./PhoneDevicesSection");
-const { TailnetComputers, tailnetShareLine } = await import("./TailnetComputers");
+const { MY_COMPUTERS_REFRESH_MS, MyComputersList, TailnetComputers, tailnetShareLine } = await import("./TailnetComputers");
 
 const controller = { busy: false, accountBusy: false, act: async () => {} } as unknown as PhoneSetupController;
 const tailscale = (on: boolean, computers = false) => (on ? { on: true, since: 1, name: "macmini.tail1234.ts.net", computers } : { on: false, since: null });
@@ -124,5 +124,83 @@ describe("the switch", () => {
     host.querySelector<HTMLButtonElement>('[role="switch"]')!.click();
     await vi.waitFor(() => expect(calls).toEqual(["computers:true"]));
     flushSync(() => root.unmount());
+  });
+});
+
+describe("My computers", () => {
+  type View = Parameters<typeof MyComputersList>[0]["view"];
+  const list = (view: View) => renderToStaticMarkup(createElement(MyComputersList, { view })).replaceAll("&#x27;", "'");
+  const ffm = { id: "ffm-eduardomoraga.tail9f9734.ts.net", name: "FFM-EDUARDOMORAGA", os: "windows", status: "eduBot" as const, version: "0.1.140", platform: "win32", address: "http://ffm-eduardomoraga.tail9f9734.ts.net:8799" };
+  const macMini = { id: "mac-mini-de-eduardomoraga.tail9f9734.ts.net", name: "Mac mini de EduardoMoraga", os: "macOS", status: "offline" as const };
+  const phone = { id: "s24-ultra-de-eduardo.tail9f9734.ts.net", name: "S24 Ultra de Eduardo", os: "android", status: "noEduBot" as const };
+
+  it("lists each own computer with its name, system, version and state, and offers no way to connect", () => {
+    const html = list({ tailscale: "ready", computers: [ffm, phone, macMini] });
+    expect(html).toContain('data-settings-block="my-computers"');
+    expect(html).toContain("My computers");
+    expect(html).toContain("FFM-EDUARDOMORAGA");
+    expect(html).toMatch(/data-my-computer="eduBot"><span[^>]*bg-success[^>]*><\/span>Windows · Online, Edu Bot 0\.1\.140/);
+    expect(html).toContain('data-my-computer="noEduBot">Android · Online, no Edu Bot');
+    expect(html).toContain('data-my-computer="offline">macOS · Off');
+    expect(html).not.toContain("data-my-computers-empty");
+    expect(html).not.toContain("<button");
+    expect(html).not.toContain(ffm.address);
+  });
+
+  it("says Edu Bot without a version when the computer gave none", () => {
+    expect(list({ tailscale: "ready", computers: [{ ...ffm, version: null }] })).toContain("Windows · Online, Edu Bot<");
+  });
+
+  it("has one line for each empty state", () => {
+    expect(list("loading")).toContain("Looking for your computers…");
+    expect(list("failed")).toContain("Couldn't look for your computers.");
+    expect(list({ tailscale: "off", computers: [] })).toContain("Turn on Tailscale on this computer to see your other computers here.");
+    const none = list({ tailscale: "ready", computers: [phone, macMini] });
+    expect(none).toContain("None of your other computers has Edu Bot open with Your other computers on.");
+    expect(none).toContain("S24 Ultra de Eduardo");
+    expect(list({ tailscale: "ready", computers: [] })).toContain("None of your other computers");
+  });
+
+  it("reads in Spanish", async () => {
+    const { setLocale } = await import("@/lib/i18n");
+    setLocale("es");
+    try {
+      const html = list({ tailscale: "ready", computers: [ffm, phone, macMini] });
+      expect(html).toContain("Mis equipos");
+      expect(html).toContain("Windows · En línea, Edu Bot 0.1.140");
+      expect(html).toContain("Android · En línea, sin Edu Bot");
+      expect(html).toContain("macOS · Apagado");
+      expect(list({ tailscale: "off", computers: [] })).toContain("Enciende Tailscale en este equipo");
+      expect(list({ tailscale: "ready", computers: [] })).toContain("con Tus otros equipos encendido");
+    } finally {
+      setLocale("en");
+    }
+  });
+
+  it("is in the Your other computers area only on this computer's own desktop page, and refreshes every minute while open", async () => {
+    expect(row({ routes: { tailscale: tailscale(false) } as CompanionState["routes"] })).not.toContain("my-computers");
+    expect(MY_COMPUTERS_REFRESH_MS).toBe(60_000);
+    vi.useFakeTimers();
+    const asks = vi.fn(async () => ({ tailscale: "ready" as const, computers: [ffm] }));
+    const bridge = { tailnetComputers: asks };
+    (globalThis as { ogb?: unknown }).ogb = { companion: bridge };
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const state = { routes: { tailscale: tailscale(false) } } as unknown as CompanionState;
+    try {
+      await act(async () => root.render(createElement(TailnetComputers, { c: controller, blocked: null, simple: true, state, status: deriveTailscalePairingStatus(state) })));
+      expect(asks).toHaveBeenCalledTimes(1);
+      expect(host.innerHTML).toContain("FFM-EDUARDOMORAGA");
+      await act(async () => { vi.advanceTimersByTime(MY_COMPUTERS_REFRESH_MS); });
+      expect(asks).toHaveBeenCalledTimes(2);
+      await act(async () => root.unmount());
+      await act(async () => { vi.advanceTimersByTime(MY_COMPUTERS_REFRESH_MS * 3); });
+      expect(asks).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+      delete (globalThis as { ogb?: unknown }).ogb;
+    }
   });
 });

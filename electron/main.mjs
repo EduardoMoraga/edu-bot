@@ -453,7 +453,7 @@ import { companionAdvertisedHostedUrl, companionEnabledAtRest, companionOriginTa
   companionBrowserControlAccess, companionRevoke, companionRunning, companionSettings, companionState, rememberCompanionKeepAwake, setCompanionHostedUrl, setCompanionLifecycleListener, startCompanion, stopCompanion } from "./companion.mjs";
 import { createDesktopCompanionE2E, deviceCounts } from "./companion-e2e-desktop.mjs"; import { startCheckedManagedConnection } from "./managed-companion-start.mjs";
 import { autoStartCompanion } from "./companion-autostart.mjs";
-import { createPhoneLinkRoutes } from "./phone-link-routes.mjs"; import { reachableForKeepAwake } from "./keep-awake.mjs";
+import { createPhoneLinkRoutes } from "./phone-link-routes.mjs"; import { reachableForKeepAwake } from "./keep-awake.mjs"; import { createTailnetComputers } from "./tailnet-computers.mjs";
 import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from "./routine-wake.mjs";
 import { CREDENTIAL_PATCH, credentialSaveError } from "./credential-patch.mjs";
 import { APP_ID, DATA_DIR_NAME, DEEP_LINK_SCHEME, DESKTOP_ENTRY_NAME, dataDirNameFor } from "./app-identity.mjs";
@@ -2351,7 +2351,7 @@ ipcMain.handle("routines:keep-awake", localOnly("routines:keep-awake", async (_e
   rememberRoutineWake(app.getPath("userData"), Boolean(enabled));
   return routineWake.poll();
 }));
-phoneLinkRoutes.install(ipcMain, localOnly);
+phoneLinkRoutes.install(ipcMain, localOnly); createTailnetComputers({ fetch: (...args) => session.defaultSession.fetch(...args) }).install(ipcMain, localOnly);
 ipcMain.handle("companion:pairing", localOnly("companion:pairing", (_event, open, expectedToken) => {
   const refusal = open ? managedRemoteAccessRefusal() : null;
   if (refusal) throw new Error(refusal);
