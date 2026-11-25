@@ -213,6 +213,15 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   test "browser driver S4" de Windows se reintenta; los nombres internos `openmausbot` del archivo de bloqueo y la
   caché no se cambian (cambiarlos necesita migración).
 
+## En curso y en cola (después de v0.1.0)
+
+- [ ] **Pulido de conectores y conexiones remotas** (rama `polish/connectors-remote`, Claude Fable; luego auditoría
+  de Grok). Sin funciones nuevas.
+- [ ] **En cola, después del pulido:** tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
+  equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
+  Tiene 2 preguntas para ti al final.
+- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
+
 ## Cómo trabajamos
 
 - Límites de uso (pedido 22-11): si se acaba el límite semanal de Claude, no me detengo en silencio:
