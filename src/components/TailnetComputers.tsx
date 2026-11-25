@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import { t } from "@/lib/i18n";
 import { productName } from "../lib/brand";
-import { companionBridge, pageIsThisComputer } from "../lib/companion-bridge";
+import { pageIsThisComputer } from "../lib/companion-bridge";
 import type { TailnetComputer, TailnetComputers as TailnetComputersList, TailnetShareState } from "../lib/companion-types";
-import { usePhoneSetupController, type CompanionState, type PhoneSetupController } from "./PhoneSetupFlow";
+import { companionBridge, usePhoneSetupController, type CompanionState, type PhoneSetupController } from "./PhoneSetupFlow";
 import { deriveTailscalePairingStatus, type TailscalePairingStatus } from "./PhoneDevicesSection";
 import { useStore } from "@/state/store";
 import { ServerPairingCard } from "./ServerPairingCard";
@@ -45,7 +45,6 @@ export function TailnetComputers({ c, state, blocked, simple, status }: { c: Pho
         </SettingsRows>
       </SettingsGroup>
       {address && <ServerPairingCard simple={simple} reveal={false} forComputer address={address} />}
-      {pageIsThisComputer() && <MyComputers />}
     </>
   );
 }
@@ -64,11 +63,9 @@ export const MY_COMPUTERS_REFRESH_MS = 60_000;
 export type MyComputersView = TailnetComputersList | "loading" | "failed";
 
 /** The list while it is on screen: once at once, then every minute while the window is visible; nothing once it closes. */
-function useMyComputers(): MyComputersView {
+function useMyComputers(source: () => Promise<TailnetComputersList>): MyComputersView {
   const [view, setView] = useState<MyComputersView>("loading");
   useEffect(() => {
-    const source = companionBridge()?.tailnetComputers;
-    if (!source) return;
     let live = true;
     let busy = false;
     const look = () => {
@@ -82,7 +79,7 @@ function useMyComputers(): MyComputersView {
       live = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [source]);
   return view;
 }
 
@@ -120,6 +117,12 @@ export function MyComputersList({ view }: { view: MyComputersView }) {
   );
 }
 
-function MyComputers() {
-  return <MyComputersList view={useMyComputers()} />;
+/** Only in the desktop app's own window for this computer. */
+export function MyComputers() {
+  const [source] = useState(() => (pageIsThisComputer() ? companionBridge()?.tailnetComputers : undefined));
+  return source ? <ShownMyComputers source={source} /> : null;
+}
+
+function ShownMyComputers({ source }: { source: () => Promise<TailnetComputersList> }) {
+  return <MyComputersList view={useMyComputers(source)} />;
 }

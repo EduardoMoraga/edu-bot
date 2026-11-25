@@ -15,7 +15,7 @@ vi.mock("./ServerPairingCard", async () => {
 vi.mock("../lib/session", async (original) => ({ ...await original<typeof import("../lib/session")>(), readSessionState: async () => ({ kind: "loopback" }) }));
 
 const { deriveTailscalePairingStatus } = await import("./PhoneDevicesSection");
-const { MY_COMPUTERS_REFRESH_MS, MyComputersList, TailnetComputers, tailnetShareLine } = await import("./TailnetComputers");
+const { MY_COMPUTERS_REFRESH_MS, MyComputers, MyComputersList, TailnetComputers, tailnetShareLine } = await import("./TailnetComputers");
 
 const controller = { busy: false, accountBusy: false, act: async () => {} } as unknown as PhoneSetupController;
 const tailscale = (on: boolean, computers = false) => (on ? { on: true, since: 1, name: "macmini.tail1234.ts.net", computers } : { on: false, since: null });
@@ -177,20 +177,22 @@ describe("My computers", () => {
     }
   });
 
-  it("is in the Your other computers area only on this computer's own desktop page, and refreshes every minute while open", async () => {
+  it("is not part of the Your other computers row, and shows nothing off this computer's own desktop page", () => {
     expect(row({ routes: { tailscale: tailscale(false) } as CompanionState["routes"] })).not.toContain("my-computers");
+    expect(renderToStaticMarkup(createElement(MyComputers))).toBe("");
+  });
+
+  it("asks when it opens and every minute while open, and stops once closed", async () => {
     expect(MY_COMPUTERS_REFRESH_MS).toBe(60_000);
     vi.useFakeTimers();
     const asks = vi.fn(async () => ({ tailscale: "ready" as const, computers: [ffm] }));
-    const bridge = { tailnetComputers: asks };
-    (globalThis as { ogb?: unknown }).ogb = { companion: bridge };
+    (globalThis as { ogb?: unknown }).ogb = { companion: { tailnetComputers: asks } };
     const { createRoot } = await import("react-dom/client");
     const { act } = await import("react");
     const host = document.createElement("div");
     const root = createRoot(host);
-    const state = { routes: { tailscale: tailscale(false) } } as unknown as CompanionState;
     try {
-      await act(async () => root.render(createElement(TailnetComputers, { c: controller, blocked: null, simple: true, state, status: deriveTailscalePairingStatus(state) })));
+      await act(async () => root.render(createElement(MyComputers)));
       expect(asks).toHaveBeenCalledTimes(1);
       expect(host.innerHTML).toContain("FFM-EDUARDOMORAGA");
       await act(async () => { vi.advanceTimersByTime(MY_COMPUTERS_REFRESH_MS); });
