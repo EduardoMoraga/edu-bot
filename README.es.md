@@ -33,7 +33,7 @@ La app no se actualiza sola. Descarga el instalador nuevo desde la misma página
 
 ## Primeros pasos
 
-1. Inicia sesión en un motor en este computador. Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en **Ajustes → IA → Proveedores**.
+1. Inicia sesión en un motor en este computador. Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en **Ajustes → IA → Proveedores**. Claude usa tu propio Claude Code: inicia sesión con `claude auth login`. Edu Bot nunca lee ni guarda los tokens de Claude y no consulta la API de uso de Anthropic.
 2. Crea un bot con **Bot nuevo**.
 3. Abre Apps. Pulsa Conectar en Notion, Linear o Atlassian e inicia sesión en tu navegador. Para GitHub, pega un token. Para tu propio servidor MCP, pega su enlace. Gmail, Google Calendar y Slack necesitan tu propia clave de proyecto de Composio (empieza con `ak_`): Apps la pide en Más apps. Mira [Conectar apps](docs/composio.md) y [servidores MCP propios](docs/custom-mcp-servers.md).
 4. En Ajustes, activa el **Modo avanzado**, o busca **Datos**. Luego agrega una conexión SQL de solo lectura en **Ajustes → Datos → Conexiones de datos**. Sirven SQLite, DuckDB y Postgres. La contraseña queda en la Bóveda. Por una conexión, un bot lee solo las tablas que tú permites: ese es el límite firme. Las herramientas de datos locales del bot pueden leer otros archivos a los que el bot llega, igual que su terminal. Rechazan el archivo de base de datos de una conexión, una carpeta permitida para conexiones y la carpeta de datos de Edu Bot, también a través de un enlace, y rechazan una carpeta demasiado grande para revisarla.

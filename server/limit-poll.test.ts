@@ -5,23 +5,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { LimitResetClock } from "./limit-resets.ts";
 import { LIMIT_ACTIVE_MS, LIMIT_IDLE_POLL_MS, LIMIT_POLL_MS, limitReadDue, RESET_READ_AFTER_MS, retryAfterFailureMs } from "./limit-poll.ts";
-import { parseClaudeUsage, type PlanUsageReport } from "./plan-usage.ts";
+import type { PlanUsageReport, PlanWindow } from "./plan-usage.ts";
 import { RoutineManager, type RoutineRun } from "./routines.ts";
 import type { RuntimeEvent } from "../shared/runtime-events.ts";
 
 const NOW = Date.parse("2026-10-19T10:00:00Z");
 const MINUTE = 60_000, HOUR = 60 * MINUTE;
 const iso = (at: number) => new Date(at).toISOString();
-const accounts = [{ id: "claude", name: "Claude", driver: "claude" as const, environment: {} }];
-/** Claude's usage as its endpoint answers: [percent used, when the window resets]. */
-const usage = (fiveHour: [number, number], weekly: [number, number]): PlanUsageReport => ({
+const accounts = [{ id: "codex", name: "Codex", driver: "codex" as const, environment: {} }];
+/** [percent used, when the window resets, or null when it has not started]. */
+const window = ([used, at]: [number, number | null]): PlanWindow => ({ available: true, usedPercent: used, remainingPercent: 100 - used, resetsAt: at === null ? null : iso(at) });
+/** A Codex account's usage: its 5-hour and weekly windows. */
+const usage = (fiveHour: [number, number | null], weekly: [number, number]): PlanUsageReport => ({
   fetchedAt: iso(Date.now()),
-  providers: [{ id: "claude", name: "Claude", driver: "claude", ok: true, error: null, ...parseClaudeUsage({
-    five_hour: { utilization: fiveHour[0], resets_at: iso(fiveHour[1]) },
-    seven_day: { utilization: weekly[0], resets_at: iso(weekly[1]) },
-  }) }],
+  providers: [{ id: "codex", name: "Codex", driver: "codex", ok: true, error: null, plan: null, fiveHour: window(fiveHour), weekly: window(weekly), extra: [], models: [] }],
 });
-const turnEvent = (threadId: string): RuntimeEvent => ({ eventId: "e", provider: "claudeAgent", createdAt: iso(Date.now()), threadId, type: "turn.started" }) as RuntimeEvent;
+const turnEvent = (threadId: string): RuntimeEvent => ({ eventId: "e", provider: "codex", createdAt: iso(Date.now()), threadId, type: "turn.started" }) as RuntimeEvent;
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -70,14 +69,14 @@ describe("the limit clock on a quiet home", () => {
     vi.useFakeTimers({ now: NOW });
     const loadUsage = vi.fn(async () => usage([100, NOW + 23 * HOUR], [40, NOW + 5 * 24 * HOUR]));
     const instance = new LimitResetClock({ accounts: () => accounts, loadUsage, waiting: () => true });
-    instance.noteRefusal("claude", NOW + 23 * HOUR);
+    instance.noteRefusal("codex", NOW + 23 * HOUR);
     instance.start();
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     expect(loadUsage, "the read just after the refusal").toHaveBeenCalledTimes(1);
     loadUsage.mockClear();
     await vi.advanceTimersByTimeAsync(57 * MINUTE);
     expect(loadUsage, "every five minutes before: twelve reads an hour").not.toHaveBeenCalled();
-    expect(instance.blockedUntil("claude"), "still held").toBe(NOW + 23 * HOUR);
+    expect(instance.blockedUntil("codex"), "still held").toBe(NOW + 23 * HOUR);
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     expect(loadUsage, "the hourly read, which still ends a hold that reset early").toHaveBeenCalledTimes(1);
     instance.stop();
@@ -110,7 +109,7 @@ describe("the limit clock on a quiet home", () => {
     await instance.ensureFresh();
     expect(loadUsage).toHaveBeenCalledTimes(2);
     expect(instance.report().checkedAt).toBe(Date.now());
-    expect(instance.limit("claude")?.usedPercent).toBe(20);
+    expect(instance.limit("codex")?.usedPercent).toBe(20);
     instance.stop();
   });
 
@@ -131,10 +130,10 @@ describe("the limit clock on a quiet home", () => {
       startTurn: async (_botId: string, threadId: string) => { started.push(threadId); },
       limitResetAt: (engine: string) => clock.resetAt(engine),
     });
-    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "claude", repeat: "every_reset" } });
+    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "codex", repeat: "every_reset" } });
     clock.start();
     await vi.advanceTimersByTimeAsync(MINUTE);
-    expect(clock.resetAt("claude")).toBe(reset);
+    expect(clock.resetAt("codex")).toBe(reset);
     expect(routines.listRoutines()[0]!.nextRunAt, "timed by the first read").toBe(reset + 60_000);
     loadUsage.mockClear();
     // The window rolls over at its reset: the next one ends five hours later.
@@ -169,30 +168,25 @@ function wired(loadUsage: () => Promise<PlanUsageReport>, file?: string) {
   });
   return { clock, routines, started };
 }
-/** Claude's usage just after its five-hour window reset, before a turn starts the next one: only the weekly window has a reset. */
-const unstarted = (weekly: [number, number]): PlanUsageReport => ({
-  fetchedAt: iso(Date.now()),
-  providers: [{ id: "claude", name: "Claude", driver: "claude", ok: true, error: null, ...parseClaudeUsage({
-    five_hour: { utilization: 0, resets_at: null }, seven_day: { utilization: weekly[0], resets_at: iso(weekly[1]) },
-  }) }],
-});
+/** Usage just after the five-hour window reset, before a turn starts the next one: only the weekly window has a reset. */
+const unstarted = (weekly: [number, number]): PlanUsageReport => usage([0, null], weekly);
 const unreachable = (): PlanUsageReport => ({ fetchedAt: iso(Date.now()),
-  providers: [{ id: "claude", name: "Claude", driver: "claude", ok: false, error: "Couldn't reach Claude", fiveHour: { available: false, remainingPercent: null, usedPercent: null, resetsAt: null }, weekly: { available: false, remainingPercent: null, usedPercent: null, resetsAt: null }, extra: [], models: [] } as never] });
+  providers: [{ id: "codex", name: "Codex", driver: "codex", ok: false, error: "Couldn't reach Codex", fiveHour: { available: false, remainingPercent: null, usedPercent: null, resetsAt: null }, weekly: { available: false, remainingPercent: null, usedPercent: null, resetsAt: null }, extra: [], models: [] } as never] });
 
 describe("the limit clock and the automations that wait for a reset", () => {
-  it("a read seconds after the reset (someone opens the limits) shows only Claude's weekly window: the automation still starts on time", async () => {
+  it("a read seconds after the reset (someone opens the limits) shows only the weekly window: the automation still starts on time", async () => {
     vi.useFakeTimers({ now: NOW });
     const reset = NOW + 20 * MINUTE + 30_000;
     let report = usage([100, reset], [40, NOW + 4 * 24 * HOUR]);
     const { clock, routines, started } = wired(async () => ({ ...report, fetchedAt: iso(Date.now()) }));
-    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "claude", repeat: "once" } });
+    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "codex", repeat: "once" } });
     clock.start();
     await vi.advanceTimersByTimeAsync(MINUTE);
     expect(routines.listRoutines()[0]!.nextRunAt).toBe(reset + 60_000);
     report = unstarted([40, NOW + 4 * 24 * HOUR]);
     await vi.advanceTimersByTimeAsync(reset + 10_000 - Date.now());
     await clock.ensureFresh(0);
-    expect(clock.resetAt("claude"), "the weekly window now").toBe(NOW + 4 * 24 * HOUR);
+    expect(clock.resetAt("codex"), "the weekly window now").toBe(NOW + 4 * 24 * HOUR);
     expect(routines.listRoutines()[0]!.nextRunAt, "not moved days away").toBe(reset + 60_000);
     await vi.advanceTimersByTimeAsync(MINUTE);
     await routines.tick();
@@ -207,8 +201,8 @@ describe("the limit clock and the automations that wait for a reset", () => {
     let report = usage([100, reset], [40, NOW + 4 * 24 * HOUR]);
     const loadUsage = vi.fn(async () => ({ ...report, fetchedAt: iso(Date.now()) }));
     const { clock, routines, started } = wired(loadUsage);
-    clock.noteRefusal("claude", held);
-    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "claude", repeat: "every_reset" } });
+    clock.noteRefusal("codex", held);
+    routines.create({ name: "Carry on", prompt: "Carry on.", botId: "scout", schedule: { type: "limit_reset", engine: "codex", repeat: "every_reset" } });
     clock.start();
     await vi.advanceTimersByTimeAsync(MINUTE);
     expect(routines.listRoutines()[0]!.nextRunAt, "timed by the hold, the later of the two").toBe(held + 60_000);
@@ -217,7 +211,7 @@ describe("the limit clock and the automations that wait for a reset", () => {
     for (let at = Date.now(); at < held + 5 * MINUTE; at = Date.now()) {
       await vi.advanceTimersByTimeAsync(30_000);
       await routines.tick();
-      if (Date.now() > held) expect(clock.blockedUntil("claude"), "the hold ended at its time").toBeNull();
+      if (Date.now() > held) expect(clock.blockedUntil("codex"), "the hold ended at its time").toBeNull();
     }
     expect(started, "once, after the hold").toHaveLength(1);
     // The read two minutes after the window's reset shows room, which ends the hold, 30 s before the automation is due.
@@ -234,10 +228,10 @@ describe("the limit clock after a restart, a clock change or a failed read", () 
     const dir = mkdtempSync(join(tmpdir(), "omb-limit-holds-"));
     dirs.push(dir);
     const file = join(dir, "limit-holds.json");
-    new LimitResetClock({ accounts: () => accounts, file, now: () => NOW }).noteRefusal("claude", NOW + 23 * HOUR);
+    new LimitResetClock({ accounts: () => accounts, file, now: () => NOW }).noteRefusal("codex", NOW + 23 * HOUR);
     const loadUsage = vi.fn(async () => usage([100, NOW + 23 * HOUR], [40, NOW + 5 * 24 * HOUR]));
     const restarted = new LimitResetClock({ accounts: () => accounts, file, loadUsage, waiting: () => false });
-    expect(restarted.blockedUntil("claude"), "the hold came back").toBe(NOW + 23 * HOUR);
+    expect(restarted.blockedUntil("codex"), "the hold came back").toBe(NOW + 23 * HOUR);
     restarted.start();
     await vi.advanceTimersByTimeAsync(MINUTE);
     expect(loadUsage).toHaveBeenCalledTimes(1);
@@ -281,7 +275,7 @@ describe("the limit clock after a restart, a clock change or a failed read", () 
     expect(loadUsage, "ten minutes after that").toHaveBeenCalledTimes(3);
     await vi.advanceTimersByTimeAsync(20 * MINUTE);
     expect(loadUsage, "twenty after that, and it works").toHaveBeenCalledTimes(4);
-    expect(instance.limit("claude")?.usedPercent).toBe(100);
+    expect(instance.limit("codex")?.usedPercent).toBe(100);
     await vi.advanceTimersByTimeAsync(55 * MINUTE);
     expect(loadUsage, "hourly again").toHaveBeenCalledTimes(4);
     instance.stop();

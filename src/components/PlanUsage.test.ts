@@ -2,12 +2,13 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
-const fixture = vi.hoisted(() => ({ report: null as unknown }));
+const fixture = vi.hoisted(() => ({ report: null as unknown, instances: [] as Array<{ driverKind: string }> }));
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
   useState: (initial: unknown) => [initial === null ? fixture.report : initial === true ? false : typeof initial === "function" ? (initial as () => unknown)() : initial, () => {}],
 }));
 vi.mock("@/state/store", () => ({ api: vi.fn() }));
+vi.mock("@/state/store-select", () => ({ useStoreSelector: (selector: (state: unknown) => unknown) => selector({ instances: fixture.instances }) }));
 import { PlanUsage } from "./PlanUsage";
 
 describe("Plan usage presentation", () => {
@@ -64,6 +65,22 @@ describe("Plan usage presentation", () => {
     expect(html).toContain("Sign in to this account.");
     expect(html).not.toContain('role="meter"');
     expect(html).not.toContain("100% left");
+  });
+});
+
+describe("a Claude account in plan usage", () => {
+  it("says Claude uses the person's own Claude Code, with no bar or number for it", () => {
+    fixture.report = { fetchedAt: "2026-10-02T09:00:00Z", providers: [] };
+    fixture.instances = [{ driverKind: "claudeAgent" }];
+    try {
+      const html = renderToStaticMarkup(createElement(PlanUsage));
+      expect(html).toContain("Claude uses your Claude Code. Edu Bot never reads its sign-in");
+      expect(html).not.toContain('role="meter"');
+      expect(html).not.toContain("% left");
+    } finally {
+      fixture.instances = [];
+    }
+    expect(renderToStaticMarkup(createElement(PlanUsage))).not.toContain("Claude uses your Claude Code");
   });
 });
 

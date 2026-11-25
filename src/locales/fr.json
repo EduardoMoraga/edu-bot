@@ -2054,7 +2054,6 @@
   "remote.serverPairing.hoursAgo": "il y a {hours} h",
   "remote.serverPairing.daysAgo": "il y a {days} j",
   "remote.serverPairing.error": "Connexion impossible : {error}",
-  "engineSetup.claude.description": "Connectez Claude Code avec votre propre abonnement Claude. Ouvrez la page de connexion d’Anthropic dans votre navigateur, connectez-vous, puis collez ici le code affiché. Ni terminal ni partage de mot de passe.",
   "engineSetup.claude.start": "Se connecter à Claude",
   "engineSetup.claude.starting": "Préparation de la connexion…",
   "engineSetup.claude.finishing": "Vérification avec Claude Code…",

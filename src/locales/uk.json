@@ -2483,7 +2483,6 @@
   "remote.serverPairing.hoursAgo": "{hours} год тому",
   "remote.serverPairing.daysAgo": "{days} дн тому",
   "remote.serverPairing.error": "Не вдалося підключитися: {error}",
-  "engineSetup.claude.description": "Увійдіть у Claude Code зі своєю підпискою Claude. Відкрийте сторінку входу Anthropic у браузері, увійдіть, потім вставте код, який вона покаже. Без термінала і спільного пароля.",
   "engineSetup.claude.start": "Увійти в Claude",
   "engineSetup.claude.starting": "Готуємо вхід…",
   "engineSetup.claude.finishing": "Перевіряємо з Claude Code…",

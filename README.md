@@ -33,7 +33,7 @@ The app does not update itself. Download the newer installer from Releases and i
 
 ## First steps
 
-1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are in **Settings → AI → Providers**.
+1. Sign in to an engine on this computer. Edu Bot runs CLIs you already have, for example `claude`, `codex`, and Antigravity (`agy`, for Gemini). More engines are in **Settings → AI → Providers**. Claude uses your own Claude Code: sign in with `claude auth login`. Edu Bot never reads or saves Claude's tokens and does not call Anthropic's usage API.
 2. Create a bot with **New bot**.
 3. Open Apps. Press Connect on Notion, Linear or Atlassian and sign in in your browser. For GitHub, paste a token. For your own MCP server, paste its link. Gmail, Google Calendar and Slack need your own Composio project key (it starts with `ak_`): Apps asks for it under More apps. See [Connect apps](docs/composio.md) and [your own MCP servers](docs/custom-mcp-servers.md).
 4. In Settings, turn on **Advanced mode**, or search for **Data**. Then add a read-only SQL connection in **Settings → Data → Data connections**. SQLite, DuckDB, and Postgres work. The password stays in the Vault. Through a connection, a bot reads only the tables you allow: that is the hard limit. The bot's local data tools can read other files the bot can reach, as its terminal can. They refuse a connection's database file, a folder allowed for connections, and Edu Bot's own data folder, also through a link, and they refuse a folder too large to check.

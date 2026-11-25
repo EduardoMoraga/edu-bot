@@ -1,13 +1,11 @@
-import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, normalize } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearPlanUsageCache,
   fetchPlanUsage,
   fileCredentialReader,
   loadPlanUsage,
-  parseClaudeUsage,
   parseCodexUsage,
   parseGrokUsage,
   parseOpenCodeUsage,
@@ -45,102 +43,6 @@ function account(driver: PlanAccount["driver"], extras: Partial<PlanAccount> = {
 }
 
 describe("plan usage parsers", () => {
-  describe("a Claude budget in money", () => {
-    const enterprise = {
-      five_hour: null,
-      seven_day: null,
-      spend: { enabled: true, used: { amount_minor: 4_631, currency: "USD", exponent: 2 }, limit: { amount_minor: 50_000, currency: "USD", exponent: 2 }, percent: 9 },
-      extra_usage: { is_enabled: true, used_credits: 4_631, monthly_limit: 50_000, utilization: 9.262, currency: "USD", decimal_places: 2 },
-    };
-    const line = (label: string, used: number, spend?: object) => ({ label, usedPercent: expect.closeTo(used, 2), remainingPercent: expect.closeTo(100 - used, 2), resetsAt: null, ...(spend ? { spend } : {}) });
-
-    it("shows an Enterprise seat's monthly spend with its amounts, once", () => {
-      const parsed = parseClaudeUsage(enterprise);
-      expect(parsed.extra).toEqual([line("Monthly spend", 9.262, { usedMinor: 4_631, limitMinor: 50_000, currency: "USD", exponent: 2 })]);
-      expect(parsed.fiveHour.available).toBe(false);
-      expect(parsed.weekly.available).toBe(false);
-    });
-
-    it("reads the budget from extra usage when the spend block is missing, off or its money does not add up", () => {
-      const fallback = line("Monthly spend", 9.262, { usedMinor: 4_631, limitMinor: 50_000, currency: "USD", exponent: 2 });
-      expect(parseClaudeUsage({ extra_usage: enterprise.extra_usage }).extra).toEqual([fallback]);
-      expect(parseClaudeUsage({ ...enterprise, spend: { ...enterprise.spend, enabled: false } }).extra).toEqual([fallback]);
-      const unmatched = { ...enterprise.spend, used: { amount_minor: 9_000, currency: "USD", exponent: 2 } };
-      expect(parseClaudeUsage({ ...enterprise, spend: { ...unmatched, limit: { amount_minor: 50_000, currency: "EUR", exponent: 2 } } }).extra).toEqual([fallback]);
-      expect(parseClaudeUsage({ ...enterprise, spend: { ...unmatched, limit: { amount_minor: 50_000, currency: "USD", exponent: 3 } } }).extra).toEqual([fallback]);
-    });
-
-    it("prefers the spend block over extra usage, and needs nothing else", () => {
-      const spend = { ...enterprise.spend, used: { amount_minor: 25_000, currency: "USD", exponent: 2 } };
-      const line50 = line("Monthly spend", 50, { usedMinor: 25_000, limitMinor: 50_000, currency: "USD", exponent: 2 });
-      expect(parseClaudeUsage({ ...enterprise, spend }).extra).toEqual([line50]);
-      expect(parseClaudeUsage({ spend }).extra).toEqual([line50]);
-    });
-
-    it("takes the digits from the currency when Claude does not say", () => {
-      const { decimal_places: _digits, ...usd } = enterprise.extra_usage;
-      expect(parseClaudeUsage({ extra_usage: usd }).extra[0]?.spend?.exponent).toBe(2);
-      expect(parseClaudeUsage({ extra_usage: { ...usd, currency: "JPY" } }).extra[0]?.spend?.exponent).toBe(0);
-    });
-
-    it("keeps only the percent without usable amounts", () => {
-      expect(parseClaudeUsage({ extra_usage: { is_enabled: true, utilization: 30, monthly_limit: null, used_credits: null } }).extra).toEqual([line("Monthly spend", 30)]);
-      expect(parseClaudeUsage({ extra_usage: { is_enabled: true, utilization: 30, monthly_limit: 500, used_credits: 150, currency: "not money" } }).extra).toEqual([line("Monthly spend", 30)]);
-      expect(parseClaudeUsage({ extra_usage: { is_enabled: true, utilization: 30, monthly_limit: 0, used_credits: 0, currency: "USD" } }).extra).toEqual([line("Monthly spend", 30)]);
-    });
-
-    it("calls it extra usage on a plan with rolling windows", () => {
-      const parsed = parseClaudeUsage({ five_hour: { utilization: 10, resets_at: null }, seven_day: { utilization: 20, resets_at: null }, extra_usage: { is_enabled: true, used_credits: 500, monthly_limit: 1_000, utilization: 50, currency: "USD" } });
-      expect(parsed.extra).toEqual([line("Extra Usage", 50, { usedMinor: 500, limitMinor: 1_000, currency: "USD", exponent: 2 })]);
-    });
-
-    it("shows nothing for a budget that is off", () => {
-      expect(parseClaudeUsage({ extra_usage: { ...enterprise.extra_usage, is_enabled: false } }).extra).toEqual([]);
-      expect(parseClaudeUsage({ spend: { ...enterprise.spend, enabled: false } }).extra).toEqual([]);
-    });
-  });
-
-  it("turns Claude utilization into remaining percent and keeps opus as a model window", () => {
-    const parsed = parseClaudeUsage({
-      five_hour: { utilization: 25, resets_at: "2026-09-26T12:00:00.000Z" },
-      seven_day: { utilization: 40, resets_at: "2026-10-03T00:00:00.000Z" },
-      five_hour_opus: { utilization: 10, resets_at: "2026-09-26T12:00:00.000Z" },
-      seven_day_opus: { utilization: 15, resets_at: "2026-10-03T00:00:00.000Z" },
-      seven_day_sonnet: { utilization: 8, resets_at: "2026-10-03T00:00:00.000Z" },
-      access_token: SECRET,
-      claudeAiOauth: { accessToken: SECRET },
-    });
-    expect(parsed.fiveHour).toMatchObject({ available: true, usedPercent: 25, remainingPercent: 75, resetsAt: "2026-09-26T12:00:00.000Z" });
-    expect(parsed.weekly).toMatchObject({ available: true, usedPercent: 40, remainingPercent: 60 });
-    expect(parsed.extra).toEqual([]);
-    expect(parsed.models).toEqual([
-      {
-        name: "Opus",
-        windows: [
-          expect.objectContaining({ label: "5-hour", usedPercent: 10, remainingPercent: 90 }),
-          expect.objectContaining({ label: "Weekly", usedPercent: 15, remainingPercent: 85, resetsAt: "2026-10-03T00:00:00.000Z" }),
-        ],
-      },
-      {
-        name: "Sonnet",
-        windows: [
-          expect.objectContaining({ label: "Weekly", usedPercent: 8, remainingPercent: 92 }),
-        ],
-      },
-    ]);
-    expect(JSON.stringify(parsed)).not.toContain(SECRET);
-  });
-
-  it("keeps seven_day_oauth_apps on an extra line instead of a model row", () => {
-    const parsed = parseClaudeUsage({
-      seven_day_oauth_apps: { utilization: 12, resets_at: "2026-10-03T00:00:00.000Z" },
-    });
-    expect(parsed.extra).toEqual([
-      expect.objectContaining({ label: "Oauth Apps", usedPercent: 12, remainingPercent: 88 }),
-    ]);
-    expect(parsed.models).toEqual([]);
-  });
-
   it("classifies Codex windows by duration and does not stuff a 30-day window into weekly", () => {
     const parsed = parseCodexUsage({
       plan_type: "plus",
@@ -287,119 +189,44 @@ describe("an OpenCode Go allowance", () => {
 });
 
 describe("plan usage fetcher", () => {
-  it("does not call fetch when the Claude token is expired", async () => {
-    const fetchImpl = vi.fn<PlanFetch>();
-    const configDir = join(tmpdir(), "omb-plan-usage-claude");
-    const reads: string[] = [];
-    const report = await fetchPlanUsage([account("claude", { id: "work", name: "Work Claude", configDir })], {
-      fetch: fetchImpl,
-      now: () => NOW,
-      credentials: fileCredentialReader({
-        now: () => NOW,
-        env: { HOME: tmpdir(), USERPROFILE: tmpdir() },
-        readText: (path) => {
-          reads.push(path);
-          return JSON.stringify({ claudeAiOauth: { accessToken: SECRET, expiresAt: NOW - 60_000 } });
-        },
-      }),
+  it("never reads a Claude sign-in or asks Anthropic for usage", async () => {
+    const accounts = planAccountsFromInstances({
+      claude: { driver: "claudeAgent" },
+      work: { driver: "claudeAgent", displayName: "Work", config: { configDir: "/tmp/claude-work" } },
+      codex: { driver: "codex" },
     });
-    expect(reads.map((path) => path.replaceAll("\\", "/"))).toEqual([
-      `${configDir.replaceAll("\\", "/")}/.credentials.json`,
+    // Still listed, so a refused turn's hold names the account and fails over.
+    expect(accounts).toEqual([
+      { id: "claude", name: "Claude", driver: "claude", environment: {}, noUsage: true },
+      { id: "work", name: "Work", driver: "claude", environment: {}, configDir: "/tmp/claude-work", noUsage: true },
+      { id: "codex", name: "Codex", driver: "codex", environment: {} },
     ]);
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(report.providers).toEqual([
-      expect.objectContaining({ id: "work", name: "Work Claude", driver: "claude", ok: false, error: "Sign in again in Claude" }),
-    ]);
-    expect(JSON.stringify(report)).not.toContain(SECRET);
+    const readText = vi.fn((path: string) => JSON.stringify(path.endsWith("auth.json") ? { tokens: { access_token: SECRET } } : { claudeAiOauth: { accessToken: SECRET } }));
+    const reader = fileCredentialReader({ now: () => NOW, env: { HOME: tmpdir(), USERPROFILE: tmpdir(), CLAUDE_CONFIG_DIR: tmpdir() }, readText });
+    const read = vi.spyOn(reader, "read");
+    const fetchImpl = vi.fn<PlanFetch>(async () => jsonResponse({ rate_limit: { primary_window: { used_percent: 10 } } }));
+    const unlisted = accounts.map(({ noUsage: _ignored, ...entry }) => entry);
+    for (const listed of [accounts, unlisted]) {
+      const report = await fetchPlanUsage(listed, { fetch: fetchImpl, now: () => NOW, credentials: reader });
+      expect(report.providers.map((row) => row.id)).toEqual(["codex"]);
+    }
+    expect(await reader.read(account("claude"))).toEqual({ token: null, accountId: null, expired: false });
+    expect(read.mock.calls.map(([entry]) => entry.driver)).toEqual(["codex", "codex", "claude"]);
+    expect(readText.mock.calls.map(([path]) => path).filter((path) => /\.claude|credentials/.test(path))).toEqual([]);
+    expect(fetchImpl.mock.calls.map(([url]) => url).filter((url) => url.includes("anthropic.com"))).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("reads a Claude keychain token when the credentials file has none", async () => {
-    const token = "claude-keychain-fixture-token";
-    const fetchImpl = vi.fn<PlanFetch>(async () => jsonResponse({
-      five_hour: { utilization: 25, resets_at: "2026-09-26T12:00:00.000Z" },
-      seven_day: { utilization: 40, resets_at: "2026-10-03T00:00:00.000Z" },
-    }));
-    const services: string[] = [];
-    const report = await fetchPlanUsage([account("claude")], {
-      fetch: fetchImpl,
-      now: () => NOW,
-      credentials: fileCredentialReader({
-        now: () => NOW,
-        env: { HOME: tmpdir(), USERPROFILE: tmpdir() },
-        readText: () => null,
-        readClaudeKeychain: async (service) => {
-          services.push(service);
-          return service === "Claude Code-credentials"
-            ? JSON.stringify({ claudeAiOauth: { accessToken: token } })
-            : null;
-        },
-      }),
-    });
-    expect(services).toEqual(["Claude Code-credentials"]);
-    expect(fetchImpl.mock.calls[0]?.[1].headers.Authorization).toBe(`Bearer ${token}`);
-    expect(JSON.stringify(report)).not.toContain(token);
-  });
-
-  it("asks the keychain only for the custom config dir service", async () => {
-    const token = "claude-keychain-other-token";
-    const configDir = normalize(join(tmpdir(), "omb-plan-usage-claude-other"));
-    const suffixed = `Claude Code-credentials-${createHash("sha256").update(configDir).digest("hex").slice(0, 8)}`;
-    const fetchImpl = vi.fn<PlanFetch>(async () => jsonResponse({
-      five_hour: { utilization: 25, resets_at: "2026-09-26T12:00:00.000Z" },
-      seven_day: { utilization: 40, resets_at: "2026-10-03T00:00:00.000Z" },
-    }));
-    const services: string[] = [];
-    const report = await fetchPlanUsage([account("claude", { configDir })], {
-      fetch: fetchImpl,
-      now: () => NOW,
-      credentials: fileCredentialReader({
-        now: () => NOW,
-        env: { HOME: tmpdir(), USERPROFILE: tmpdir() },
-        readText: () => null,
-        readClaudeKeychain: (service) => {
-          services.push(service);
-          return service === suffixed
-            ? JSON.stringify({ claudeAiOauth: { accessToken: token } })
-            : null;
-        },
-      }),
-    });
-    expect(services[0]).toBe(suffixed);
-    expect(services).toEqual([suffixed]);
-    expect(fetchImpl.mock.calls[0]?.[1].headers.Authorization).toBe(`Bearer ${token}`);
-    expect(JSON.stringify(report)).not.toContain(token);
-  });
-
-  it("does not use the default Claude keychain login for a custom config dir", async () => {
-    const defaultToken = "claude-keychain-default-token";
-    const configDir = normalize(join(tmpdir(), "omb-plan-usage-claude-custom"));
-    const suffixed = `Claude Code-credentials-${createHash("sha256").update(configDir).digest("hex").slice(0, 8)}`;
-    const fetchImpl = vi.fn<PlanFetch>(async () => jsonResponse({}));
-    const services: string[] = [];
-    const report = await fetchPlanUsage([account("claude", { id: "work", name: "Work Claude", configDir })], {
-      fetch: fetchImpl,
-      now: () => NOW,
-      credentials: fileCredentialReader({
-        now: () => NOW,
-        env: { HOME: tmpdir(), USERPROFILE: tmpdir() },
-        readText: () => null,
-        readClaudeKeychain: (service) => {
-          services.push(service);
-          return service === "Claude Code-credentials"
-            ? JSON.stringify({ claudeAiOauth: { accessToken: defaultToken } })
-            : null;
-        },
-      }),
-    });
-    expect(services).toEqual([suffixed]);
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(report.providers[0]).toMatchObject({ ok: false, error: "Sign in again in Claude" });
-    expect(JSON.stringify(report)).not.toContain(defaultToken);
+  it("holds no way to reach a Claude sign-in or Anthropic's usage API", () => {
+    const source = readFileSync(new URL("./plan-usage.ts", import.meta.url), "utf8");
+    for (const banned of ["api.anthropic.com", "oauth/usage", "claudeAiOauth", ".credentials.json", "Claude Code-credentials", "find-generic-password", "node:child_process"]) {
+      expect(source).not.toContain(banned);
+    }
   });
 
   it("turns a 401 into ok:false without throwing and still returns the other provider", async () => {
     const fetchImpl = vi.fn<PlanFetch>(async (url) => {
-      if (url.includes("anthropic.com")) return jsonResponse(SECRET, 401);
+      if (url.includes("grok.com")) return jsonResponse(SECRET, 401);
       return jsonResponse({
         rate_limit: {
           primary_window: { used_percent: 10, limit_window_seconds: 18000, reset_at: 1_800_000_000 },
@@ -408,7 +235,7 @@ describe("plan usage fetcher", () => {
       });
     });
     const report = await fetchPlanUsage(
-      [account("claude"), account("codex")],
+      [account("grok"), account("codex")],
       {
         fetch: fetchImpl,
         now: () => NOW,
@@ -418,7 +245,7 @@ describe("plan usage fetcher", () => {
       },
     );
     expect(report.providers.map((provider) => [provider.driver, provider.ok, provider.error])).toEqual([
-      ["claude", false, "Sign in again in Claude"],
+      ["grok", false, "Sign in again in Grok"],
       ["codex", true, null],
     ]);
     expect(report.providers[1]?.fiveHour.remainingPercent).toBe(90);
@@ -472,7 +299,7 @@ describe("plan usage fetcher", () => {
       five_hour: { utilization: 25, resets_at: "2026-09-26T12:00:00.000Z" },
       seven_day: { utilization: 40, resets_at: "2026-10-03T00:00:00.000Z" },
     }));
-    const accounts = [account("claude")];
+    const accounts = [account("codex")];
     const credentials = { read: () => ({ token: SECRET, accountId: null, expired: false }) };
     await loadPlanUsage({ accounts, now: NOW, fetch: fetchImpl, credentials });
     await loadPlanUsage({ accounts, now: NOW + 10_000, fetch: fetchImpl, credentials });
@@ -488,7 +315,7 @@ describe("plan usage fetcher", () => {
       five_hour: { utilization: 25, resets_at: "2026-09-26T12:00:00.000Z" },
       seven_day: { utilization: 40, resets_at: "2026-10-03T00:00:00.000Z" },
     }));
-    const both = [account("claude"), account("claude", { id: "second", name: "Second" })];
+    const both = [account("codex"), account("codex", { id: "second", name: "Second" })];
     const credentials = { read: () => ({ token: SECRET, accountId: null, expired: false }) };
     await loadPlanUsage({ accounts: both, now: NOW, fetch: fetchImpl, credentials });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -497,7 +324,7 @@ describe("plan usage fetcher", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect((await loadPlanUsage({ accounts: both, now: NOW + 2_000, fetch: fetchImpl, credentials })).providers).toHaveLength(2);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
-    await loadPlanUsage({ accounts: [account("claude", { id: "third", name: "Third" })], now: NOW + 3_000, fetch: fetchImpl, credentials });
+    await loadPlanUsage({ accounts: [account("codex", { id: "third", name: "Third" })], now: NOW + 3_000, fetch: fetchImpl, credentials });
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     await loadPlanUsage({ accounts: [{ ...both[1]!, configDir: "/elsewhere" }], now: NOW + 4_000, fetch: fetchImpl, credentials });
     expect(fetchImpl).toHaveBeenCalledTimes(4);
@@ -510,13 +337,13 @@ describe("plan usage fetcher", () => {
     }));
     const credentials = { read: () => ({ token: SECRET, accountId: null, expired: false }) };
     await loadPlanUsage({
-      accounts: [account("claude", { id: "same", environment: { GROK_HOME: "/tmp/one" } })],
+      accounts: [account("codex", { id: "same", environment: { GROK_HOME: "/tmp/one" } })],
       now: NOW,
       fetch: fetchImpl,
       credentials,
     });
     await loadPlanUsage({
-      accounts: [account("claude", { id: "same", environment: { GROK_HOME: "/tmp/two" } })],
+      accounts: [account("codex", { id: "same", environment: { GROK_HOME: "/tmp/two" } })],
       now: NOW + 1_000,
       fetch: fetchImpl,
       credentials,
@@ -532,7 +359,7 @@ describe("plan usage fetcher", () => {
       cursor: { driver: "cursorAgent", displayName: "Cursor" },
       api: { driver: "grok", displayName: "Grok API" },
     })).toEqual([
-      { id: "claude", name: "Personal Claude", driver: "claude", environment: {}, configDir: "/tmp/claude" },
+      { id: "claude", name: "Personal Claude", driver: "claude", environment: {}, configDir: "/tmp/claude", noUsage: true },
       { id: "codex", name: "Codex", driver: "codex", environment: {} },
       { id: "grok", name: "Grok", driver: "grok", environment: { GROK_HOME: "/tmp/grok" } },
     ]);
@@ -650,42 +477,5 @@ describe("plan usage fetcher", () => {
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(report.providers.map((row) => row.id)).toEqual(["codex"]);
-  });
-
-  it("reads every Claude instance's login with no setting, and none whose config sets usageMeter to false", async () => {
-    const accounts = planAccountsFromInstances({
-      claude: { driver: "claudeAgent" },
-      work: { driver: "claudeAgent", displayName: "Work", config: { configDir: "/tmp/claude-work" } },
-      quiet: { driver: "claudeAgent", displayName: "Quiet", config: { usageMeter: false } },
-      codex: { driver: "codex" },
-    });
-    // Still listed, so a refused turn's hold names the account and fails over.
-    expect(accounts).toEqual([
-      { id: "claude", name: "Claude", driver: "claude", environment: {} },
-      { id: "work", name: "Work", driver: "claude", environment: {}, configDir: "/tmp/claude-work" },
-      { id: "quiet", name: "Quiet", driver: "claude", environment: {}, noUsage: true },
-      { id: "codex", name: "Codex", driver: "codex", environment: {} },
-    ]);
-    const read = vi.fn((_account: PlanAccount) => ({ token: SECRET, accountId: null, expired: false }));
-    const fetchImpl = vi.fn<PlanFetch>(async (url) => jsonResponse(url.includes("anthropic")
-      ? { five_hour: { utilization: 38, resets_at: "2026-10-19T15:40:00Z" } }
-      : { rate_limit: { primary_window: { used_percent: 10 } } }));
-    const report = await fetchPlanUsage(accounts, { fetch: fetchImpl, now: () => NOW, credentials: { read } });
-    expect(read.mock.calls.map(([account]) => account.id)).toEqual(["claude", "work", "codex"]);
-    expect(report.providers.map((row) => [row.id, row.ok])).toEqual([["claude", true], ["work", true], ["codex", true]]);
-    expect(report.providers[0]!.fiveHour.usedPercent).toBe(38);
-    expect(JSON.stringify(report)).not.toContain(SECRET);
-  });
-
-  it("never serves a cached report across a usageMeter change", async () => {
-    const read = vi.fn((_account: PlanAccount) => ({ token: SECRET, accountId: null, expired: false }));
-    const fetchImpl = vi.fn<PlanFetch>(async () => jsonResponse({}));
-    const load = (config: Record<string, unknown>) => loadPlanUsage({
-      accounts: planAccountsFromInstances({ claude: { driver: "claudeAgent", config } }),
-      fetch: fetchImpl, now: NOW, credentials: { read },
-    });
-    expect((await load({})).providers.map((row) => row.id)).toEqual(["claude"]);
-    expect((await load({ usageMeter: false })).providers).toEqual([]);
-    expect((await load({})).providers.map((row) => row.id)).toEqual(["claude"]);
   });
 });

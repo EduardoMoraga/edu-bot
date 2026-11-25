@@ -54,6 +54,8 @@ Nothing here is contacted until you use the feature named in the last column.
 | `api.venice.ai` | Venice's model list for OpenCode | When OpenCode lists models with your Venice key |
 | `storage.googleapis.com`, `dl.google.com` | Chrome for Testing for the bots' browser; the Antigravity engine | When you install them |
 
+Claude: Edu Bot never reads Claude Code's tokens and does not call Anthropic's usage API (`api.anthropic.com/api/oauth/usage`). Only the `claude` CLI you signed in with `claude auth login` talks to Anthropic; a Claude limit is shown only when that CLI reports one.
+
 ### The bots' browser, computers and phone
 
 | Host | What | When |

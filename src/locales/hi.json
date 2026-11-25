@@ -2054,7 +2054,6 @@
   "remote.serverPairing.hoursAgo": "{hours} घंटे पहले",
   "remote.serverPairing.daysAgo": "{days} दिन पहले",
   "remote.serverPairing.error": "कनेक्ट नहीं हो सका: {error}",
-  "engineSetup.claude.description": "अपनी Claude सदस्यता से Claude Code में साइन इन करें। ब्राउज़र में Anthropic का साइन-इन पेज खोलें, साइन इन करें, फिर वहाँ दिखा कोड यहाँ पेस्ट करें। न टर्मिनल, न पासवर्ड साझा करना।",
   "engineSetup.claude.start": "Claude में साइन इन करें",
   "engineSetup.claude.starting": "साइन-इन तैयार हो रहा है…",
   "engineSetup.claude.finishing": "Claude Code से जाँच हो रही है…",

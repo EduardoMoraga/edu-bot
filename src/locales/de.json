@@ -2310,7 +2310,6 @@
   "remote.serverPairing.hoursAgo": "vor {hours} Std.",
   "remote.serverPairing.daysAgo": "vor {days} Tagen",
   "remote.serverPairing.error": "Verbindung fehlgeschlagen: {error}",
-  "engineSetup.claude.description": "Melde Claude Code mit deinem eigenen Claude-Abo an. Öffne die Anmeldeseite von Anthropic im Browser, melde dich an und füge den angezeigten Code hier ein. Kein Terminal, kein Teilen von Passwörtern.",
   "engineSetup.claude.start": "Bei Claude anmelden",
   "engineSetup.claude.starting": "Anmeldung wird vorbereitet…",
   "engineSetup.claude.finishing": "Wird mit Claude Code geprüft…",

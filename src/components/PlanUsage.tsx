@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { api } from "@/state/store";
+import { useStoreSelector } from "@/state/store-select";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { Card, SIMPLE_CARD, SettingsEmptyRow, SettingsGroup, SettingsLook, SettingsRows } from "./SettingsPrimitives";
@@ -233,9 +234,15 @@ export function PlanUsageSummary() {
   );
 }
 
+function useClaudeNote(): string | null {
+  const claude = useStoreSelector((s) => s.instances.some((instance) => instance.driverKind === "claudeAgent"));
+  return claude ? t("planUsage.claudeCli") : null;
+}
+
 export function PlanUsage() {
   const { report, loading, error, now, load } = usePlanUsage();
   const settings = useContext(SettingsLook);
+  const claudeNote = useClaudeNote();
 
   // Settings: an empty state is one quiet row, and Refresh is the section's action.
   if (settings && (!report || report.providers.length === 0)) {
@@ -244,7 +251,7 @@ export function PlanUsage() {
         actions={<button type="button" onClick={() => void load(true)} disabled={loading} className="settings-quiet flex cursor-pointer items-center gap-1.5">
           {loading ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <RefreshCw size={14} aria-hidden="true" />}{t("planUsage.refresh")}
         </button>}
-        footnote={error ? <span role="alert" className="text-danger">{error}</span> : undefined}>
+        footnote={error ? <span role="alert" className="text-danger">{error}</span> : claudeNote ?? undefined}>
         <SettingsRows><SettingsEmptyRow>{loading && !report ? t("planUsage.loading") : t("planUsage.emptyShort")}</SettingsEmptyRow></SettingsRows>
       </SettingsGroup>
     );
@@ -328,6 +335,7 @@ export function PlanUsage() {
           ))}
         </div>
       )}
+      {claudeNote && <p data-plan-usage-claude className="mt-4 text-[13px] text-ink-secondary">{claudeNote}</p>}
     </Card>
   );
 }

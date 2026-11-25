@@ -1,15 +1,13 @@
-// Access tokens stay in the request header only, never in the JSON result.
-import { execFile } from "node:child_process";
-import { createHash } from "node:crypto";
+// Access tokens stay in the request header only, never in the JSON result. Security: Claude's sign-in is never read and
+// Anthropic's usage API is never called; a Claude limit is known only from what the person's own `claude` CLI reports.
 import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { InstanceConfigMap } from "./contracts.ts";
-import { resolveClaudeConfigDir } from "./drivers/claude.ts";
 import { codexHome } from "./drivers/codex-identity.ts";
 import { codexHasCredits } from "./codex-credits.ts";
 import { antigravityPlanUsage } from "./drivers/antigravity-usage-limits.ts";
-import { harnessHome, sealedFixture } from "./env-path.ts";
+import { harnessHome } from "./env-path.ts";
 
 export type PlanDriver = "claude" | "codex" | "grok" | "opencode" | "antigravity";
 
@@ -70,7 +68,7 @@ export interface PlanAccount {
   driver: PlanDriver;
   environment: Record<string, string | undefined>;
   configDir?: string;
-  /** No usage reading: a ChatGPT plan signed in through OpenMausBot has no CLI login on disk, and a Claude instance whose config sets `usageMeter: false` keeps its login unread (a refused turn still fails over). */
+  /** No usage reading: a ChatGPT plan signed in through OpenMausBot has no CLI login on disk, and Claude's sign-in is never read (its refusals still hold the engine and fail over). */
   noUsage?: true;
 }
 
@@ -106,20 +104,12 @@ export interface CredentialSource {
   readText: (path: string) => string | null;
   env?: NodeJS.ProcessEnv;
   now?: () => number;
-  readClaudeKeychain?: (service: string) => string | null | Promise<string | null>;
 }
 
 const PROVIDER_TIMEOUT_MS = 8_000;
 const PLAN_USAGE_CACHE_MS = 45_000;
 const CREDENTIAL_READ_MAX_BYTES = 1_000_000;
-const KEYCHAIN_TIMEOUT_MS = 5_000;
-const KEYCHAIN_MAX_BUFFER = 1_000_000;
-const CLAUDE_KEYCHAIN_SERVICE = "Claude Code-credentials";
-const CLAUDE_MODEL_FAMILIES = ["opus", "sonnet", "haiku"];
-const MONTHLY_SPEND = "Monthly spend";
-const EXTRA_USAGE = "Extra Usage";
 
-const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const CODEX_USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
 const GROK_CREDITS_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
 const GROK_BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing";
@@ -158,39 +148,10 @@ export function planAccountsFromInstances(instances: InstanceConfigMap): PlanAcc
       environment: { ...entry.environment },
       ...(configDir ? { configDir } : {}),
       // Reading ~/.codex/auth.json for a ChatGPT-plan provider would report (and hold it on) another account's limit.
-      ...(config?.authMode === "chatgpt-plan" || (driver === "claude" && config?.usageMeter === false) ? { noUsage: true as const } : {}),
+      ...(config?.authMode === "chatgpt-plan" || driver === "claude" ? { noUsage: true as const } : {}),
     });
   }
   return accounts;
-}
-
-export function parseClaudeUsage(body: unknown): PlanWindows {
-  const root = claudeRoot(body);
-  const extra: PlanExtra[] = [];
-  const models: PlanModelUsage[] = [];
-  if (root) {
-    for (const [key, value] of Object.entries(root)) {
-      if (key === "five_hour" || key === "seven_day" || key === "spend" || key === "extra_usage") continue;
-      if (!/^[a-z][a-z0-9_]{0,40}$/i.test(key)) continue;
-      const window = readClaudeWindow(value);
-      if (!window) continue;
-      const model = claudeModelWindow(key);
-      if (model) addModelWindow(models, model.name, extraLine(model.window, window));
-      else extra.push(extraLine(claudeExtraLabel(key), window));
-    }
-  }
-  sortModelWindows(models);
-  const fiveHour = (root && readClaudeWindow(root.five_hour)) ?? closedWindow();
-  const weekly = (root && readClaudeWindow(root.seven_day)) ?? closedWindow();
-  const budget = root && readClaudeBudget(root, fiveHour.available || weekly.available);
-  if (budget) extra.unshift(budget);
-  return {
-    plan: planLabel(root?.subscription_type ?? root?.plan ?? root?.plan_type),
-    fiveHour,
-    weekly,
-    extra,
-    models,
-  };
 }
 
 export function parseCodexUsage(body: unknown): PlanWindows {
@@ -261,7 +222,7 @@ export function fileCredentialReader(source: CredentialSource): CredentialReader
     async read(account) {
       const merged: NodeJS.ProcessEnv = { ...env, ...account.environment };
       const at = now();
-      if (account.driver === "claude") return readClaudeCredential(account, merged, source, at);
+      if (account.driver === "claude") return missingCredential();
       if (account.driver === "codex") return readCodexCredential(merged, source.readText, at);
       if (account.driver === "opencode") return readOpenCodeCredential(merged, source.readText, at);
       return readGrokCredential(merged, source.readText, at);
@@ -281,7 +242,6 @@ export function defaultCredentialReader(env: NodeJS.ProcessEnv = process.env): C
         return null;
       }
     },
-    ...(process.platform === "darwin" && !sealedFixture() ? { readClaudeKeychain: readDarwinClaudeKeychain } : {}),
   });
 }
 
@@ -421,108 +381,6 @@ function couldNotReach(driver: PlanDriver): string {
 
 function unexpectedUsage(driver: PlanDriver): string {
   return `${PRODUCT_NAME[driver]} returned an unexpected usage response`;
-}
-
-function claudeRoot(body: unknown): Record<string, unknown> | null {
-  const root = asRecord(body);
-  if (!root) return null;
-  if ("five_hour" in root || "seven_day" in root) return root;
-  const nested = asRecord(root.usage) ?? asRecord(root.windows);
-  if (nested && ("five_hour" in nested || "seven_day" in nested)) return nested;
-  return root;
-}
-
-function readClaudeWindow(value: unknown): PlanWindow | null {
-  const record = asRecord(value);
-  if (!record) return null;
-  const utilization = finiteNumber(record.utilization);
-  if (utilization == null) return null;
-  return openWindow(utilization, isoOrNull(record.resets_at ?? record.resetsAt));
-}
-
-const naturalNumber = (value: unknown): number | null => Number.isSafeInteger(value) && (value as number) >= 0 ? value as number : null;
-
-/** A currency code as the provider sent it, when Intl can name it: Intl.NumberFormat throws on anything else. */
-function currencyCode(value: unknown): string | null {
-  if (typeof value !== "string" || !/^[A-Za-z]{3}$/.test(value.trim())) return null;
-  return value.trim().toUpperCase();
-}
-
-function budgetLine(label: string, spend: PlanSpend): PlanExtra | null {
-  if (spend.limitMinor <= 0) return null;
-  return { ...extraLine(label, openWindow((spend.usedMinor / spend.limitMinor) * 100, null)), spend };
-}
-
-function readSpendBudget(value: unknown): PlanExtra | null {
-  const spend = asRecord(value);
-  if (spend?.enabled !== true) return null;
-  const used = asRecord(spend.used), limit = asRecord(spend.limit);
-  const currency = currencyCode(used?.currency);
-  const exponent = naturalNumber(used?.exponent), usedMinor = naturalNumber(used?.amount_minor), limitMinor = naturalNumber(limit?.amount_minor);
-  if (!currency || currency !== currencyCode(limit?.currency) || exponent === null || exponent !== limit?.exponent || usedMinor === null || limitMinor === null) return null;
-  return budgetLine(MONTHLY_SPEND, { usedMinor, limitMinor, currency, exponent });
-}
-
-/** Claude Code 2.1.312 documents `used_credits` and `monthly_limit` as minor units of `currency` ("cents for USD") and has
- * no field saying how many digits those are, so the currency says. `is_enabled` false: this budget cannot cover a send. */
-function readExtraUsage(value: unknown, label: string): PlanExtra | null {
-  const extra = asRecord(value);
-  if (extra?.is_enabled !== true) return null;
-  const currency = currencyCode(extra.currency);
-  const usedMinor = naturalNumber(extra.used_credits), limitMinor = naturalNumber(extra.monthly_limit);
-  if (currency && usedMinor !== null && limitMinor !== null) {
-    const exponent = naturalNumber(extra.decimal_places) ?? currencyDigits(currency);
-    const line = exponent === null ? null : budgetLine(label, { usedMinor, limitMinor, currency, exponent });
-    if (line) return line;
-  }
-  const used = finiteNumber(extra.utilization);
-  return used === null ? null : extraLine(label, openWindow(used, null));
-}
-
-function currencyDigits(currency: string): number | null {
-  try {
-    return new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/** Whether Claude's paid extra usage is on and not used up, on a plan with rolling windows: sends then go on past a
- * full window and are paid from it. */
-export function claudeHasExtraUsageRoom(row: Pick<PlanProviderRow, "driver" | "fiveHour" | "weekly" | "extra">): boolean {
-  if (row.driver !== "claude" || !(row.fiveHour.available || row.weekly.available)) return false;
-  const budget = row.extra[0];
-  return !!budget && (budget.label === EXTRA_USAGE || budget.label === MONTHLY_SPEND) && budget.usedPercent < 100;
-}
-
-/** A plan with no rolling windows lives on its monthly budget (Claude Enterprise); on others that budget is the extra usage
- * bought on top of them. */
-function readClaudeBudget(root: Record<string, unknown>, hasWindows: boolean): PlanExtra | null {
-  return readSpendBudget(root.spend) ?? readExtraUsage(root.extra_usage, hasWindows ? EXTRA_USAGE : MONTHLY_SPEND);
-}
-
-function claudeExtraLabel(key: string): string {
-  const suffix = key.startsWith("seven_day_")
-    ? key.slice("seven_day_".length)
-    : key.replace(/^five_hour_/, "");
-  return titleWords(suffix);
-}
-
-function titleWords(suffix: string): string {
-  const words = suffix.split("_").filter((part) => part.length > 0);
-  if (words.length === 0) return "Window";
-  return words.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ");
-}
-
-function claudeModelWindow(key: string): { name: string; window: string } | null {
-  const weekly = key.startsWith("seven_day_");
-  const fiveHour = key.startsWith("five_hour_");
-  if (!weekly && !fiveHour) return null;
-  const suffix = key.slice(weekly ? "seven_day_".length : "five_hour_".length);
-  const lower = suffix.toLowerCase();
-  const family = CLAUDE_MODEL_FAMILIES.find((name) => lower === name || lower.startsWith(`${name}_`));
-  if (!family) return null;
-  return { name: titleWords(suffix), window: weekly ? "Weekly" : "5-hour" };
 }
 
 function addModelWindow(models: PlanModelUsage[], name: string, line: PlanExtra): void {
@@ -708,94 +566,6 @@ function planUsageCacheKey(accounts: PlanAccount[]): string {
   }).join("\n");
 }
 
-function claudeCredentialFromText(text: string | null, now: number): PlanCredential {
-  const oauth = asRecord(asRecord(parseJson(text))?.claudeAiOauth);
-  const token = secretString(oauth?.accessToken);
-  if (!token) return missingCredential();
-  const expiry = timeMs(oauth?.expiresAt);
-  if (expiry != null && expiry <= now) return expiredCredential();
-  return { token, accountId: null, expired: false };
-}
-
-/** macOS 26 `security -w` may print the JSON secret as hex. */
-function decodeKeychainSecret(raw: string | null): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  if (!trimmed.startsWith("{") && trimmed.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(trimmed)) {
-    return Buffer.from(trimmed, "hex").toString("utf8");
-  }
-  return trimmed;
-}
-
-function claudeKeychainServices(account: PlanAccount, env: NodeJS.ProcessEnv, resolvedDir: string): string[] {
-  if (!account.configDir?.trim() && !env.CLAUDE_CONFIG_DIR?.trim()) return [CLAUDE_KEYCHAIN_SERVICE];
-  let defaultDir: string | null = null;
-  try {
-    const withoutConfig = { ...env };
-    delete withoutConfig.CLAUDE_CONFIG_DIR;
-    defaultDir = resolveClaudeConfigDir(undefined, withoutConfig);
-  } catch {
-    defaultDir = null;
-  }
-  if (defaultDir != null && resolvedDir === defaultDir) return [CLAUDE_KEYCHAIN_SERVICE];
-  const suffix = createHash("sha256").update(resolvedDir).digest("hex").slice(0, 8);
-  return [`${CLAUDE_KEYCHAIN_SERVICE}-${suffix}`];
-}
-
-function readDarwinClaudeKeychain(service: string): Promise<string | null> {
-  if (process.platform !== "darwin") return Promise.resolve(null);
-  return new Promise((resolve) => {
-    try {
-      execFile(
-        "security",
-        ["find-generic-password", "-s", service, "-w"],
-        {
-          timeout: KEYCHAIN_TIMEOUT_MS,
-          maxBuffer: KEYCHAIN_MAX_BUFFER,
-          windowsHide: true,
-          shell: false,
-          encoding: "utf8",
-        },
-        (error, stdout) => {
-          resolve(error || !stdout ? null : stdout);
-        },
-      );
-    } catch {
-      resolve(null);
-    }
-  });
-}
-
-async function readClaudeCredential(
-  account: PlanAccount,
-  env: NodeJS.ProcessEnv,
-  source: CredentialSource,
-  now: number,
-): Promise<PlanCredential> {
-  let resolvedDir: string;
-  try {
-    resolvedDir = resolveClaudeConfigDir(account.configDir, env);
-  } catch {
-    return missingCredential();
-  }
-  const file = claudeCredentialFromText(source.readText(join(resolvedDir, ".credentials.json")), now);
-  if (file.token || !source.readClaudeKeychain) return file;
-  let sawExpired = file.expired;
-  for (const service of claudeKeychainServices(account, env, resolvedDir)) {
-    let raw: string | null = null;
-    try {
-      raw = (await source.readClaudeKeychain(service)) ?? null;
-    } catch {
-      raw = null;
-    }
-    const parsed = claudeCredentialFromText(decodeKeychainSecret(raw), now);
-    if (parsed.token) return parsed;
-    if (parsed.expired) sawExpired = true;
-  }
-  return sawExpired ? expiredCredential() : missingCredential();
-}
-
 function readCodexCredential(
   env: NodeJS.ProcessEnv,
   readText: (path: string) => string | null,
@@ -915,6 +685,7 @@ function okRow(account: PlanAccount, windows: PlanWindows): PlanProviderRow {
 }
 
 async function fetchProvider(account: PlanAccount, deps: PlanUsageDeps): Promise<PlanProviderRow | null> { // null: OpenCode, in every fleet, with no key of its own
+  if (account.driver === "claude") return null;
   let credential: PlanCredential;
   if (account.driver === "antigravity") { const windows = await antigravityPlanUsage(account.id, deps); return windows && okRow(account, windows); } // null: no sign-in, or Google gave nothing
   try {
@@ -924,7 +695,6 @@ async function fetchProvider(account: PlanAccount, deps: PlanUsageDeps): Promise
   }
   if (credential.expired || !credential.token) return account.driver === "opencode" && !credential.expired ? null : errorRow(account, signInAgain(account.driver));
   try {
-    if (account.driver === "claude") return await fetchClaude(account, credential.token, deps);
     if (account.driver === "codex") return await fetchCodex(account, credential.token, credential.accountId, deps);
     if (account.driver === "opencode") return await fetchOpenCode(account, credential.token, deps);
     return await fetchGrok(account, credential.token, deps);
@@ -969,19 +739,6 @@ async function fetchJson(
 
 function authRejected(status: number): boolean {
   return status === 401 || status === 403;
-}
-
-async function fetchClaude(account: PlanAccount, token: string, deps: PlanUsageDeps): Promise<PlanProviderRow> {
-  const result = await fetchJson(deps.fetch, CLAUDE_USAGE_URL, {
-    Authorization: `Bearer ${token}`,
-    Accept: "application/json",
-    "anthropic-beta": "oauth-2025-04-20",
-  }, deps.timeoutMs ?? PROVIDER_TIMEOUT_MS);
-  if (authRejected(result.status)) return errorRow(account, signInAgain("claude"));
-  if (!result.ok || result.body === null || typeof result.body !== "object") {
-    return errorRow(account, result.status === 0 || result.status >= 500 ? couldNotReach("claude") : unexpectedUsage("claude"));
-  }
-  return okRow(account, parseClaudeUsage(result.body));
 }
 
 async function fetchCodex(
