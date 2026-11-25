@@ -37,6 +37,15 @@ describe("the line under Your other computers", () => {
     const http = tailnetShareLine(shared);
     expect(http).toContain("http://macmini.tail1234.ts.net:8799");
     expect(http).toContain("WireGuard");
+    expect(http).toContain("HTTPS Certificates");
+  });
+
+  it("says why it is http when another program already holds Tailscale's https address", () => {
+    const busy = tailnetShareLine({ ...shared, httpsPortBusy: true });
+    expect(busy).toContain("http://macmini.tail1234.ts.net:8799");
+    expect(busy).toContain("Another program on this computer already uses Tailscale's https address");
+    expect(busy).not.toContain("HTTPS Certificates");
+    expect(tailnetShareLine({ on: true, origin: "https://macmini.tail1234.ts.net", https: true, problem: null, httpsPortBusy: true })).toContain("HTTPS certificate");
   });
 
   it("says Tailscale isn't connected while nothing answers", () => {

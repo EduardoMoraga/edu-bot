@@ -91,6 +91,16 @@ export function isOwnerOrAdmin(state: SessionState | null): boolean {
   return state.kind === "loopback" ? state.trust !== "service" : state.kind === "session" && state.scopes.includes("admin");
 }
 
+/** The computer name a desktop app puts in its pairing link (`#code=…&device=…`); null for a link without one. */
+export function pairingDeviceName(hash: string = location.hash): string | null {
+  const m = /[#&]device=([^&]+)/.exec(hash);
+  if (!m) return null;
+  let decoded: string;
+  try { decoded = decodeURIComponent(m[1]); } catch { return null; }
+  const printable = [...decoded].map((ch) => (ch < " " || ch === "\u007f" ? " " : ch)).join("");
+  return printable.replace(/\s+/g, " ").trim().slice(0, 80) || null;
+}
+
 export function takePairingCodeFromLocation(): string | null {
   const m = /[#&]code=([^&]+)/.exec(location.hash);
   if (!m) return null;

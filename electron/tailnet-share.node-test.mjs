@@ -71,15 +71,22 @@ test("with certificates `tailscale serve` fronts the server, and the link is the
 test("a port the person already serves, or a serve that fails, falls back to listening and replaces nothing", async () => {
   const https = { state: "ready", name: NAME, addresses: [], https: true, cli: "/usr/bin/tailscale" };
   const taken = world({ status: https, serveStatus: ['{"TCP":{"443":{"HTTPS":true}}}'] });
-  assert.equal((await taken.share.attach(taken.proc, 8799, route())).https, false);
+  const takenShown = await taken.share.attach(taken.proc, 8799, route());
+  assert.equal(takenShown.https, false);
+  assert.equal(takenShown.httpsPortBusy, true, "the row can say another program holds the https address");
   assert.deepEqual(taken.spawned, []);
   const failed = world({ status: https, serveExits: true });
-  assert.equal((await failed.share.attach(failed.proc, 8799, route())).https, false);
+  const failedShown = await failed.share.attach(failed.proc, 8799, route());
+  assert.equal(failedShown.https, false);
+  assert.equal(Object.hasOwn(failedShown, "httpsPortBusy"), false);
+  const unreadable = world({ status: https, serveStatus: ["not json"] });
+  const unreadableShown = await unreadable.share.attach(unreadable.proc, 8799, route());
+  assert.deepEqual([unreadableShown.https, Object.hasOwn(unreadableShown, "httpsPortBusy"), unreadable.spawned], [false, false, []]);
   assert.deepEqual(failed.posted, [{ name: NAME }]);
   const waiting = world({ status: https, serveStatus: ["{}"] });
   assert.equal((await waiting.share.attach(waiting.proc, 8799, route())).https, false, "serve waiting on an enablement link is no share");
   assert.deepEqual(waiting.children[0].killed, ["SIGTERM"]);
-  for (const unreadable of ["", "not json", "[]"]) assert.equal(servePortTaken(unreadable), true);
+  for (const text of ["", "not json", "[]"]) assert.equal(servePortTaken(text), true);
   assert.equal(servePortTaken('{"Foreground":{"abc":{"TCP":{"443":{}}}}}'), true);
   assert.equal(servePortTaken('{"TCP":{"8443":{}}}'), false);
 });

@@ -11,7 +11,7 @@ import { SettingRow, SettingsGroup, SettingsRows, Switch } from "./SettingsPrimi
 export function tailnetShareLine(share: TailnetShareState | undefined): string | null {
   if (!share?.on) return null;
   if (!share.origin) return t("devices.computers.waiting", { app: productName() });
-  return t(share.https ? "devices.computers.https" : "devices.computers.http", { address: share.origin });
+  return t(share.https ? "devices.computers.https" : share.httpsPortBusy ? "devices.computers.httpPortBusy" : "devices.computers.http", { address: share.origin });
 }
 
 /** Why Tailscale is not ready, in the Tailscale check's own words; null while it is off, or on and fine. */

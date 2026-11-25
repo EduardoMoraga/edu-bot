@@ -3,7 +3,7 @@
 ## Standalone CLI discovery
 
 The macOS app executable chooses GUI or CLI mode from its environment.
-Finder-launched OMB processes must set `TAILSCALE_BE_CLI=1`, including when
+Finder-launched Edu Bot processes must set `TAILSCALE_BE_CLI=1`, including when
 using the self-hosted server's `tailscale serve` support. No installed wrapper,
 interactive shell, or change to the user's environment is required.
 
@@ -58,8 +58,9 @@ Use a disposable workspace on the host.
    `*:8799`.
 4. On the host, choose **Pair a computer** under the switch. Expect the dialog to show the address `http://$NAME:8799`
    with the code, and **Copy link** to copy a link that starts with `http://$NAME:8799/pair#code=`.
-5. On the client, choose ＋ → Connect to a server and paste the link. Expect the found line to say Tailscale. Connect,
-   then send a message and wait for a reply.
+5. On the client, choose You → Switch place → Connect to a server (or ＋ on the rail once it shows) and paste the
+   link. Expect the found line to say Tailscale. Connect, then send a message and wait for a reply. On the host,
+   expect the client under Paired with its computer name, not "Chrome on Windows".
 6. From the client, check the refusals:
    - `curl -i -H 'Host: evil.example.com' http://$IP:8799/api/health` answers 421.
    - `curl -i -H 'Host: 127.0.0.1:8799' http://$IP:8799/api/bots` answers 421.
@@ -75,7 +76,8 @@ Use a disposable workspace on the host.
    certificate is issued.
 4. Quit the app on the host. `tailscale serve status` is empty again.
 5. Serve something of your own on 443 (`tailscale serve --bg 3000`), and start the app. Expect the share to fall back to
-   `http://$NAME:8799` and your own serve to be untouched. Remove it with `tailscale serve reset`.
+   `http://$NAME:8799`, the row to say another program on this computer already uses Tailscale's https address, and
+   your own serve to be untouched. Remove it with `tailscale serve reset`.
 
 ### What the client says when it can't connect
 
@@ -86,7 +88,7 @@ Type the address on the Connect sheet each time.
 | Disconnect Tailscale on the client | Tailscale isn't connected on this computer |
 | Type a name from another tailnet | it isn't on this computer's tailnet |
 | Quit the app on the host, or put the host to sleep | it's on your tailnet but didn't answer |
-| On a Mac client, turn off OpenMausBot in System Settings → Privacy & Security → Local Network | macOS blocked the connection |
+| On a Mac client, turn off Edu Bot in System Settings → Privacy & Security → Local Network | macOS blocked the connection |
 
 Turn Local Network back on and connect again without restarting the app. The Local Network row is what a packaged build
 needs: `NSLocalNetworkUsageDescription` is only in packaged builds.
@@ -107,5 +109,6 @@ says it listens on `http://$NAME:8799`, and connect a client with the printed li
 4. On a computer without Tailscale installed, turn **Your other computers** on. Expect the switch to stay off and the
    row to say Tailscale isn't installed, with **Get Tailscale**. On a tailnet with device approval, do the same on a
    computer not yet approved: expect the row to say it is waiting for approval.
-5. A MausBot Cloud is not on your tailnet. Lend the host to the Cloud with Tailscale on and confirm it still works over
-   the host's own outbound connection.
+5. Edu Bot does not offer MausBot Cloud, so there is no Cloud step here. Only where the upstream Cloud account is turned
+   on (`OMB_CLOUD_ACCOUNT=1`): a Cloud is not on your tailnet; lend the host to it with Tailscale on and confirm it still
+   works over the host's own outbound connection.

@@ -905,11 +905,13 @@ days, renewed on use up to 180 days from pairing, revocable) and the app
 loads. `npx edubot devices` lists the paired devices and
 `devices revoke ID` signs one out.
 
-From the **desktop app**, choose **＋ → Connect to a server** and paste the
-link. You can also type the address (`maus.example.com`,
+From the **desktop app**, open the **You** menu at the bottom left, choose
+**Switch place**, then **Connect to a server**, and paste the link. Once one
+server is connected, **＋** at the end of the rail at the window's left edge
+opens the same sheet. You can also type the address (`bots.example.com`,
 `192.168.1.20:8799`, a `*.ts.net` name) and the pairing code in its own
 field. The sheet looks the address up and names what it found, for example
-"✓ hetzner-1 · MausBot 0.1.147 · HTTPS". A bare address tries https first,
+"✓ hetzner-1 · Edu Bot 0.1.0 · HTTPS". A bare address tries https first,
 then plain http when the address is private. Plain http works only on a
 private network (LAN addresses, Tailscale's 100.64/10 and `*.ts.net`,
 `*.local`); a public http address is refused with what to do instead.
@@ -918,7 +920,9 @@ desktop"` gives full access, and `--phone` gives chat and approvals only. A
 code already used by your phone cannot also pair your desktop.
 
 **Connect to hetzner-1** opens the server's own page with the code, and the
-app stays signed in across restarts. The rail at the window's left edge
+app stays signed in across restarts. The server lists the desktop among its
+paired devices by its computer name (a browser is listed as, for example,
+"Chrome on Windows"). The rail at the window's left edge
 switches between this computer and each server, without moving bots or
 chats. A link copied elsewhere also works from the **Server** menu's **Add
 Server from Copied Pairing Link…** (on Windows and Linux, press Alt to show
@@ -929,15 +933,16 @@ everything (the server's owner), it asks once: **Let <server> use this
 computer?** with **Allow** or **Not now**. Allow lets the server's bots see and
 use the apps on this computer's screen, and run the MCP servers you keep for
 it, while the app is open. Folders and the terminal are added in **Settings →
-Servers**, where each server of yours has a **Share this computer** switch and
-**Choose what it can use**; the switch turns it off at once, and the menu bar's
-OpenMausBot item pauses it with your Clouds. The server needs nothing turned on:
+This app → Your computers** (turn on **Advanced mode** at the bottom of
+Settings to see it), where each server of yours has a **Share this computer**
+switch and **Choose what it can use**; the switch turns it off at once, and
+the Edu Bot icon's menu pauses it. The server needs nothing turned on:
 it takes a computer from its owner's pairings only, and a phone code or another
 person's pairing is never asked. Set `features.sharedComputers` to `false` in the
 server's config to turn this off, or to `true` to let every paired session lend
 its computer. Nothing is shared without that Allow, unless you make the server
-your bots' home (below). In **Settings → Servers → Computer
-access**, choose read-only folders and optionally allow edits. Unrestricted
+your bots' home (below). Under **Choose what it can use**, choose read-only
+folders and optionally allow edits. Unrestricted
 terminal and screen/app control are separate opt-ins, confirmed in a native
 dialog. They can access information outside the selected folders. Share only
 with a workspace you trust; its bots and AI providers may receive shared content.
@@ -945,18 +950,23 @@ A folder read takes a file of up to 2 MiB and a write at most 256 KiB;
 transfers do not follow links or delete files. Local screen control also needs OS permissions and a supported
 desktop driver. Microphone access is not included.
 
+Chrome is not lent to a server of your own. Its bots get this computer's
+screen and folders, and can open and use Chrome through the screen. Lending
+Chrome itself, with its signed-in profile, is built only for a MausBot Cloud
+home, which Edu Bot does not offer (`electron/computer-sharing.mjs`).
+
 **Make the server your bots' home.** Bots work together only within one
 place: bots on this computer can't reach bots on the server. To bring them
 together, right-click the server's circle at the window's left edge and choose
 **Make <server> my home**. The app moves this computer's bots, chats, memory,
-skills, logins, apps and keys, and routines there the way it moves them to My
-Cloud: everything is copied while you keep working, then at a quiet moment this
+skills, logins, apps and keys, and routines there: everything is copied while
+you keep working, then at a quiet moment this
 computer stops for good, the rest goes, both sides are checked, and the server
 switches on what was on here, so no routine ever runs twice. The account area
 says how it goes, and after a day of failing it says the move needs you, with
 Try again. Afterwards the server is what the window opens, and this computer
-works for it by itself as it does for My Cloud: no access dialog, only the
-menu bar's item with Pause.
+works for it by itself: no access dialog, only the Edu Bot icon's menu with
+Pause.
 
 Until then, a bot that asks for a teammate living in your other place says where
 that teammate lives and how to bring them together, instead of only that it
@@ -973,8 +983,7 @@ To move by hand instead, export a backup from this computer in **Settings →
 Import & export → Export backup**, then import it on the server in **Settings → Import & export
 → Import backup**. API keys, engine sign-ins and paired devices stay where they
 are on both sides; routines arrive paused. An older desktop app's **Copy this
-computer here** is answered with "Update OpenMausBot to bring your bots here by
-itself."
+computer here** is answered with a line that says to update the app first.
 
 Only conversations you start yourself on that server can use what you share;
 other people's bots, routines and webhooks there cannot. Keys and sign-in
@@ -1342,7 +1351,7 @@ is the reference implementation.
 
 In a paired admin browser, as in the desktop app, **Take control** turns the
 Computer panel's picture into the live desktop for Local VMs and your own VPS,
-through the same address as OpenMausBot; **Full screen** fills the window with
+through the same address as Edu Bot; **Full screen** fills the window with
 the same session. Shared, per-bot and pool Local VMs connect through their
 managed container's loopback port. VPS desktops connect
 through an SSH tunnel opened by the server. Neither needs an additional public
@@ -1362,8 +1371,7 @@ leaving the page gives the computer back to the bot.
 
 Use **Keyboard** to send text from a phone and **Clipboard** to exchange text
 with the desktop; clipboard edits sync automatically. The desktop fits the
-window, with fullscreen available when the browser supports it. Hosted Cloud
-keeps its provider-issued viewer in its own window or tab.
+window, with fullscreen available when the browser supports it.
 
 These controls are in the web app. The native phone apps have their own
 computer viewers; use a paired browser for interactive Local VM or VPS access.
@@ -1372,8 +1380,12 @@ For the proxy boundary and offline regression checks, see the
 
 ## Using it from your phone
 
+The phone app is the **MausBot** app from the App Store or Google Play: Edu Bot
+uses that published app, under its own name. Wherever this section says "the
+iOS app" or "the native apps", it means that app.
+
 Signed in on a hosted server as an admin (with a pairing code or your
-email)? Settings → Remote access → **Pair a phone or another computer**
+email)? Settings → Phone & devices → **Pair a phone or another computer**
 creates a one-time code with a QR right in the browser, and lists every
 paired device with a sign-out button. Nobody needs the command line.
 

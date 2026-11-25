@@ -1791,7 +1791,7 @@ const serverConnect = createServerConnect({ fetch: (...args) => session.defaultS
   open: (found, name) => {
     const next = withEnvironment(environmentsState, { origin: found.origin, name: name ?? environmentsState.environments.find((e) => e.origin === found.origin)?.name ?? found.label }, () => randomUUID());
     persistEnvironments(withActive(next, next.environments.find((e) => e.origin === found.origin).id));
-    navigateMainWindow(pairingPageUrl(found.origin, found.code ?? found.credential));
+    navigateMainWindow(pairingPageUrl(found.origin, found.code ?? found.credential, os.hostname()));
   } });
 const connectHostedWorkspace = (input, name) => serverConnect.connectAsking(input, name);
 

@@ -1,11 +1,18 @@
 import { useState, type ReactNode, type Ref } from "react";
 import { KeyRound, Loader2, Server, type LucideIcon } from "lucide-react";
 import { t } from "@/lib/i18n";
+import { ipcErrorText } from "@/lib/cloud-send";
 import type { ConfigStatus } from "@/state/store";
 import { cleanKey, saveCredential } from "./keys/key-save";
 
 export const COMPOSIO_SIGN_UP_URL = "https://dashboard.composio.dev";
 const COMPOSIO_KEY = /^ak_\S+$/;
+
+/** Composio's API answers a key it does not know with "Invalid API key: ak_**…"; the desktop bridge wraps what main threw. */
+export function composioSaveProblem(cause: unknown): string {
+  const said = ipcErrorText(cause) ?? String(cause);
+  return /invalid api key/i.test(said) ? t("connectors.setup.keyRefused") : said;
+}
 
 /** What to do on the Apps page when this app has no Composio project key: two steps, and the key saved right here. */
 export function ComposioKeySteps({ fieldRef, onSaved }: { fieldRef?: Ref<HTMLInputElement>; onSaved: (config: ConfigStatus) => void }) {
@@ -25,7 +32,7 @@ export function ComposioKeySteps({ fieldRef, onSaved }: { fieldRef?: Ref<HTMLInp
       onSaved(await saveCredential("composio", value, false));
       setKey("");
     } catch (cause) {
-      setProblem(cause instanceof Error ? cause.message : String(cause));
+      setProblem(composioSaveProblem(cause));
     } finally {
       setBusy(false);
     }

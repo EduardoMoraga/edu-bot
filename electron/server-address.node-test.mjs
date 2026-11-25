@@ -47,6 +47,9 @@ test("an address and a code typed apart make one pairing", () => {
   assert.equal(parsed.code, CODE);
   assert.equal(pairingPageUrl("http://192.168.1.20:8799", parsed.code), `http://192.168.1.20:8799/pair#code=${CODE}`);
   assert.equal(pairingPageUrl("https://maus.example.com", null), "https://maus.example.com");
+  assert.equal(pairingPageUrl("http://192.168.1.20:8799", parsed.code, " Mac mini de Edu "), `http://192.168.1.20:8799/pair#code=${CODE}&device=Mac%20mini%20de%20Edu`);
+  assert.equal(pairingPageUrl("https://maus.example.com", null, "FFM"), "https://maus.example.com");
+  assert.equal(parseServerInput(`https://maus.example.com/pair#code=${CODE}&device=FFM`, "").code, CODE);
   assert.equal(parseServerInput(`https://maus.example.com/pair#code=${CODE}`, "").code, CODE);
   assert.equal(parseServerInput("https://maus.example.com/pair#code=ABCD%2DEFGH%2DJKLM").code, CODE);
   assert.equal(parseServerInput(`https://maus.example.com/pair?code=${CODE}`).code, CODE);

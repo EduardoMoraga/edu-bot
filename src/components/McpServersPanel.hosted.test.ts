@@ -276,6 +276,15 @@ describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("The $label key car
     expect(card(app).querySelector('[aria-label="Connected"]')).toBeNull();
   });
 
+  it("says the key was refused when the service answers a wrong key by asking for a sign-in", async () => {
+    await mount();
+    await connectWith("ghp_wrong");
+    await act(async () => testRequest!.resolve({ ok: false, auth: "required", error: "This server needs you to sign in." }));
+    await settle();
+    expect(card(app).querySelector('[role="alert"]')?.textContent).toBe(`${app.label} didn’t accept that key. Check it and connect again.`);
+    expect(calls("PATCH")).toEqual([]);
+  });
+
   it("leaves the server off and gives the reason when its tools fail to load for anything else", async () => {
     await mount();
     await connectWith("sk-live");
