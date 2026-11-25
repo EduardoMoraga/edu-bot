@@ -215,9 +215,15 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 
 ## En curso y en cola (después de v0.1.0)
 
-- [ ] **Pulido de conectores y conexiones remotas** (rama `polish/connectors-remote`, Claude Fable; luego auditoría
-  de Grok). Sin funciones nuevas.
-- [ ] **En cola, justo después del pulido: Claude como en T3 Code** (decisión de Eduardo, 25-11). Cada persona
+- [x] **Pulido de conectores y conexiones remotas** (#55, 25-11; Claude Fable, Grok auditó 3 rondas hasta PASS).
+  Probado en la app aislada en inglés y español. Las ventanas de permiso que no logran abrirse ya no cuentan como
+  "Permitir". En la lista de vinculados sale el nombre del equipo. En español se usan "equipo" y "vincular". El aviso
+  del 443 ocupado dice la causa real. Las llaves equivocadas de Composio y GitHub dan una frase simple. La
+  documentación de conexiones dice Edu Bot y los menús reales. Quedan sin hacer (necesitan alcance): el switch
+  "En cualquier lugar, a través de Edu Bot" (no hay ese servicio), sinónimos de búsqueda en español, textos en
+  otros idiomas y ejemplos `maus.example.com` de la línea de comandos.
+- [ ] **Claude como en T3 Code**: en curso (rama `claude/own-cli`, Claude Opus).
+- Detalle de Claude como en T3 Code (decisión de Eduardo, 25-11). Cada persona
   instala Claude Code y hace `claude auth login`. Edu Bot solo lanza el `claude` oficial y **nunca lee ni guarda
   tokens**: se quita de `server/plan-usage.ts` la lectura del token (archivo `.credentials.json` y llavero de macOS)
   y la consulta a `api.anthropic.com/api/oauth/usage`. Los límites salen solo de lo que imprime el CLI, o no se
