@@ -16,7 +16,10 @@ export interface BrandStatus {
 
 export const DEFAULT_BRAND: Brand = { name: "Edu Bot" };
 export const PRODUCT_NAME = "Edu Bot";
-export const COMPANION_APP_NAME = "MausBot";
+export const COMPANION_APP_NAME = PRODUCT_NAME;
+/** The iOS and Android phone apps are published by the upstream OpenMausBot project under this name, and Edu Bot does
+ * not control those store listings: a person searching the App Store or Google Play has to look for it. */
+export const PHONE_APP_STORE_NAME = "MausBot";
 
 let current: BrandStatus = { brand: DEFAULT_BRAND, source: "default", file: "" };
 

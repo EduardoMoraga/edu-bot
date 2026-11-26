@@ -28,7 +28,7 @@ describe("edubot serve --relay", () => {
   it("prints the relay QR for a phone code, and the usual block for everything else", () => {
     const body = { inviteUrl: invite, expiresAt: Date.now() + 600_000, relay: status() };
     const block = relayPairingBlock(body, true, "edubot")!;
-    expect(block).toContain("Scan with the MausBot app. It connects through Edu Bot Relay, end-to-end encrypted");
+    expect(block).toContain("Scan with the phone app. It connects through Edu Bot Relay, end-to-end encrypted");
     expect(block).toContain("Paired phones: 1 of 20. Remove one: edubot devices revoke ID");
     expect(relayPairingBlock(body, false, "edubot")).toBeNull();
     expect(relayPairingBlock({ ...body, relay: undefined }, true, "edubot")).toBeNull();

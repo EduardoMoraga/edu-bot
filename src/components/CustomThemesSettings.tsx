@@ -24,6 +24,12 @@ function download(name: string, data: unknown): void {
   setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
+export const THEME_FILE_SUFFIX = ".edubot-theme.json";
+/** Theme files exported before Edu Bot had its own name; import reads them the same way. */
+export const LEGACY_THEME_FILE_SUFFIX = ".mausbot-theme.json";
+export const themeFileName = (id: string): string => `${id}${THEME_FILE_SUFFIX}`;
+const IMPORT_ACCEPT = ["application/json", ".json", THEME_FILE_SUFFIX, LEGACY_THEME_FILE_SUFFIX].join(",");
+
 type Act = (work: () => Promise<unknown>) => Promise<void>;
 
 const SHOWN_CHANGES = 6;
@@ -121,7 +127,7 @@ export function CustomThemesSettings() {
       actions={<>
         <button type="button" className="ui-button" onClick={() => importRef.current?.click()}>{t("settings.customThemes.import")}</button>
         <button type="button" className="ui-button" onClick={() => void create()}>{t("settings.customThemes.new")}</button>
-        <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
+        <input ref={importRef} type="file" accept={IMPORT_ACCEPT} hidden onChange={(event) => { void importFile(event.target.files?.[0]); event.target.value = ""; }} />
       </>}
       footnote={status}>
       <SettingsRows>
@@ -134,7 +140,7 @@ export function CustomThemesSettings() {
                 onClick={() => void act(() => api(`/api/themes/${theme.id}/duplicate`, { method: "POST", body: JSON.stringify({ name: t("settings.customThemes.copyName", { name: file.name }).slice(0, 60) }) }))}>
                 {t("settings.customThemes.duplicate")}
               </button>
-              <button type="button" className="ui-button ui-button-sm" onClick={() => void act(async () => download(`${theme.id}.mausbot-theme.json`, await api(`/api/themes/${theme.id}/export`)))}>
+              <button type="button" className="ui-button ui-button-sm" onClick={() => void act(async () => download(themeFileName(theme.id), await api(`/api/themes/${theme.id}/export`)))}>
                 {t("settings.customThemes.export")}
               </button>
               <button type="button" className="ui-button ui-button-sm" data-danger="" onClick={() => void remove(theme.id, theme.name)}>{t("common.delete")}</button>

@@ -169,14 +169,14 @@ export function requeueOnce(run: RoutineRun, cause: RoutineRetryCause, failure: 
 
 /** The second start's own line, so a run that already did part of its work does not do it twice. */
 export function retryNote(cause: RoutineRetryCause): string {
-  return `[OpenMausBot: this run's first start ${FIRST_START[cause]} before it finished. If it already did part of the work, ` +
+  return `[Edu Bot: this run's first start ${FIRST_START[cause]} before it finished. If it already did part of the work, ` +
     "check what it did (files, messages sent, anything started) so nothing is done twice; then finish the routine.]";
 }
 
 /** The second start's whole message when the first start's is already in the conversation: the routine's instructions,
  * attachments and previous-run excerpt are read from there and not sent, and paid for, a second time. */
 export function continueNote(cause: RoutineRetryCause): string {
-  return `[OpenMausBot: this run's first start ${FIRST_START[cause]} before it finished. The routine's instructions are in the message above ` +
+  return `[Edu Bot: this run's first start ${FIRST_START[cause]} before it finished. The routine's instructions are in the message above ` +
     "and are not repeated here. Check what the first start already did (files, messages sent, anything started) so nothing is done twice; then finish the routine.]";
 }
 

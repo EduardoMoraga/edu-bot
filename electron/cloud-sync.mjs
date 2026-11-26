@@ -1,5 +1,5 @@
 // Files, the desktop service: the folders the person shared go to My Cloud, and what Cloud bots make comes to
-// Documents/MausBot. This computer decides what is shared (settings.shared); a folder My Cloud names is never synced
+// Documents/Edu Bot. This computer decides what is shared (settings.shared); a folder My Cloud names is never synced
 // unless this computer registered it. It drives every pass over the Cloud sign-in the window holds.
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -25,6 +25,27 @@ const CHECK_FILES_MAX = 100_000, CHECK_MS = 3_000;
 const PRIVATE = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".config", ".local", ".npm", "Library", "AppData", DATA_DIR_NAME, ".openmausbot", ".claude", ".codex", ".gemini", ".grok"];
 
 const within = (child, parent, platform) => pathKey(child, platform) === pathKey(parent, platform) || pathKey(child, platform).startsWith(`${pathKey(parent, platform)}/`);
+
+export const OUTPUTS_FOLDER = "Edu Bot";
+/** The bots' work folder before Edu Bot had its own name. The upstream OpenMausBot app still writes there. */
+export const LEGACY_OUTPUTS_FOLDER = "MausBot";
+
+/**
+ * Documents/MausBot becomes Documents/Edu Bot, once, by a rename in place. Only a folder this app's own sync record put
+ * work in moves, since OpenMausBot on the same computer may own one; with both folders there, nothing moves or merges.
+ * Places recorded under a legacy folder that is gone follow it to the new one.
+ */
+export function adoptLegacyOutputs({ documentsDir, state, platform = process.platform, rename = fs.renameSync }) {
+  const dir = path.join(documentsDir, OUTPUTS_FOLDER), legacy = path.join(documentsDir, LEGACY_OUTPUTS_FOLDER);
+  const ours = () => state.places().filter(({ local }) => within(local, legacy, platform));
+  const isDir = (folder) => fs.statSync(folder, { throwIfNoEntry: false })?.isDirectory() === true;
+  let moved = false;
+  if (!fs.existsSync(dir) && isDir(legacy) && ours().length) {
+    try { rename(legacy, dir); moved = true; } catch (error) { console.error(`[files] could not rename ${legacy}: ${error?.message ?? error}`); }
+  }
+  if (!fs.existsSync(legacy)) for (const { folder, local } of ours()) state.setPlace(folder, path.join(dir, path.relative(legacy, local)));
+  return { dir, legacy, moved };
+}
 
 function readSettings(file) {
   try {
@@ -64,7 +85,7 @@ export function createCloudFilesService({
 }) {
   let settings = readSettings(settingsFile);
   const state = openSyncState(stateFile);
-  const outputsDir = path.join(documentsDir, "MausBot");
+  const { dir: outputsDir, legacy: legacyOutputsDir } = adoptLegacyOutputs({ documentsDir, state, platform });
   let closed = false, interval = null, poller = null, cursor = 0, chain = Promise.resolve(), pending = null;
   let status = { phase: "unavailable", lastSyncedAt: null, disk: null, shared: [], outputs: { enabled: true, dir: outputsDir, folders: 0, problem: null } };
   const results = new Map();
@@ -100,7 +121,7 @@ export function createCloudFilesService({
     try { home = fs.realpathSync(homeDir); } catch {}
     if (real === p.parse(real).root || within(home, real, platform)) return refused("too-broad");
     try { if (fs.statSync(real).dev !== fs.statSync(path.dirname(real)).dev) return refused("too-broad"); } catch {}
-    const appDirs = [localDataDir, outputsDir].filter(Boolean);
+    const appDirs = [localDataDir, outputsDir, legacyOutputsDir].filter(Boolean);
     if (appDirs.some((dir) => within(real, dir, platform) || within(dir, real, platform))) return refused("app-data");
     const parts = pathKey(p.relative(home, real), platform).split("/");
     if (parts.some((part) => PRIVATE.some((name) => pathKey(name, platform) === part))) return refused("private");
@@ -123,7 +144,7 @@ export function createCloudFilesService({
     return { name, pcPath: real, files, bytes, partial, refusal: null };
   }
 
-  /** Bot output folders that hold work from since the person turned this on, each in Documents/MausBot/<bot>/<conversation>. */
+  /** Bot output folders that hold work from since the person turned this on, each in Documents/Edu Bot/<bot>/<conversation>. */
   async function outputPlaces(cloud, folders) {
     const places = new Map();
     const taken = (dir) => {

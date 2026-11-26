@@ -63,7 +63,7 @@ An organisation, its areas, and its bots can live in files. Two people with the 
 
 The app shows a plan first. Nothing changes until you apply it. A line marked **Gives more access** applies only after you allow it in the desktop app.
 
-Open **Settings → Profiles**. In a source checkout, run `pnpm omb profiles plan <folder>` and `pnpm omb profiles apply <folder>`.
+Open **Settings → Profiles**. From the command line, run `edubot profiles plan <folder>` and `edubot profiles apply <folder>`.
 
 Details: [Profiles](docs/profiles.md).
 

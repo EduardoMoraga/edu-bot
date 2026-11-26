@@ -45,7 +45,7 @@ const PROBLEM: Record<string, string> = {
   oldCode: "that is a code from an older Edu Bot; pairing needs a 12-character code like 7KQ2-M9XD-H4TP",
   scriptKey: "that is a script key; pass it with --token-file instead of pairing",
   notACode: "that is not a pairing code; pairing needs a 12-character code like 7KQ2-M9XD-H4TP",
-  phoneLink: "that link is for the MausBot phone app; give the server's address or the link the server printed",
+  phoneLink: "that link is for the phone app; give the server's address or the link the server printed",
   notAnAddress: "that is not a server address; give the link the server printed, or its address like http://192.168.1.20:8799",
 };
 

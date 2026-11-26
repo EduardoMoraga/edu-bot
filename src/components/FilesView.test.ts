@@ -224,7 +224,7 @@ describe("Your bots' work", () => {
     bridge.setOutputs.mockResolvedValue({ ...base, outputs: { ...base.outputs, enabled: true } });
     await mount();
     expect(page()).toContain("Save what Cloud bots make to this computer");
-    expect(page()).toContain("In Documents › MausBot, one folder for each bot.");
+    expect(page()).toContain("In Documents › Edu Bot, one folder for each bot.");
     expect(button("Open folder")).toBeUndefined();
     const toggle = document.querySelector<HTMLButtonElement>('[role="switch"]')!;
     expect(toggle.getAttribute("aria-checked")).toBe("false");

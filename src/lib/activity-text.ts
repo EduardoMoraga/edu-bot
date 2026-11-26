@@ -50,7 +50,7 @@ export function activityText(tool: NoticeTool, english: string): string {
 
 const LINE_PREFIXES = ["routines.server.", "chat.notice."];
 
-const legacyBrand = (text: string): string => text.replaceAll("Edu Bot", "OpenMausBot");
+const legacyBrand = (text: string): string => text.replaceAll("OpenMausBot", "Edu Bot");
 
 function englishParams(params: ServerTextParams | undefined, legacy = false): ServerTextParams {
   return Object.fromEntries(Object.entries(params ?? {}).map(([name, value]) =>

@@ -51,7 +51,7 @@ export function pairingBlock(input: {
   lines.push(`Link           ${input.link}`);
   lines.push("");
   lines.push("  Desktop app   ＋ → Connect to a server, paste the link");
-  lines.push(scanInvite ? "  Phone         scan this with the MausBot app" : "  Phone         scan with your camera or the MausBot app");
+  lines.push(scanInvite ? "  Phone         scan this with the phone app" : "  Phone         scan with your camera or the phone app");
   lines.push("");
   lines.push(qrToString(scanInvite ? input.inviteUrl! : input.link));
   if (!input.chatOnly) lines.push(`For a phone (chat and approvals only)   ${input.prefix} pair --phone`);
@@ -111,7 +111,7 @@ export function relayPairingBlock(body: Record<string, unknown>, chatOnly: boole
   if (!chatOnly || !isStatus(body.relay) || !invite || typeof body.expiresAt !== "number") return null;
   const lines = [
     `Phone pairing   works once, until ${untilText(body.expiresAt, now)} · chat and approvals`,
-    "  Scan with the MausBot app. It connects through Edu Bot Relay, end-to-end encrypted: no address, open port or VPN needed.",
+    "  Scan with the phone app. It connects through Edu Bot Relay, end-to-end encrypted: no address, open port or VPN needed.",
     "",
     qrToString(invite),
     ...relayProblemLines(body.relay, prefix),

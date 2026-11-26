@@ -3,7 +3,7 @@ import { admit } from "../admission.ts";
 import { engineMemory, memoryStopped } from "../engine-memory.ts";
 import { outOfProcesses } from "../process-shortage.ts";
 import {
-  AUTO_RETRY_LEAD, ChiefIncidentBudget, chiefForBot, INCIDENTS_THREAD_TITLE, OLD_INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incidentContext, incidentText, RETRY_BLOCKED, RETRY_LEAD,
+  AUTO_RETRY_LEAD, ChiefIncidentBudget, isAutoRetryLine, isRetryLine, chiefForBot, INCIDENTS_THREAD_TITLE, OLD_INCIDENTS_THREAD_TITLE, IncidentLedger, incidentChip, incidentContext, incidentText, RETRY_BLOCKED, RETRY_LEAD,
   type Incident, type IncidentKind, type IncidentRetry,
 } from "../incidents.ts";
 import { buildNotification, type Notification } from "../notify.ts";
@@ -65,14 +65,14 @@ export interface ChiefNoticeDeps {
 export const MEMORY_RETRY_MS = 30_000;
 /** The chats a Chief's line for the problems it was not started for names; its count covers the rest. */
 export const FOLDED_LISTED = 5;
-export const MEMORY_RETRY_TEXT = "[OpenMausBot started this again by itself, once: the last run was stopped to free memory on this Cloud. "
+export const MEMORY_RETRY_TEXT = "[Edu Bot started this again by itself, once: the last run was stopped to free memory on this Cloud. "
   + "Continue the request above from where it stopped and finish it. If the same problem comes back, say exactly what is blocking and stop.]";
 
-export const SERVER_MEMORY_RETRY_TEXT = "[OpenMausBot started this again by itself, once: the last run was stopped to free memory on this server. "
+export const SERVER_MEMORY_RETRY_TEXT = "[Edu Bot started this again by itself, once: the last run was stopped to free memory on this server. "
   + "Continue the request above from where it stopped and finish it. If the same problem comes back, say exactly what is blocking and stop.]";
 
 /** A run the server had no room to start is the server's shortage: it starts again by itself, and no AI is asked about it. */
-export const ROOM_RETRY_TEXT = "[OpenMausBot started this again by itself, once: the last run could not start because this server had no room for another program. "
+export const ROOM_RETRY_TEXT = "[Edu Bot started this again by itself, once: the last run could not start because this server had no room for another program. "
   + "Continue the request above from where it stopped and finish it. If the same problem comes back, say exactly what is blocking and stop.]";
 
 export function createChiefNotices(deps: ChiefNoticeDeps) {
@@ -267,8 +267,8 @@ export function createChiefNotices(deps: ChiefNoticeDeps) {
     if (input.kind === "failed" && !group && !chiefRetries && memoryStopped(input.detail) && retryForRoom(bot, threadId, report)) return;
     if (!chief || !chiefRetries) return report();
     const answered = store.activePath(threadId).findLast((line) => line.role === "user")?.text ?? "";
-    if (answered.startsWith(AUTO_RETRY_LEAD)) return report({ retried: true });
-    if (input.kind !== "failed" || answered.startsWith(RETRY_LEAD) || !count.mayRetry || !retriesTeammateThread(input.detail, input.facts)) return report();
+    if (isAutoRetryLine(answered)) return report({ retried: true });
+    if (input.kind !== "failed" || isRetryLine(answered) || !count.mayRetry || !retriesTeammateThread(input.detail, input.facts)) return report();
     const failedAt = Date.now();
     schedule(() => {
       if (!store.bot(bot.id) || !store.taskByThread(bot.id, threadId)) return;

@@ -169,7 +169,7 @@ function withoutPastes(message: string): string {
 }
 
 /** Rides on the turn that answers a @devs message. */
-const TURN_NOTE = "\n\n[From Edu Bot, not the person: this message tags @devs, so it is a bug report for the Edu Bot team, Edu Bot's developers. Call report_bug once, first: what the person says went wrong; what you saw yourself in this conversation (errors, failed tools, stuck steps), or that you saw nothing unusual; and steps to reproduce. Leave out passwords, keys, tokens and file contents; Edu Bot adds the app's own diagnostics. Then tell the person, word for word, the line report_bug returns, and help with the problem if you can.]";
+const TURN_NOTE = "\n\n[From Edu Bot, not the person: this message tags @devs, so it is a bug report for the Edu Bot team. Call report_bug once, first: what the person says went wrong; what you saw yourself in this conversation (errors, failed tools, stuck steps), or that you saw nothing unusual; and steps to reproduce. Leave out passwords, keys, tokens and file contents; Edu Bot adds the app's own diagnostics. Then tell the person, word for word, the line report_bug returns, and help with the problem if you can.]";
 
 const iso = (at: number) => new Date(at).toISOString();
 /** The report goes out even when the timings fail: their lines, or one saying they are missing. */

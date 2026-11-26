@@ -135,7 +135,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
     return JSON.stringify({
       behavior: "deny",
       message:
-        "OpenMausBot: this AskUserQuestion call had no answerable question (each one needs question text), so nobody was shown it. Ask again with a well-formed call, or continue without it.",
+        "Edu Bot: this AskUserQuestion call had no answerable question (each one needs question text), so nobody was shown it. Ask again with a well-formed call, or continue without it.",
     });
   }
   const answer = await askBroker({ t: "ask", id: randomUUID(), kind: "question", tool: ASK_USER_QUESTION, input: { questions } }, "question");
@@ -153,7 +153,7 @@ async function answerNativeQuestions(input: unknown): Promise<string> {
 const TOOLS = [
   {
     name: "approve",
-    description: "Ask the OpenMausBot user whether a tool use is allowed",
+    description: "Ask the Edu Bot user whether a tool use is allowed",
     inputSchema: {
       type: "object",
       properties: {
@@ -205,7 +205,7 @@ async function handle(msg: any) {
     const name = msg.params?.name;
     const args = msg.params?.arguments ?? {};
     const reply = (text: string, isError = false) => send({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text }], ...(isError ? { isError } : {}) } });
-    if (name === "ask_user" && !allowQuestion) return reply("OpenMausBot: this question tool is excluded by the bot's tool selection.");
+    if (name === "ask_user" && !allowQuestion) return reply("Edu Bot: this question tool is excluded by the bot's tool selection.");
     if (name === "approve" && args.tool_name === ASK_USER_QUESTION) {
       return reply(await answerNativeQuestions(args.input));
     }

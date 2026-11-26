@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Smartphone } from "lucide-react";
 import type { CompanionState, PhoneDevice } from "@/lib/companion-types";
+import { PHONE_APP_STORE_NAME } from "@/lib/brand";
 import { t } from "@/lib/i18n";
 import { noticeSeen, phoneUpdateHint } from "@/lib/notices";
 import type { OnboardingStatus } from "@/lib/onboarding";
@@ -36,7 +37,7 @@ export function phonesToTell(phones: PhoneDevice[] | undefined, record: Onboardi
 }
 
 export function PhoneUpdateCard({ phones, onOpen, onDismiss }: { phones: PhoneDevice[]; onOpen: () => void; onDismiss: () => void }) {
-  const body = phones.length === 1 ? t("phoneUpdate.body", { phone: phones[0]!.name }) : t("phoneUpdate.bodyMany", { count: phones.length });
+  const body = phones.length === 1 ? t("phoneUpdate.body", { phone: phones[0]!.name, store: PHONE_APP_STORE_NAME }) : t("phoneUpdate.bodyMany", { count: phones.length, store: PHONE_APP_STORE_NAME });
   return <NoticeCard titleId="phone-update-title" notice="phone-update" icon={Smartphone} title={t("phoneUpdate.title")} onDismiss={onDismiss}>
     <p className="mb-3 mt-1 text-[13px] leading-[18px] text-ink-secondary">{body}</p>
     <div className="flex flex-wrap items-center gap-3">

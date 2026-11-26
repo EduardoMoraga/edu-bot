@@ -140,6 +140,7 @@ let desktopViewerOwner = null;
 let desktopViewerContextId = null;
 let desktopWorkspaceManager = null;
 let desktopWorkspaceOwner = null;
+process.argv.splice(0, process.argv.length, ...process.argv.map(ownDeepLink));
 let pendingOrganizationEntry = takeOrganizationDeepLink(process.argv);
 function appWindows() {
   return BrowserWindow.getAllWindows().filter((win) => !isTalkPanel(win));
@@ -243,12 +244,14 @@ function queueChatLink(rawLink) {
   return true;
 }
 
-app.on("open-url", (event, url) => {
+app.on("open-url", (event, link) => {
+  const url = ownDeepLink(link);
   if (!teamLinks.fromUrl(url) && !queueOrganizationEntry(url) && !cloudEntry.fromUrl(url) && !queuePackageInstall(url) && !queueChatLink(url)) return;
   event.preventDefault();
 });
 
-app.on("second-instance", (_event, commandLine) => {
+app.on("second-instance", (_event, args) => {
+  const commandLine = args.map(ownDeepLink);
   if (takeOrganizationDeepLink(commandLine)) {
     queueOrganizationEntry(ORGANIZATION_DEEP_LINK);
     return;
@@ -456,7 +459,7 @@ import { autoStartCompanion } from "./companion-autostart.mjs";
 import { createPhoneLinkRoutes } from "./phone-link-routes.mjs"; import { reachableForKeepAwake } from "./keep-awake.mjs"; import { createTailnetComputers } from "./tailnet-computers.mjs";
 import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from "./routine-wake.mjs";
 import { CREDENTIAL_PATCH, credentialSaveError } from "./credential-patch.mjs";
-import { APP_ID, DATA_DIR_NAME, DEEP_LINK_SCHEME, DESKTOP_ENTRY_NAME, dataDirNameFor } from "./app-identity.mjs";
+import { APP_ID, DATA_DIR_NAME, DEEP_LINK_SCHEME, DESKTOP_ENTRY_NAME, dataDirNameFor, ownDeepLink } from "./app-identity.mjs";
 
 /** Second wall after preload's reduced bridge: computer-controlling IPC answers only the local server's UI.
  * Declared before any handler registration (temporal dead zone). */

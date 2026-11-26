@@ -1,4 +1,4 @@
-# Contributing to OpenMausBot
+# Contributing to Edu Bot
 
 Thanks for wanting to help — community PRs have already shipped in this repo, and more are welcome.
 This file tells you how to get a working dev setup, what the codebase expects from a change, and what
@@ -25,7 +25,7 @@ and logged in. macOS is the primary release platform and Ubuntu 24.04 x64 is the
 the harness server itself is portable Node and the test suite runs on macOS, Linux, and Windows.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot
+git clone https://github.com/EduardoMoraga/edu-bot && cd edu-bot
 pnpm install
 
 pnpm dev:server    # harness server → 127.0.0.1:8799
@@ -66,8 +66,8 @@ and produces one release artifact containing:
 - `SHA256SUMS-ubuntu-x64.txt` covering both versioned and stable names.
 
 Before publishing, confirm that `package.json` has the release version and dispatch the workflow against the same
-commit used for the other platforms. Attach all seven Linux files to the matching release in the separate
-[OpenMausBot releases](https://github.com/milind-soni/OpenMausBot/releases). Then verify the checksum
+commit used for the other platforms. Attach all seven Linux files to the matching release in
+[Edu Bot releases](https://github.com/EduardoMoraga/edu-bot/releases). Then verify the checksum
 file and install the `.deb` plus launch the AppImage in a clean Ubuntu 24.04 x86_64 GNOME environment. Never combine
 packages built from different commits under one version.
 
@@ -339,21 +339,15 @@ API keys are write-only: they land in `~/.edubot/config.json` via `PUT /api/conf
 only ever reports `configured` booleans. Keep it that way — no logging keys, no echoing them in
 responses or events, no baking them into argv where another local process could read them.
 
-## Downstream forks and release ownership
+## Releases
 
-Changes prepared in a downstream fork should keep provenance in the pull request, not add
-fork-specific branding or ownership claims to the upstream source tree. Record the exact upstream
-commit used as the comparison base, the head branch, and the checks run after the final rebase.
+Edu Bot's installers and update metadata are published only to
+[EduardoMoraga/edu-bot releases](https://github.com/EduardoMoraga/edu-bot/releases). A pull request never
+changes the `electron-builder` publish target, signing configuration or update channel unless that change is
+its whole point.
 
-Fork maintainers own the binaries and update channels they publish. Before distributing a fork,
-review the application name and identifiers, signing configuration, update metadata, and every
-`electron-builder` publish target. Never upload fork artifacts or update metadata to the official
-OpenMausBot release repository, and never change the upstream publish target in a feature PR unless
-that release migration was explicitly agreed with the maintainer.
-
-An upstream PR should contain only the portable product change. Keep local build paths, account
-names, credentials, private endpoints, machine-specific configuration, and fork-only release notes
-out of its commits and screenshots.
+Credits for the code Edu Bot builds on are in [NOTICE](NOTICE). Open issues and pull requests for Edu Bot in this
+repository.
 
 ## Contribution licensing
 

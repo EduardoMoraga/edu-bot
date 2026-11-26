@@ -57,9 +57,6 @@ function AboutContent({ onClose }: { onClose: () => void }) {
         </h2>
         <p className="mt-1 text-[13px] text-ink-secondary">{version}</p>
         {connected && <p className="mt-0.5 text-[13px] text-ink-secondary">{connected}</p>}
-        <p className="mt-3 text-[13px] leading-relaxed text-ink-secondary">
-          {t("about.origin")}
-        </p>
         <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1.5 text-[13px]">
           <AboutLink href={APP_REPOSITORY} label="GitHub" />
           <AboutLink href={DOCS_URL} label={t("about.docs")} />

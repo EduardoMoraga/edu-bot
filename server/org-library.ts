@@ -595,7 +595,7 @@ export class OrgLibrary {
     for (const group of groups) store.deleteGroup(group.id);
     for (const id of botIds) store.deleteBot(id);
     if (section && store.sections.includes(section)) store.changeEmptySection(section, null);
-    console.warn(`[org-library] removed a team that was only partly added when OpenMausBot stopped; it can be added again from the shelf`);
+    console.warn(`[org-library] removed a team that was only partly added when Edu Bot stopped; it can be added again from the shelf`);
   }
 
   private onStoreChange(change: StoreChange): void {
