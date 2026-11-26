@@ -7,7 +7,7 @@ services unless you configure them. This page lists every outbound host that rem
 
 | Host | What | When | Turn it off |
 | --- | --- | --- | --- |
-| `raw.githubusercontent.com/EduardoMoraga/edu-bot` | The model list (`server/model-manifest/model-manifest.json`) | At start and about hourly; a plain GET with nothing of yours in it | `OMB_DISABLE_MODEL_MANIFEST_FETCH=1` |
+| `raw.githubusercontent.com/EduardoMoraga/edu-bot` | The model list on the `stable` branch (`server/model-manifest/model-manifest.json`). A tag, a commit, or `release:vX.Y.Z` when `OMB_MODEL_MANIFEST_REF` says so. Not `main` | At start and about hourly; a plain GET with nothing of yours in it. A failed or refused fetch keeps the copy shipped in the app | `OMB_DISABLE_MODEL_MANIFEST_FETCH=1` |
 | `models.dev` | The public model catalog (`/api.json`) | At most once a day | `OMB_DISABLE_MODEL_CATALOG_FETCH=1` |
 | `registry.npmjs.org` | The newest Codex version (`@openai/codex/latest`) | At start and at most hourly, to tell whether the Codex engine is current | — |
 
@@ -26,12 +26,15 @@ Chromium, made no request outside this computer while loading, nor after opening
 from the connection service's catalog once connected apps are set up; until then the app draws bundled glyphs or
 the app's initial. It never asks a favicon service.
 
-On Windows and Linux the desktop app updates itself from this repository's releases
-(`electron/desktop-updates.mjs`): 15 s after it starts and then every hour it reads
-`github.com/EduardoMoraga/edu-bot/releases.atom` and the release's `latest.yml` or `latest-linux.yml`, and downloads
-the new installer from `github.com/EduardoMoraga/edu-bot/releases/download/…` (served from
-`release-assets.githubusercontent.com`), checked by its SHA-512. On macOS it
-does not: the Mac builds are not signed yet, so you download the new version yourself.
+On Windows and Linux the desktop app updates itself from this repository's published releases
+(`electron/desktop-updates.mjs`): 15 s after it starts and then every hour it reads the latest release that is
+not a draft and not a prerelease (`github.com/EduardoMoraga/edu-bot/releases/latest`), then that release's
+`latest.yml` or `latest-linux.yml` and the sibling `.sig`. The signature is Ed25519, checked with the public key
+shipped in the app ([update signing](update-signing.md)). The installer is downloaded from
+`github.com/EduardoMoraga/edu-bot/releases/download/…` (served from `release-assets.githubusercontent.com`) only
+after that check, and the file's SHA-512 must be the one inside the signed metadata. An unsigned, altered, or
+non-release file is refused. It does not read `main`. On macOS it does not auto-update: the Mac builds are not
+signed yet, so you download the new version yourself.
 
 ## When you use a feature
 

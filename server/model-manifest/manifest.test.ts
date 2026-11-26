@@ -9,8 +9,10 @@ import {
   MANIFEST_ON_DEMAND_TTL_MS,
   MANIFEST_RETRY_MS,
   MANIFEST_TTL_MS,
+  MODEL_MANIFEST_REF_ENV,
   ModelManifestStore,
   modelManifestCachePath,
+  modelManifestUrl,
   withCliVersionGate,
 } from "./manifest.ts";
 import { CLAUDE_MODEL_ID, parseModelManifest, type ModelManifestData } from "./schema.ts";
@@ -202,6 +204,76 @@ describe("downloads", () => {
     answer(json(manifest("2026-11-09T00:00:00Z", ["remote-model"])));
     await Promise.all([first, second]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the stable branch and never main", async () => {
+    const fetchMock = vi.fn(async () => json(manifest("2026-11-09T00:00:00Z", ["remote-model"])));
+    const subject = store({ fetch: fetchMock as unknown as typeof fetch });
+    await subject.manifest.refresh();
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://raw.githubusercontent.com/EduardoMoraga/edu-bot/stable/server/model-manifest/model-manifest.json");
+    expect(String(url)).not.toContain("/main/");
+    expect(init).toMatchObject({ redirect: "error" });
+    expect(modelManifestUrl({})).toBe(url);
+  });
+
+  it("reads a pinned release asset when asked, and follows one asset-host redirect", async () => {
+    const body = manifest("2026-11-09T00:00:00Z", ["released-model"]);
+    const asset = "https://release-assets.githubusercontent.com/model-manifest.json?sp=r";
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).startsWith("https://github.com/")) {
+        return new Response(null, { status: 302, headers: { location: asset } });
+      }
+      return json(body);
+    });
+    const subject = store({
+      fetch: fetchMock as unknown as typeof fetch,
+      env: { [MODEL_MANIFEST_REF_ENV]: "release:v1.2.3" },
+    });
+    await subject.manifest.refresh();
+    expect(subject.manifest.current().engines.claude!.models[0]!.id).toBe("released-model");
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      "https://github.com/EduardoMoraga/edu-bot/releases/download/v1.2.3/model-manifest.json",
+      asset,
+    ]);
+    expect((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1]).toMatchObject({ redirect: "error" });
+  });
+
+  it("a redirect anywhere else, or a ref of main, keeps the bundled list and does not follow it", async () => {
+    const releaseFetch = vi.fn(async (url: string) => {
+      if (String(url).includes("evil.example")) return json(manifest("2026-11-09T00:00:00Z", ["evil-model"]));
+      return new Response(null, { status: 302, headers: { location: "https://evil.example/model-manifest.json" } });
+    });
+    const redirected = store({
+      fetch: releaseFetch as unknown as typeof fetch,
+      env: { [MODEL_MANIFEST_REF_ENV]: "release:v1.2.3" },
+    });
+    await redirected.manifest.refresh({ force: true });
+    expect(redirected.manifest.current().engines.claude!.models[0]!.id).toBe("bundled-model");
+    expect(releaseFetch).toHaveBeenCalledTimes(1);
+    expect(String(releaseFetch.mock.calls[0]?.[0])).not.toContain("evil.example");
+
+    const stableRedirect = store({
+      fetch: vi.fn(async () => new Response(null, { status: 302, headers: { location: "https://evil.example/model-manifest.json" } })) as unknown as typeof fetch,
+    });
+    await stableRedirect.manifest.refresh({ force: true });
+    expect(stableRedirect.manifest.current().engines.claude!.models[0]!.id).toBe("bundled-model");
+    expect(stableRedirect.log).toHaveBeenCalledWith(expect.stringMatching(/HTTP 302/));
+
+    for (const ref of ["main", "master", "release:main", "release:latest", "../stable", "feature/models"]) {
+      const fetchMock = vi.fn();
+      const subject = store({ fetch: fetchMock as unknown as typeof fetch, env: { [MODEL_MANIFEST_REF_ENV]: ref } });
+      await subject.manifest.refresh({ force: true });
+      expect(fetchMock, ref).not.toHaveBeenCalled();
+      expect(subject.manifest.current().engines.claude!.models[0]!.id).toBe("bundled-model");
+    }
+  });
+
+  it("keeps the bundled list when the stable copy is missing", async () => {
+    const subject = store({ fetch: vi.fn(async () => json("", { status: 404 })) as unknown as typeof fetch });
+    await subject.manifest.refresh({ force: true });
+    expect(subject.manifest.current().engines.claude!.models[0]!.id).toBe("bundled-model");
+    expect(existsSync(modelManifestCachePath(subject.dir))).toBe(false);
   });
 
   it("uses the bundled copy for an engine a download left out", async () => {
