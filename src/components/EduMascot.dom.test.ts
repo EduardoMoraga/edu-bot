@@ -81,7 +81,7 @@ describe("the Edu mascot", () => {
   });
 
   it("its CSS animates only a mascot that may move, within the 300ms ceiling for the hop, and never under reduced motion", () => {
-    const css = readFileSync("src/styles.css", "utf8");
+    const css = readFileSync("src/styles.css", "utf8").replaceAll("\r\n", "\n");
     const rules = css.split("\n").filter((line) => /animation: edu-mascot-/.test(line));
     expect(rules).toHaveLength(2);
     for (const rule of rules) expect(rule.startsWith("[data-edu-mascot][data-moving] ")).toBe(true);

@@ -660,7 +660,7 @@ jobs:
             echo
             sed 's/^/- /' assets/SIGNING-mac.txt assets/SIGNING-windows.txt assets/SIGNING-linux.txt
             echo
-            echo "SHA256SUMS lists the installers. Desktop auto-update is off."
+            echo "SHA256SUMS lists the installers. The desktop app updates itself on Windows and Linux; on macOS, install each version by hand."
           } > "$notes"
           cat "$notes"
           echo "----- SHA256SUMS -----"
@@ -677,28 +677,57 @@ jobs:
             echo "::error::refusing to publish a release from $GITHUB_REPOSITORY"
             exit 1
           }
-          gh release create "v$VERSION" \
-            --repo "$GITHUB_REPOSITORY" \
-            --draft \
-            --target "$SHA" \
-            --title "Edu Bot $VERSION" \
-            --notes-file "$notes" \
-            "assets/EduBot-$VERSION-arm64.dmg" \
-            "assets/EduBot-$VERSION-arm64.dmg.blockmap" \
-            "assets/EduBot-$VERSION-arm64.zip" \
-            "assets/EduBot-$VERSION-arm64.zip.blockmap" \
-            "assets/EduBot-$VERSION-x64.dmg" \
-            "assets/EduBot-$VERSION-x64.dmg.blockmap" \
-            "assets/EduBot-$VERSION-x64.zip" \
-            "assets/EduBot-$VERSION-x64.zip.blockmap" \
-            "assets/EduBot-$VERSION-setup.exe" \
-            "assets/EduBot-$VERSION-setup.exe.blockmap" \
-            "assets/EduBot-$VERSION-amd64.deb" \
-            "assets/EduBot-$VERSION-x86_64.AppImage" \
-            assets/latest-mac.yml \
-            assets/latest.yml \
-            assets/latest-linux.yml \
+          # GitHub's release API can answer HTTP 500 to a single create or upload, sometimes after doing it; each call
+          # retries on its own, and a create that already made the draft counts as done.
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              echo "::warning::attempt $attempt failed: $*"
+              sleep $((attempt * 20))
+            done
+            return 1
+          }
+          files=(
+            "assets/EduBot-$VERSION-arm64.dmg"
+            "assets/EduBot-$VERSION-arm64.dmg.blockmap"
+            "assets/EduBot-$VERSION-arm64.zip"
+            "assets/EduBot-$VERSION-arm64.zip.blockmap"
+            "assets/EduBot-$VERSION-x64.dmg"
+            "assets/EduBot-$VERSION-x64.dmg.blockmap"
+            "assets/EduBot-$VERSION-x64.zip"
+            "assets/EduBot-$VERSION-x64.zip.blockmap"
+            "assets/EduBot-$VERSION-setup.exe"
+            "assets/EduBot-$VERSION-setup.exe.blockmap"
+            "assets/EduBot-$VERSION-amd64.deb"
+            "assets/EduBot-$VERSION-x86_64.AppImage"
+            assets/latest-mac.yml
+            assets/latest.yml
+            assets/latest-linux.yml
             assets/SHA256SUMS
+          )
+          create_draft() {
+            if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null | grep -qx true; then
+              echo "using the draft for v$VERSION"
+              return 0
+            fi
+            gh release create "v$VERSION" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --target "$SHA" \
+              --title "Edu Bot $VERSION" \
+              --notes-file "$notes"
+          }
+          retry create_draft
+          for file in "${files[@]}"; do
+            retry gh release upload "v$VERSION" "$file" --repo "$GITHUB_REPOSITORY" --clobber
+          done
+          for file in "${files[@]}"; do
+            want=$(stat -c %s "$file")
+            got=$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq ".assets[] | select(.name == \"$(basename "$file")\") | .size")
+            [ "$got" = "$want" ] || { echo "::error::$(basename "$file") is $got bytes on the release, $want here"; exit 1; }
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
