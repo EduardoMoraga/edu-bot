@@ -67,33 +67,33 @@ async function measured(): Promise<Record<string, number>> {
  * rewording (when the two rode the note, about 3,800 more bytes per conversation), 8,391 + 2,048 after. */
 const PROMPT_BUDGET_BASELINE: Record<string, number> = {
   "reply-habits": 2046,
-  "tool-bridge": 593,
-  "sign-in": 2552,
-  "chief-of-staff": 4856,
+  "tool-bridge": 589,
+  "sign-in": 2548,
+  "chief-of-staff": 4852,
   "memory-rules": 2048,
   "setup": 2396,
   "meetings": 296,
-  "computer-selection": 1269,
+  "computer-selection": 1265,
   "credential": 895,
-  "routine": 2624,
+  "routine": 2675,
   "profile": 931,
   "team-memory": 286,
   // Both sandbox kinds carry +130 bytes on purpose: the person's own files (C:\Users\…, /Users/…, Desktop) are reached only on This computer.
-  "computer:vm-private": 5565,
-  "computer:vm-shared": 5560,
-  "computer:box": 4034,
-  "computer:vps": 4678,
-  "computer:local": 4987,
-  "claude:direct-chat": 8391,
-  "claude:setup-chat": 10787,
+  "computer:vm-private": 5562,
+  "computer:vm-shared": 5557,
+  "computer:box": 4031,
+  "computer:vps": 4675,
+  "computer:local": 4976,
+  "claude:direct-chat": 8434,
+  "claude:setup-chat": 10830,
   "claude:volatile-note": 178,
-  "codex:direct-chat": 8391,
-  "codex:setup-chat": 10787,
-  "codex:resumed-instructions": 213,
-  "codex:volatile-note": 97,
+  "codex:direct-chat": 8434,
+  "codex:setup-chat": 10830,
+  "codex:resumed-instructions": 209,
+  "codex:volatile-note": 93,
 };
 
-describe("OpenMausBot's prompt text per turn", () => {
+describe("Edu Bot's prompt text per turn", () => {
   it("stays within its pinned budget", async () => {
     const now = await measured();
     expect(Object.keys(now).sort()).toEqual(Object.keys(PROMPT_BUDGET_BASELINE).sort());

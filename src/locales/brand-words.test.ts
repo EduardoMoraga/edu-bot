@@ -21,7 +21,7 @@ describe("the product's name where a person reads it", () => {
 
   it("the companion's pages and errors say Edu Bot", () => {
     const dir = join(ROOT, "companion", "src");
-    const shown = readdirSync(dir, { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".ts") && !COMPANION_NOT_SHOWN.test(file));
+    const shown = readdirSync(dir, { recursive: true, encoding: "utf8" }).map((file) => file.split("\\").join("/")).filter((file) => file.endsWith(".ts") && !COMPANION_NOT_SHOWN.test(file));
     const found = shown.flatMap((file) => codeLines(readFileSync(join(dir, file), "utf8"))
       .filter((line) => OLD_DISPLAY_NAME.test(line)).map((line) => `${file}: ${line.trim()}`));
     expect(found).toEqual([]);
