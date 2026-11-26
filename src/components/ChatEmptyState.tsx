@@ -22,7 +22,7 @@ export function EmptyChat({ bot, canWrite = true }: { bot: Bot; canWrite?: boole
   const mayAddBots = useOwnerOrAdmin() !== false || onTeam;
   return (
     <div data-chat-empty="" className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-16 text-center">
-      <EduMascot mood="happy" size={96} />
+      <EduMascot mood="happy" size={96} animated={false} />
       <div className="flex flex-col items-center gap-2">
         {!advanced ? <div className="text-[17px] font-semibold text-ink">{bot.name}</div> : <RenameTitle
           value={bot.name}

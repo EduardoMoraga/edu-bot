@@ -291,8 +291,8 @@ painted only with `--color-accent`, `--color-accent-ink` and
 `--color-accent-text`, so every skin colours it. It appears where the app
 speaks and no bot does: the empty chat, onboarding tips and tours, the Cloud's
 setup screens and the bot limit popup. It has three moods (idle, happy,
-thinking), hops once when it turns happy, and pulses its thought dots only
-while something is really being checked. A bot's face is a separate thing
+thinking), hops once when it turns happy, and pulses its thought dots while
+it is thinking. A bot's face is a separate thing
 (`BotAvatar`, `BotFace`): the body, colour and picture someone chose for that
 bot. Never draw the mascot for a bot, or a bot's face for the app.
 
