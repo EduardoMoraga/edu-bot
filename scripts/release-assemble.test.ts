@@ -72,7 +72,8 @@ function run(failures: Record<string, number>) {
   return { status: result.status, stderr: result.stderr, stdout: result.stdout, calls };
 }
 
-describe.skipIf(process.platform === "win32")("release assemble step", () => {
+// The step runs on ubuntu-24.04 with GNU stat and bash 5; macOS bash 3.2 and BSD stat cannot run it.
+describe.skipIf(process.platform !== "linux")("release assemble step", () => {
   it("rides out GitHub 500s: one draft, every installer uploaded, sizes checked", () => {
     const { status, stdout, calls } = run({ [`EduBot-${VERSION}-x64.zip`]: 2, "latest.yml": 1 });
     expect(status).toBe(0);

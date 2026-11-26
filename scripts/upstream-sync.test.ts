@@ -239,7 +239,8 @@ describe("publish guards", () => {
   });
 });
 
-describe("a local publish", () => {
+// The publish job runs on ubuntu-24.04; Windows cannot exec the extensionless node-shebang gh double.
+describe.skipIf(process.platform === "win32")("a local publish", () => {
   it("opens an issue and does not push when the merge conflicts", () => {
     const fx = fixture(true);
     const upstreamBefore = git(fx.upstream, ["rev-parse", "HEAD"]);
