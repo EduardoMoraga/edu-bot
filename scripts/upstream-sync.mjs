@@ -591,6 +591,18 @@ function ghBin(env) {
   throw new Error("refusing to call gh outside GitHub Actions");
 }
 
+function spawnGh(env, args) {
+  const bin = ghBin(env);
+  // Windows cannot execute the test double: it is a shebang script, not a .exe. The real gh stays a direct spawn.
+  const command = env.GH_BIN ? process.execPath : bin;
+  const commandArgs = env.GH_BIN ? [bin, ...args] : args;
+  return spawnSync(command, commandArgs, {
+    encoding: "utf8",
+    maxBuffer: 16 * 1024 * 1024,
+    env: { ...process.env, GH_REPO: FORK_REPO, GH_PROMPT_DISABLED: "1" },
+  });
+}
+
 function gh(env, args) {
   if (args.includes(UPSTREAM_REPO) || args.some((arg) => arg.includes("milind-soni"))) {
     throw new Error("refusing a gh call aimed at the upstream repository");
@@ -598,12 +610,8 @@ function gh(env, args) {
   if (!args.includes("--repo") || args[args.indexOf("--repo") + 1] !== FORK_REPO) {
     throw new Error("refusing a gh call without --repo EduardoMoraga/edu-bot");
   }
-  const result = spawnSync(ghBin(env), args, {
-    encoding: "utf8",
-    maxBuffer: 16 * 1024 * 1024,
-    env: { ...process.env, GH_REPO: FORK_REPO, GH_PROMPT_DISABLED: "1" },
-  });
-  if (result.status !== 0) throw new Error((result.stderr || result.stdout || `gh ${args[0]} failed`).trim());
+  const result = spawnGh(env, args);
+  if (result.status !== 0) throw new Error((result.stderr || result.stdout || result.error?.message || `gh ${args[0]} failed`).trim());
   return result.stdout.trim();
 }
 
@@ -621,10 +629,7 @@ function withBody(env, args, body) {
 function ensureLabel(env) {
   const listed = JSON.parse(gh(env, ["label", "list", "--repo", FORK_REPO, "--search", LABEL, "--limit", "20", "--json", "name"]));
   if (listed.some((label) => label.name === LABEL)) return true;
-  const created = spawnSync(ghBin(env), ["label", "create", LABEL, "--repo", FORK_REPO, "--color", "1d76db", "--description", "Weekly upstream drift report"], {
-    encoding: "utf8",
-    env: { ...process.env, GH_REPO: FORK_REPO },
-  });
+  const created = spawnGh(env, ["label", "create", LABEL, "--repo", FORK_REPO, "--color", "1d76db", "--description", "Weekly upstream drift report"]);
   if (created.status !== 0 && !/already exists/i.test(`${created.stderr}\n${created.stdout}`)) return false;
   return true;
 }
