@@ -1,10 +1,10 @@
 // My computers: the person's own other computers on Tailscale, and which of them run Edu Bot. Only looks: it pairs nothing,
 // trusts nothing and changes nothing on either side. Runs only while the list is open in the desktop window.
-import { DESKTOP_PORTS } from "./desktop-ports.mjs";
 import os from "node:os";
 
+import { DESKTOP_PORTS } from "./desktop-ports.mjs";
 import { readTailnetPeers, tailnetInterfaceAddresses } from "./tailnet.mjs";
-import { runTailscaleStatus, tailscaleStatusCommands } from "./tailscale-check.mjs";
+import { runTailscaleStatus, TAILSCALE_CLI_PATHS } from "./tailscale-check.mjs";
 
 const DESCRIPTOR = "/.well-known/openmausbot/environment";
 const BODY_MAX_BYTES = 8_192;
@@ -88,9 +88,19 @@ export async function probeComputer(origins, { fetch: fetchImpl, timeoutMs = 3_0
   return index === -1 ? null : { ...answers[index], address: origins[index] };
 }
 
-/** `tailscale status --json` through the first command-line tool that is there (on macOS, then the app's own
- * executable); null without one. */
-export async function readStatusJson({ run = runTailscaleStatus, candidates = tailscaleStatusCommands() } = {}) {
+/** Standalone `tailscale` first, then the CLI inside the macOS app (App Store and the standalone .app both
+ * ship it at Contents/MacOS/Tailscale; `runTailscaleStatus` sets TAILSCALE_BE_CLI so the app does not open).
+ * https://tailscale.com/docs/reference/tailscale-cli?tab=macos */
+export function tailscaleStatusCandidates(home = os.homedir()) {
+  return [
+    ...TAILSCALE_CLI_PATHS,
+    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    `${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`,
+  ];
+}
+
+/** `tailscale status --json` through the first command-line tool that is there, including the macOS app's; null without one. */
+export async function readStatusJson({ run = runTailscaleStatus, candidates = tailscaleStatusCandidates() } = {}) {
   for (const cli of candidates) {
     const result = await run(cli);
     if (!result.missing) return result.stdout;

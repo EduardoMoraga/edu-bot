@@ -22,15 +22,6 @@ export const TAILSCALE_CLI_PATHS = Object.freeze([
 ]);
 
 const macApps = (home) => ["/Applications/Tailscale.app", path.join(home, "Applications", "Tailscale.app")];
-
-/** The executable inside the macOS app (App Store and standalone), which answers as the command-line tool when
- * TAILSCALE_BE_CLI=1 is set: https://tailscale.com/kb/1080/cli?tab=macos */
-export const macAppExecutables = (home = os.homedir()) =>
-  ["/Applications/Tailscale.app", path.posix.join(home, "Applications", "Tailscale.app")].map((app) => path.posix.join(app, "Contents", "MacOS", "Tailscale"));
-
-/** Where a read-only `tailscale status --json` can come from here: the command-line tool, then on macOS the app itself. */
-export const tailscaleStatusCommands = ({ platform = process.platform, home = os.homedir() } = {}) =>
-  platform === "darwin" ? [...TAILSCALE_CLI_PATHS, ...macAppExecutables(home)] : [...TAILSCALE_CLI_PATHS];
 const onPath = (name, env) => (env.PATH ?? "").split(path.delimiter).filter(Boolean).some((dir) => fs.existsSync(path.join(dir, name)));
 
 /** Looks for files only: nothing is run. "app-only" is the macOS app without its command-line tool. */
