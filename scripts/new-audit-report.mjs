@@ -64,7 +64,9 @@ export function auditReportFilename(milestone, reviewer, date) {
 
 export function auditReportBody({ milestone, reviewer, date }) {
   auditReportFilename(milestone, reviewer, date);
+  // Git for Windows checks this file out as CRLF (core.autocrlf). The report is committed as LF.
   return TEMPLATE
+    .replaceAll("\r\n", "\n")
     .replaceAll("<milestone>", milestone)
     .replaceAll("<reviewer>", reviewer)
     .replaceAll("YYYY-MM-DD", date);

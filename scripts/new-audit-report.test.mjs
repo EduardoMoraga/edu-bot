@@ -15,6 +15,12 @@ import {
 
 const readme = fileURLToPath(new URL("../docs/edu-bot/reports/README.md", import.meta.url));
 
+function readmeTemplate(text) {
+  const fence = text.replaceAll("\r\n", "\n").match(/```markdown\n([\s\S]*?)\n```/);
+  expect(fence, "README keeps one markdown template").toBeTruthy();
+  return fence[1];
+}
+
 describe("audit report scaffold", () => {
   it("names one file per UTC day, milestone, and reviewer", () => {
     expect(auditReportFilename("m7", "grok", "2026-11-26")).toBe("2026-11-26-m7-grok.md");
@@ -32,13 +38,15 @@ describe("audit report scaffold", () => {
 
   it("fills the README template", () => {
     const text = readFileSync(readme, "utf8");
-    const fence = text.match(/```markdown\n([\s\S]*?)\n```/);
-    expect(fence, "README keeps one markdown template").toBeTruthy();
-    const expected = fence[1]
+    const crlf = text.replaceAll("\r\n", "\n").replaceAll("\n", "\r\n");
+    const expected = readmeTemplate(text)
       .replaceAll("<milestone>", "m7")
       .replaceAll("<reviewer>", "grok")
       .replaceAll("YYYY-MM-DD", "2026-11-26");
-    expect(auditReportBody({ milestone: "m7", reviewer: "grok", date: "2026-11-26" })).toBe(`${expected}\n`);
+    expect(readmeTemplate(crlf)).toBe(readmeTemplate(text));
+    const body = auditReportBody({ milestone: "m7", reviewer: "grok", date: "2026-11-26" });
+    expect(body).not.toContain("\r");
+    expect(body).toBe(`${expected}\n`);
   });
 
   it("writes a new file and refuses to overwrite it", async () => {
