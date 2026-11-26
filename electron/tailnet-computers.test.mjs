@@ -1,8 +1,12 @@
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson } from "./tailnet-computers.mjs";
+import { tailscaleInstall } from "./tailscale-check.mjs";
+import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson, tailscaleStatusCandidates } from "./tailnet-computers.mjs";
 
 const ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const descriptor = (over = {}) => ({ environmentId: ID, label: "Mac mini", platform: "darwin", version: "0.1.140", capabilities: { remoteSessions: true }, ...over });
@@ -164,5 +168,60 @@ describe("the My computers list", () => {
     expect(await readStatusJson({ run, candidates: ["a", "b", "c"] })).toBe("{}");
     expect(ran).toEqual(["a", "b"]);
     expect(await readStatusJson({ run: async () => ({ missing: true }), candidates: ["a"] })).toBeNull();
+  });
+});
+
+const APP_CLI = "/Applications/Tailscale.app/Contents/MacOS/Tailscale";
+const READY = JSON.stringify({
+  BackendState: "Running",
+  Self: { DNSName: "mac.tail9f9734.ts.net.", UserID: OWNER },
+  Peer: {},
+});
+
+describe("finding Tailscale for My computers", () => {
+  const homes = [];
+  afterEach(() => {
+    for (const home of homes.splice(0)) rmSync(home, { recursive: true, force: true });
+  });
+
+  it("reads status from a standalone CLI and does not open the macOS app", async () => {
+    const ran = [];
+    const run = async (cli) => {
+      ran.push(cli);
+      return cli === "/usr/bin/tailscale" ? { missing: false, stdout: READY } : { missing: true, stdout: "" };
+    };
+    expect(await readStatusJson({ run })).toBe(READY);
+    expect(ran).toContain("/usr/bin/tailscale");
+    expect(ran.some((cli) => cli.includes("Tailscale.app"))).toBe(false);
+  });
+
+  it("reads status from the macOS app when that is the only install", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omb-tailscale-app-"));
+    homes.push(home);
+    const bundle = join(home, "Applications", "Tailscale.app");
+    mkdirSync(bundle, { recursive: true });
+    expect(tailscaleInstall({ exists: (file) => file === bundle, env: { PATH: "" }, home, platform: "darwin" })).toBe("app-only");
+    const ran = [];
+    const run = async (cli) => {
+      ran.push(cli);
+      return cli === APP_CLI ? { missing: false, stdout: READY } : { missing: true, stdout: "" };
+    };
+    expect(await readStatusJson({ run })).toBe(READY);
+    expect(ran).toContain(APP_CLI);
+    expect(tailscaleStatusCandidates(home)).toContain(`${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`);
+    const list = createTailnetComputers({ status: async () => readStatusJson({ run }), origins: () => [], fetch });
+    expect(await list.list()).toEqual({ tailscale: "ready", computers: [] });
+  });
+
+  it("is off when neither a CLI nor the macOS app is installed", async () => {
+    const home = mkdtempSync(join(tmpdir(), "omb-tailscale-none-"));
+    homes.push(home);
+    expect(tailscaleInstall({ exists: () => false, env: { PATH: "" }, home, platform: "darwin" })).toBe("none");
+    const ran = [];
+    const run = async (cli) => { ran.push(cli); return { missing: true, stdout: "" }; };
+    expect(await readStatusJson({ run, candidates: tailscaleStatusCandidates(home) })).toBeNull();
+    expect(ran).toContain(APP_CLI);
+    expect(ran).toContain(`${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`);
+    expect(await createTailnetComputers({ status: async () => readStatusJson({ run }), origins: () => [], fetch }).list()).toEqual({ tailscale: "off", computers: [] });
   });
 });
