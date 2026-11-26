@@ -259,10 +259,11 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   - [ ] **Esperan tu aprobación** (nueva regla: solo tú mergeas):
     - #70, marca propia: todo dice "Edu Bot". El bot ya no dice "OpenMausBot" cuando le preguntas quién es
       (venía de las instrucciones de cada bot). Documentos/MausBot pasa a Documentos/Edu Bot sin mezclar ni
-      borrar. LICENSE y NOTICE intactos. Revisado por Grok.
+      borrar. LICENSE y NOTICE intactos. Revisado por Grok:
+      [informe](reports/2026-11-26-pr-70-grok.md).
     - #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
       "Enciende Tailscale". La lectura por la app ya entró con tu #75. Falta probar en el Mac mini que no abre
-      la ventana de Tailscale.
+      la ventana de Tailscale. Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
   - [ ] Después de tu aprobación: PR de versión 0.3.0 y publicar (te pregunto antes).
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
