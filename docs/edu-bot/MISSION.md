@@ -38,8 +38,12 @@ Quality bar: production grade, 10/10. The user must not hit errors in normal use
 - Loop per milestone until green: plan → implement → typecheck, lint, unit tests, build →
   run the app (Linux) and smoke/e2e test real flows → independent audit by a different vendor
   → fix → re-audit. Only close a milestone when the audit finds nothing actionable.
+  The auditor writes one file in `docs/edu-bot/reports/`, named
+  `YYYY-MM-DD-<milestone>-<reviewer>.md` (convention and template in that folder's README).
+  The milestone pull request commits that file. The committed file is the record.
+  `~/Projects/edu-bot-wt/reports/` stays on one machine.
 - Keep a short checklist in docs/edu-bot/PROGRESS.md (Spanish, plain) with milestone status,
-  what was verified and how. Update it at each milestone.
+  what was verified and how, and a link to the committed audit report. Update it at each milestone.
 - Work on branches, open PRs to `main` of EduardoMoraga/edu-bot with gh, merge when green.
   Never force-push main. Never push to `upstream`. Never commit secrets/tokens.
 - Cross-platform: CI (GitHub Actions) building Linux, Windows and macOS artifacts; test Linux

@@ -20,6 +20,7 @@ import {
   agentBrowserReleaseUrl,
   agentBrowserReleaseVersion,
   resolveAgentBrowserReleaseAsset,
+  vendoredAgentBrowserFile,
   type AgentBrowserReleaseAsset,
 } from "./browser-engine-release.ts";
 
@@ -420,6 +421,8 @@ export async function installAgentBrowserBinary(options: {
   musl?: boolean;
   asset?: AgentBrowserReleaseAsset;
   fetchImpl?: typeof fetch;
+  env?: NodeJS.ProcessEnv;
+  repoRoot?: string;
   log?: (line: string) => void;
 } = {}): Promise<string> {
   const platform = options.platform ?? process.platform;
@@ -428,34 +431,46 @@ export async function installAgentBrowserBinary(options: {
   const destination = pinnedBinaryPath(options.dataDir, platform, options.arch);
   const directory = join(destination, "..");
   mkdirSync(directory, { recursive: true, mode: 0o700 });
-  const url = agentBrowserReleaseUrl(asset);
-  options.log?.(`downloading agent-browser ${agentBrowserReleaseVersion(asset)} (${Math.round(asset.bytes / 1024 / 1024)} MB, digest pinned)`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   timer.unref?.();
   let body: Buffer;
   try {
-    const response = await (options.fetchImpl ?? fetch)(url, { redirect: "follow", signal: controller.signal });
-    if (!response.ok) throw new Error(`the agent-browser download failed (HTTP ${response.status})`);
-    const declared = Number(response.headers.get("content-length") ?? NaN);
-    if (Number.isFinite(declared) && declared !== asset.bytes) throw new Error("the agent-browser download did not match its pinned size; nothing was installed");
-    // Stream, never buffer: a body past the pinned size is cut off mid-flight.
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    if (response.body) {
-      try {
-        for await (const chunk of response.body) {
-          chunks.push(chunk);
-          received += chunk.byteLength;
-          if (received > asset.bytes) { controller.abort(); break; }
-        }
-      } catch (error) {
-        if (received <= asset.bytes) throw error;
-      }
-      body = Buffer.concat(chunks);
+    const vendored = asset.vendored
+      ? vendoredAgentBrowserFile(asset, {
+        resourcesPath: (options.env ?? process.env).OMB_RESOURCES_PATH,
+        repoRoot: options.repoRoot,
+      })
+      : null;
+    if (asset.vendored) {
+      if (!vendored) throw new Error("the pinned Windows browser engine is not in this install");
+      options.log?.(`installing vendored agent-browser ${agentBrowserReleaseVersion(asset)} (digest pinned)`);
+      body = readFileSync(vendored);
     } else {
-      body = Buffer.from(await response.arrayBuffer());
-      if (body.length > asset.bytes) controller.abort();
+      const url = agentBrowserReleaseUrl(asset);
+      options.log?.(`downloading agent-browser ${agentBrowserReleaseVersion(asset)} (${Math.round(asset.bytes / 1024 / 1024)} MB, digest pinned)`);
+      const response = await (options.fetchImpl ?? fetch)(url, { redirect: "follow", signal: controller.signal });
+      if (!response.ok) throw new Error(`the agent-browser download failed (HTTP ${response.status})`);
+      const declared = Number(response.headers.get("content-length") ?? NaN);
+      if (Number.isFinite(declared) && declared !== asset.bytes) throw new Error("the agent-browser download did not match its pinned size; nothing was installed");
+      // Stream, never buffer: a body past the pinned size is cut off mid-flight.
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      if (response.body) {
+        try {
+          for await (const chunk of response.body) {
+            chunks.push(chunk);
+            received += chunk.byteLength;
+            if (received > asset.bytes) { controller.abort(); break; }
+          }
+        } catch (error) {
+          if (received <= asset.bytes) throw error;
+        }
+        body = Buffer.concat(chunks);
+      } else {
+        body = Buffer.from(await response.arrayBuffer());
+        if (body.length > asset.bytes) controller.abort();
+      }
     }
   } finally {
     clearTimeout(timer);

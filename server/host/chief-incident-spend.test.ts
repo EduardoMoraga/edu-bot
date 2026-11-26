@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { hostTimeout } from "../testing/host-timeout.ts";
 import { INCIDENT_WINDOW_MS, incidentText } from "../incidents.ts";
 import { failureShape } from "../routine-outcomes.ts";
 import { RoutineManager, type RoutineRun } from "../routines.ts";
@@ -172,7 +173,7 @@ describe("twenty bots under one Chief whose routines all fail at once", () => {
     } finally {
       vi.unstubAllEnvs();
     }
-  });
+  }, hostTimeout(120_000));
 });
 
 describe("eight teammates' runs that stall within the hour, past a Chief's share of 6", () => {

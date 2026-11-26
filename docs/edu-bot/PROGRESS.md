@@ -286,7 +286,12 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
 
 - Líder: Claude (este agente). Backend: Claude. Interfaz: Codex. Auditores: Grok y Antigravity.
 - Cada agente tiene su copia del repo en `~/Projects/edu-bot-wt/<rol>`.
-- Encargos en `~/Projects/edu-bot-wt/briefs/`. Reportes en `~/Projects/edu-bot-wt/reports/`.
+- Encargos en `~/Projects/edu-bot-wt/briefs/`.
+- Cada auditoría de otro proveedor se guarda en `docs/edu-bot/reports/` y entra en el PR del hito.
+  Un archivo por auditoría. El nombre lleva la fecha, el hito y el revisor:
+  `YYYY-MM-DD-<hito>-<revisor>.md`. La guía está en `docs/edu-bot/reports/README.md`.
+  Para crear el archivo: `pnpm report:audit -- m7 grok`.
+  Los reportes de antes siguen en `~/Projects/edu-bot-wt/reports/`, solo en este equipo.
 
 ## Decisiones
 

@@ -8,12 +8,13 @@ protocols:
     schemes: [edubot]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
-# the NSIS .exe (Windows) from the PUBLIC releases in this source repo.
-# Public → no token on users' machines. Baked into
-# app-update.yml; both metadata files are emitted here even with
+# the NSIS .exe (Windows) from the published GitHub releases of this repo,
+# not from main. Public → no token on users' machines. Baked into
+# app-update.yml; the metadata files are emitted here even with
 # --publish never, and must be uploaded to the GitHub release alongside the
 # artifacts — a release missing latest.yml leaves every Windows install
-# stranded on its installed version.
+# stranded on its installed version. Each metadata file also needs a
+# sibling .sig (scripts/sign-update-metadata.mjs); an unsigned file is rejected.
 publish:
   - provider: github
     owner: EduardoMoraga
@@ -188,6 +189,9 @@ win:
   extraResources:
     - from: dist-native/cloudflared/win32-x64/cloudflared.exe
       to: cloudflared/cloudflared.exe
+    # agent-browser 0.36.0-omb.1 (Apache-2.0). Install checks the pinned SHA-256.
+    - from: third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe
+      to: agent-browser/agent-browser-win32-x64-0.36.0-omb.1.exe
     - from: dist-native/duckdb/win32-x64/node_modules
       to: duckdb/node_modules
     - from: dist-native/duckdb/win32-x64/extensions
