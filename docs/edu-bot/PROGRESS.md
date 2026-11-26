@@ -263,7 +263,7 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
       [informe](reports/2026-11-26-pr-70-grok.md).
     - #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
       "Enciende Tailscale". La lectura por la app ya entró con tu #75. Probado en el Mac mini (26-11): la app
-      de Tailscale 1.102.3 entrega la lista sin pedir el CLI. Falta mirar que no abra la ventana de Tailscale.
+      de Tailscale 1.102.3 entrega la lista sin pedir el CLI y no abre su ventana.
       Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
   - [ ] Después de tu aprobación: PR de versión 0.3.0 y publicar (te pregunto antes).
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
