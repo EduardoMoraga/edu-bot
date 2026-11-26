@@ -33,6 +33,18 @@ describe("pinned desktop browser preparation", () => {
     }
   });
 
+  it("reads the vendored Windows engine from this repository", async () => {
+    const engine = browserBundleSpec("win32-x64").engine;
+    expect(engine.vendored).toBe("third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe");
+    expect(engine.url).toBeUndefined();
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const bytes = await releaseBytes(engine);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(bytes.length).toBe(engine.bytes);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(engine.sha256);
+  });
+
   it("chooses host targets and rejects unsupported/cross-directory inputs", () => {
     expect(targetsForPreparation({ platform: "darwin", arch: "arm64" })).toEqual(["darwin-arm64", "darwin-x64"]);
     expect(targetsForPreparation({ platform: "darwin", arch: "arm64", current: true })).toEqual(["darwin-arm64"]);

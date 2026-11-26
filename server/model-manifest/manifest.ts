@@ -14,6 +14,7 @@ import { modelManifestUrl } from "./source.ts";
 import { parseModelManifest, type ManifestEngine, type ManifestPrice, type ModelManifestData } from "./schema.ts";
 
 export { MODEL_MANIFEST_REF_ENV, modelManifestUrl } from "./source.ts";
+export const MODEL_MANIFEST_USER_AGENT = "EduBot";
 export const MANIFEST_DISABLE_ENV = "OMB_DISABLE_MODEL_MANIFEST_FETCH";
 export const MANIFEST_TTL_MS = 60 * 60 * 1000;
 /** GitHub's raw CDN caches about this long, so a shorter window buys nothing. */
@@ -172,7 +173,7 @@ export class ModelManifestStore {
       const url = modelManifestUrl(this.options.env ?? process.env);
       const fetchImpl = this.options.fetch ?? fetch;
       const init = {
-        headers: { accept: "application/json", "user-agent": "OpenMausBot" },
+        headers: { accept: "application/json", "user-agent": MODEL_MANIFEST_USER_AGENT },
         signal: controller.signal,
       };
       // A release asset hops once onto GitHub's asset hosts. The stable copy is raw.githubusercontent.com and must not redirect.

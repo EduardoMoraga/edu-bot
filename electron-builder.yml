@@ -189,6 +189,9 @@ win:
   extraResources:
     - from: dist-native/cloudflared/win32-x64/cloudflared.exe
       to: cloudflared/cloudflared.exe
+    # agent-browser 0.36.0-omb.1 (Apache-2.0). Install checks the pinned SHA-256.
+    - from: third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe
+      to: agent-browser/agent-browser-win32-x64-0.36.0-omb.1.exe
     - from: dist-native/duckdb/win32-x64/node_modules
       to: duckdb/node_modules
     - from: dist-native/duckdb/win32-x64/extensions

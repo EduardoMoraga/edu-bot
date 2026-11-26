@@ -10,6 +10,7 @@ import {
   MANIFEST_RETRY_MS,
   MANIFEST_TTL_MS,
   MODEL_MANIFEST_REF_ENV,
+  MODEL_MANIFEST_USER_AGENT,
   ModelManifestStore,
   modelManifestCachePath,
   modelManifestUrl,
@@ -90,6 +91,16 @@ describe("reading the current list", () => {
 });
 
 describe("downloads", () => {
+  it("asks for the model list as Edu Bot", async () => {
+    const fetchMock = vi.fn(async () => json(manifest("2026-11-09T00:00:00Z", ["remote-model"])));
+    const subject = store({ fetch: fetchMock as unknown as typeof fetch });
+    await subject.manifest.refresh({ force: true });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("raw.githubusercontent.com/EduardoMoraga/edu-bot/"), expect.objectContaining({
+      headers: { accept: "application/json", "user-agent": MODEL_MANIFEST_USER_AGENT },
+    }));
+    expect(MODEL_MANIFEST_USER_AGENT).toBe("EduBot");
+  });
+
   it("keeps a newer download, caches it on disk and tells listeners once", async () => {
     const fetchMock = vi.fn(async () => json(manifest("2026-11-09T00:00:00Z", ["remote-model"])));
     const subject = store({ fetch: fetchMock as unknown as typeof fetch });
