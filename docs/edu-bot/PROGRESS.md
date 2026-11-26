@@ -245,9 +245,12 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   - [x] PR B1 (#63): una instalación nueva se ve con el look **Edu** (verde claro) y **Edu Night** (verde
     oscuro), según tu computador. Si ya usabas la app, se queda con los colores que tenías. Midnight ahora se
     llama **Classic**. Halloween y Diwali ya no están; si alguien tenía uno, pasa a Edu sin error.
-  - [ ] PR B2, en curso: letra propia para Edu, más aire en modo simple, barra lateral más clara y una
-    pantalla nueva para el chat vacío. Separé el diseño de la mascota nueva (va en su propio PR) para que cada
-    revisión sea chica.
+  - [x] PR B2 (#65): letra propia para Edu (Atkinson Hyperlegible Next, hecha para leer fácil), más aire en
+    modo simple, la fila elegida de la barra lateral con una raya verde, y el chat vacío con un dibujo, 4 ideas
+    para empezar y el botón "Nuevo bot". Separé la mascota en su propio PR para que cada revisión sea chica.
+  - [ ] PR B2b (#66), en revisión: la mascota Edu, una burbuja de chat verde con cara. Reemplaza la carita del
+    bot en las pantallas de la app (nube, límite de bots, guía). Las caras de tus bots no cambian. En el
+    selector de caras, "Halloween" y "Diwali" ahora se llaman "Tallados" y "Festivos".
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
