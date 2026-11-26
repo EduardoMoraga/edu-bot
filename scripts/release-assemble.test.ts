@@ -72,7 +72,7 @@ function run(failures: Record<string, number>) {
   return { status: result.status, stderr: result.stderr, stdout: result.stdout, calls };
 }
 
-// The step runs on ubuntu-24.04 with GNU stat and bash 5; macOS bash 3.2 and BSD stat cannot run it.
+// The step runs only on ubuntu-24.04 and uses GNU `stat -c`; on macOS the extracted script fails before its first gh call.
 describe.skipIf(process.platform !== "linux")("release assemble step", () => {
   it("rides out GitHub 500s: one draft, every installer uploaded, sizes checked", () => {
     const { status, stdout, calls } = run({ [`EduBot-${VERSION}-x64.zip`]: 2, "latest.yml": 1 });
