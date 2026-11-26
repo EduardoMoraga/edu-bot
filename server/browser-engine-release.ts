@@ -1,5 +1,9 @@
 // Digests computed from the official GitHub assets on 2026-09-08, except the versioned Windows vendor build; update pins
 // only through a reviewed native end-to-end run. The Dockerfile keeps the official Linux version.
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 export const AGENT_BROWSER_VERSION = "0.37.0";
 
 export interface AgentBrowserReleaseAsset {
@@ -12,6 +16,8 @@ export interface AgentBrowserReleaseAsset {
   version?: string;
   /** Exact release URL for a reviewed vendor build, never a mutable latest URL. */
   url?: string;
+  /** Repo-relative path of a hash-pinned binary. Install reads this file. */
+  vendored?: string;
 }
 
 const RELEASES = new Map<string, AgentBrowserReleaseAsset>([
@@ -42,18 +48,35 @@ const RELEASES = new Map<string, AgentBrowserReleaseAsset>([
   [
     "win32-x64",
     {
-      // Upstream 0.37.0 still lacks vercel-labs/agent-browser#1781's Windows cold-start fix.
-      // Retain the native-verified revision until its replacement is tested.
+      // vercel-labs/agent-browser 0.37.0 still lacks PR 1781's Windows cold-start fix.
+      // The reviewed 0.36.0-omb.1 executable is stored in this repository.
       target: "win32-x64", version: "0.36.0-omb.1",
       asset: "agent-browser-win32-x64-0.36.0-omb.1.exe",
-      url: "https://github.com/milind-soni/OpenMausBot/releases/download/browser-engine-v0.36.0-omb.1/agent-browser-win32-x64-0.36.0-omb.1.exe",
+      vendored: "third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe",
       sha256: "33bee834f6a6072ec8688b0914726e0262874d758f69f27e8baf7eaac6b5ed15", bytes: 13806080,
     },
   ],
 ]);
 
 export function agentBrowserReleaseUrl(asset: AgentBrowserReleaseAsset): string {
+  if (asset.vendored) throw new Error(`${asset.asset} is stored in this repository`);
   return asset.url ?? `https://github.com/vercel-labs/agent-browser/releases/download/v${AGENT_BROWSER_VERSION}/${asset.asset}`;
+}
+
+/** Packaged Windows resources, then a checkout of this repository. */
+export function vendoredAgentBrowserFile(
+  asset: AgentBrowserReleaseAsset,
+  options: { resourcesPath?: string; repoRoot?: string } = {},
+): string | null {
+  if (!asset.vendored) return null;
+  const name = asset.vendored.slice(asset.vendored.lastIndexOf("/") + 1);
+  if (options.resourcesPath) {
+    const packaged = join(options.resourcesPath, "agent-browser", name);
+    if (existsSync(packaged)) return packaged;
+  }
+  const root = options.repoRoot ?? join(dirname(fileURLToPath(import.meta.url)), "..");
+  const checkout = join(root, asset.vendored);
+  return existsSync(checkout) ? checkout : null;
 }
 
 export function agentBrowserReleaseVersion(asset: AgentBrowserReleaseAsset | null): string {

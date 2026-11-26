@@ -13,6 +13,7 @@ import { BUNDLED_MODEL_MANIFEST, bundledEngineCatalog, engineCatalogFrom } from 
 import { parseModelManifest, type ManifestEngine, type ManifestPrice, type ModelManifestData } from "./schema.ts";
 
 export const MODEL_MANIFEST_URL = `${PROJECT_RAW_MAIN}server/model-manifest/model-manifest.json`;
+export const MODEL_MANIFEST_USER_AGENT = "EduBot";
 export const MANIFEST_DISABLE_ENV = "OMB_DISABLE_MODEL_MANIFEST_FETCH";
 export const MANIFEST_TTL_MS = 60 * 60 * 1000;
 /** GitHub's raw CDN caches about this long, so a shorter window buys nothing. */
@@ -169,7 +170,7 @@ export class ModelManifestStore {
     const timer = setTimeout(() => controller.abort(), this.options.timeoutMs ?? MANIFEST_FETCH_TIMEOUT_MS);
     try {
       const response = await (this.options.fetch ?? fetch)(MODEL_MANIFEST_URL, {
-        headers: { accept: "application/json", "user-agent": "OpenMausBot" },
+        headers: { accept: "application/json", "user-agent": MODEL_MANIFEST_USER_AGENT },
         // raw.githubusercontent.com answers directly; anywhere else is not the file we meant to read.
         redirect: "error",
         signal: controller.signal,
