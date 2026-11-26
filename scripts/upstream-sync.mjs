@@ -585,9 +585,10 @@ export async function measure(cwd, options = {}) {
 }
 
 function ghBin(env) {
+  // Actions sets GITHUB_ACTIONS on the test job too. An explicit GH_BIN is the test double.
+  if (env.GH_BIN) return env.GH_BIN;
   if (env.GITHUB_ACTIONS === "true") return "gh";
-  if (!env.GH_BIN) throw new Error("refusing to call gh outside GitHub Actions");
-  return env.GH_BIN;
+  throw new Error("refusing to call gh outside GitHub Actions");
 }
 
 function gh(env, args) {
