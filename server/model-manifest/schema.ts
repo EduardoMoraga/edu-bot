@@ -2,7 +2,8 @@
 // Copyright (c) 2026 T3 Tools Inc. (full text in third_party/t3-code/LICENSE); modified: zod in place of Effect Schema,
 // a flat model list with CLI floors and prices in place of capability profiles and adapter schemas.
 //
-// To add a model: edit model-manifest.json, bump `updatedAt`, open a PR. `scripts/check-model-manifest.mjs` runs in CI.
+// To add a model: edit model-manifest.json, bump `updatedAt`, open a PR. Installed apps read the `stable` branch
+// (or a pinned release), not main. `scripts/check-model-manifest.mjs` runs in CI.
 import { z } from "zod";
 
 // Claude Code's `[1m]` suffix selects a model's 1M-token context.

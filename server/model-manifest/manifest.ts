@@ -4,15 +4,17 @@
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-import { PROJECT_RAW_MAIN } from "../../shared/project-repository.ts";
+import { fetchGitHubReleaseAsset, isGitHubReleaseAssetUrl } from "../../electron/github-release-asset.mjs";
 import { writeFileAtomic } from "../atomic.ts";
 import { DATA_DIR } from "../config.ts";
 import type { ModelCatalog } from "../contracts.ts";
 import { parseVersionTriple, versionAtLeast, type VersionTriple } from "../drivers/acp/version-probe.ts";
 import { BUNDLED_MODEL_MANIFEST, bundledEngineCatalog, engineCatalogFrom } from "./bundled.ts";
+import { modelManifestUrl } from "./source.ts";
 import { parseModelManifest, type ManifestEngine, type ManifestPrice, type ModelManifestData } from "./schema.ts";
 
-export const MODEL_MANIFEST_URL = `${PROJECT_RAW_MAIN}server/model-manifest/model-manifest.json`;
+export { MODEL_MANIFEST_REF_ENV, modelManifestUrl } from "./source.ts";
+export const MODEL_MANIFEST_USER_AGENT = "EduBot";
 export const MANIFEST_DISABLE_ENV = "OMB_DISABLE_MODEL_MANIFEST_FETCH";
 export const MANIFEST_TTL_MS = 60 * 60 * 1000;
 /** GitHub's raw CDN caches about this long, so a shorter window buys nothing. */
@@ -168,12 +170,16 @@ export class ModelManifestStore {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.options.timeoutMs ?? MANIFEST_FETCH_TIMEOUT_MS);
     try {
-      const response = await (this.options.fetch ?? fetch)(MODEL_MANIFEST_URL, {
-        headers: { accept: "application/json", "user-agent": "OpenMausBot" },
-        // raw.githubusercontent.com answers directly; anywhere else is not the file we meant to read.
-        redirect: "error",
+      const url = modelManifestUrl(this.options.env ?? process.env);
+      const fetchImpl = this.options.fetch ?? fetch;
+      const init = {
+        headers: { accept: "application/json", "user-agent": MODEL_MANIFEST_USER_AGENT },
         signal: controller.signal,
-      });
+      };
+      // A release asset hops once onto GitHub's asset hosts. The stable copy is raw.githubusercontent.com and must not redirect.
+      const response = isGitHubReleaseAssetUrl(url)
+        ? await fetchGitHubReleaseAsset(url, fetchImpl, init)
+        : await fetchImpl(url, { ...init, redirect: "error" });
       if (response.status !== 200) {
         void response.body?.cancel().catch(() => {});
         throw new Error(`HTTP ${response.status}`);

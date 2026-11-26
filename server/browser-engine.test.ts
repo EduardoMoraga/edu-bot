@@ -35,7 +35,7 @@ import {
   resolveAgentBrowserBinary,
   setBrowserViewport,
 } from "./browser-engine.ts";
-import { AGENT_BROWSER_VERSION, agentBrowserReleaseUrl, agentBrowserReleaseVersion, resolveAgentBrowserReleaseAsset } from "./browser-engine-release.ts";
+import { AGENT_BROWSER_VERSION, agentBrowserReleaseUrl, agentBrowserReleaseVersion, resolveAgentBrowserReleaseAsset, vendoredAgentBrowserFile } from "./browser-engine-release.ts";
 import { browserBundlePaths, browserBundleSpec, SUPPORTED_BROWSER_TARGETS } from "./browser-bundle-release.ts";
 import { spawnBotWork } from "./oom-score.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
@@ -674,12 +674,17 @@ describe("finding the browser engine", () => {
     expect(asset).toEqual({
       target: "win32-x64", version: "0.36.0-omb.1",
       asset: "agent-browser-win32-x64-0.36.0-omb.1.exe",
-      url: "https://github.com/milind-soni/OpenMausBot/releases/download/browser-engine-v0.36.0-omb.1/agent-browser-win32-x64-0.36.0-omb.1.exe",
+      vendored: "third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe",
       bytes: 13806080, sha256: "33bee834f6a6072ec8688b0914726e0262874d758f69f27e8baf7eaac6b5ed15",
     });
     expect(agentBrowserReleaseVersion(asset)).toBe("0.36.0-omb.1");
+    const vendored = vendoredAgentBrowserFile(asset);
+    expect(vendored).toBeTruthy();
+    const vendoredBytes = readFileSync(vendored!);
+    expect(vendoredBytes.length).toBe(asset.bytes);
+    expect(createHash("sha256").update(vendoredBytes).digest("hex")).toBe(asset.sha256);
     expect(browserBundleSpec("win32-x64").engine).toEqual({
-      version: asset.version, asset: asset.asset, url: asset.url,
+      version: asset.version, asset: asset.asset, vendored: asset.vendored,
       bytes: asset.bytes, sha256: asset.sha256, executable: "agent-browser.exe",
     });
     for (const [platform, arch] of [["darwin", "arm64"], ["darwin", "x64"], ["linux", "arm64"], ["linux", "x64"]] as const) {
@@ -895,7 +900,8 @@ describe("finding the browser engine", () => {
       const asset = resolveAgentBrowserReleaseAsset(platform, arch);
       expect(asset, `${platform}-${arch}`).not.toBeNull();
       expect(asset?.sha256).toMatch(/^[0-9a-f]{64}$/u);
-      if (asset?.url) expect(agentBrowserReleaseUrl(asset)).toBe(asset.url);
+      if (asset?.vendored) expect(vendoredAgentBrowserFile(asset)).toBeTruthy();
+      else if (asset?.url) expect(agentBrowserReleaseUrl(asset)).toBe(asset.url);
       else expect(agentBrowserReleaseUrl(asset!)).toContain(`/v${AGENT_BROWSER_VERSION}/`);
     }
     expect(resolveAgentBrowserReleaseAsset("linux", "x64", true)?.target).toBe("linux-musl-x64");
@@ -926,6 +932,51 @@ describe("installing the browser engine", () => {
     expect(fetched[0]).toBe(agentBrowserReleaseUrl(asset));
     expect(readFileSync(installed, "utf8")).toContain("agent-browser");
     if (posix) expect(statSync(installed).mode & 0o111).not.toBe(0);
+  });
+
+  it("installs the vendored Windows engine from this repository and does not fetch it", async () => {
+    const dataDir = mkdtempSync(join(tmpdir(), "omb-engine-vendored-"));
+    const repoRoot = mkdtempSync(join(tmpdir(), "omb-engine-vendor-root-"));
+    scratch.push(dataDir, repoRoot);
+    const body = Buffer.from("MZ-fixture-engine");
+    const relative = join("third_party", "browser", "fixture.exe");
+    mkdirSync(join(repoRoot, "third_party", "browser"), { recursive: true });
+    writeFileSync(join(repoRoot, relative), body);
+    const asset = {
+      target: "win32-x64",
+      asset: "fixture.exe",
+      vendored: "third_party/browser/fixture.exe",
+      sha256: createHash("sha256").update(body).digest("hex"),
+      bytes: body.length,
+    };
+    const fetchImpl = vi.fn(async () => new Response(body));
+    const installed = await installAgentBrowserBinary({
+      dataDir, platform: "win32", arch: "x64", asset, fetchImpl, repoRoot,
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(readFileSync(installed).equals(body)).toBe(true);
+    const resources = mkdtempSync(join(tmpdir(), "omb-engine-resources-"));
+    scratch.push(resources);
+    mkdirSync(join(resources, "agent-browser"), { recursive: true });
+    const packaged = Buffer.from("MZ-packaged-engine");
+    writeFileSync(join(resources, "agent-browser", "fixture.exe"), packaged);
+    const packagedAsset = {
+      ...asset,
+      sha256: createHash("sha256").update(packaged).digest("hex"),
+      bytes: packaged.length,
+    };
+    const packagedData = mkdtempSync(join(tmpdir(), "omb-engine-packaged-"));
+    scratch.push(packagedData);
+    const fromPackage = await installAgentBrowserBinary({
+      dataDir: packagedData,
+      platform: "win32",
+      arch: "x64",
+      asset: packagedAsset,
+      fetchImpl,
+      repoRoot,
+      env: { OMB_RESOURCES_PATH: resources },
+    });
+    expect(readFileSync(fromPackage).equals(packaged)).toBe(true);
   });
 
   it("refuses a download whose bytes do not match the pin, and leaves nothing behind", async () => {

@@ -16,6 +16,7 @@ import { openBlankTerminal } from "./terminal-launch.mjs";
 import { UPDATE_TEXT } from "./update-errors.mjs";
 import { createUpdaterCoordinator } from "./updater-coordinator.mjs";
 import { DESKTOP_AUTO_UPDATE } from "./desktop-updates.mjs";
+import { gateUpdateDownload } from "./update-metadata-signature.mjs";
 import { createQuietInstall, installFailed, launchAfter, LOOK_EVERY_MS, updateSeen } from "./update-when-quiet.mjs";
 
 export { quietSignals } from "./update-when-quiet-main.mjs";
@@ -204,8 +205,11 @@ export function startUpdater(signals = null) {
     return;
   }
   // The coordinator starts each download itself, so it owns macOS staging and quiet failures.
+  // Published GitHub releases only: /releases/latest is not a draft, a prerelease, or main.
   autoUpdater.autoDownload = false;
+  autoUpdater.allowPrerelease = false;
   autoUpdater.logger = updaterLogger();
+  gateUpdateDownload(autoUpdater);
 
   // Broadcast the install flavour before the first check so the banner never offers a restart it cannot deliver.
   const packageType = linuxPackageType({ readMarker: (file) => (existsSync(file) ? readFileSync(file, "utf8") : null) });
