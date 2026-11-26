@@ -104,6 +104,12 @@ export function verifyBrowserBundle(directory, target) {
 }
 
 export async function releaseBytes(asset, cacheDirectory) {
+  if (asset.vendored) {
+    if (asset.vendored.includes("..") || isAbsolute(asset.vendored)) throw new Error(`${asset.asset} names a path outside this repository`);
+    const bytes = readFileSync(join(sourceRoot, asset.vendored));
+    verifyAssetBytes(bytes, asset);
+    return bytes;
+  }
   const cached = cacheDirectory && join(cacheDirectory, asset.asset);
   if (cached && existsSync(cached)) {
     try {

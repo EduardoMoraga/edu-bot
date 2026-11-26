@@ -18,8 +18,12 @@ The desktop application ships two separate components:
   [PR1781](https://github.com/vercel-labs/agent-browser/pull/1781), commit
   `81a98c349d04195396ffae6898bd375ad64280de`, plus OpenMausBot's Windows-only
   `CREATE_NO_WINDOW` flag for Chrome children and a native console regression test
-  in candidate revision `0.36.0-omb.2`. The release resolver retains `0.36.0-omb.1`
-  until the candidate passes native checks and its published digest is reviewed.
+  in candidate revision `0.36.0-omb.2`. Edu Bot vendors the reviewed
+  `0.36.0-omb.1` executable in this directory as
+  `agent-browser-win32-x64-0.36.0-omb.1.exe` (13,806,080 bytes, SHA-256
+  `33bee834f6a6072ec8688b0914726e0262874d758f69f27e8baf7eaac6b5ed15`). Install
+  reads that file and checks the digest. The candidate `0.36.0-omb.2` stays
+  unpublished until it passes native checks and its digest is reviewed.
   The separate MCP output-reader
   rewrite is deliberately excluded. `agent-browser-windows-stdio.patch`
   includes the exact changes and modification notices, plus package-version

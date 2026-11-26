@@ -1,4 +1,5 @@
-ARG BASE_IMAGE=ghcr.io/milind-soni/openmausbot:latest
+# Build the base from this repository first: docker build -t edubot:local .
+ARG BASE_IMAGE=edubot:local
 FROM ${BASE_IMAGE}
 USER root
 ARG ENGINES="@anthropic-ai/claude-code @openai/codex"

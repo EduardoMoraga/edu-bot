@@ -65,7 +65,7 @@ Claude: Edu Bot never reads Claude Code's tokens and does not call Anthropic's u
 | Host | What | When |
 | --- | --- | --- |
 | `github.com/vercel-labs/agent-browser/releases` | The browser engine for macOS and Linux (checked by hash) | When the browser engine is installed |
-| `github.com/milind-soni/OpenMausBot/releases` | The pinned Windows browser-engine binary (checked by hash) | When the browser engine is installed on Windows |
+| This repository, `third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe` | The Windows browser engine, checked by hash | When the browser engine is installed on Windows |
 | `files.pythonhosted.org`, `raw.githubusercontent.com/notofonts/noto-cjk` | The computer-use driver and CJK fonts for a container computer | When a container computer's image is built |
 | `github.com/Genymobile/scrcpy/releases` | scrcpy, for an Android phone's screen | When you show an Android phone's screen |
 

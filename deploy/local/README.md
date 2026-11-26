@@ -1,8 +1,16 @@
 # Local Docker Compose
 
-From the repository root, run `docker compose up -d --build`, then open
-http://localhost:8080. Docker with Linux containers is required.
-Compose supplies defaults; no `.env` file is required.
+From the repository root, build this repo's server image, then start Compose:
+
+```sh
+docker build -t edubot:local .
+docker compose up -d --build
+```
+
+Open http://localhost:8080. Docker with Linux containers is required.
+`edubot:local` is the base `deploy/local/Dockerfile` starts from (`.env.example`
+names the same tag). Compose supplies the other defaults; no `.env` file is
+required once that image exists.
 The application container uses Docker's init process to reap orphaned agent
 subprocesses.
 
