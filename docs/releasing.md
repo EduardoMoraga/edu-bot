@@ -26,9 +26,10 @@ Signing runs only when the secret is present. Otherwise the build is unsigned an
 - macOS notarization: those, plus `APPLE_API_KEY_P8_BASE64`, `APPLE_API_KEY_ID`, and `APPLE_API_ISSUER_ID`.
 - Windows signing: `WIN_CSC_LINK` or `CSC_LINK` (and `CSC_KEY_PASSWORD` when the certificate needs it).
 - Linux packages are unsigned.
+- Update metadata (`latest.yml`, `latest-linux.yml`, `latest-mac.yml`): `EDUBOT_UPDATE_SIGNING_KEY`. The assemble job signs those files and uploads the `.sig` beside them. A publish without that secret, or with a secret that does not match the public key in `electron/update-metadata-public-key.mjs`, does not create the draft. See [docs/edu-bot/update-signing.md](edu-bot/update-signing.md).
 
 `dmg.sign` stays false in `electron-builder.yml`. The macOS job turns it on only when the Developer ID secrets are set. Do not set `win.publisherName` until the installer is signed; electron-updater rejects updates when that name is present and the build is unsigned.
 
 ## Updater migration invariant
 
-Desktop auto-update is off (`electron/desktop-updates.mjs`, `DESKTOP_AUTO_UPDATE`). The packaged `app-update.yml` still names `owner: EduardoMoraga` and `repo: edu-bot`. Do not point it at another repository. A later move of this repository changes the URL baked into already-shipped installs, and that is an owner decision. There is no legacy download mirror.
+Windows and Linux follow the latest published GitHub release (`electron/desktop-updates.mjs`) and install it only when the signed metadata verifies. macOS does not auto-update. The packaged `app-update.yml` still names `owner: EduardoMoraga` and `repo: edu-bot`. Do not point it at another repository. A later move of this repository changes the URL baked into already-shipped installs, and that is an owner decision. There is no legacy download mirror.

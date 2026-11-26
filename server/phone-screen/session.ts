@@ -103,12 +103,21 @@ export async function openPhoneSession(deps: PhoneSessionDeps, serial: string): 
   const closed = new Promise<PhoneSessionEnd>((resolve) => {
     settleClosed = resolve;
   });
+  // The control socket can close while open is still removing the forward, so both must share one adb call.
+  let removingForward: Promise<void> | undefined;
+  const removeForward = () => {
+    if (removingForward) return removingForward;
+    if (forwardedPort === undefined) return (removingForward = Promise.resolve());
+    const port = forwardedPort;
+    forwardedPort = undefined;
+    return (removingForward = adb("forward", "--remove", `tcp:${port}`).then(() => {}));
+  };
 
   const end = (reason: PhoneSessionEnd): Promise<void> => (ending ??= (async () => {
     socket?.destroy();
     controlSocket?.destroy();
     if (server) await killCliTree(server);
-    if (forwardedPort !== undefined) await adb("forward", "--remove", `tcp:${forwardedPort}`).catch(() => {});
+    await removeForward().catch(() => {});
     const cleanupError = await adb("shell", "rm", "-rf", dir).then(() => "", (error: Error) => error.message);
     settleClosed(reason === "server-exit" && DEVICE_GONE.test(serverStderr + cleanupError) ? "device-gone" : reason);
   })());
@@ -165,8 +174,7 @@ export async function openPhoneSession(deps: PhoneSessionDeps, serial: string): 
     });
     controlSocket.once("close", () => void end("server-exit"));
     controlSocket.resume();
-    await adb("forward", "--remove", `tcp:${forwardedPort}`);
-    forwardedPort = undefined;
+    await removeForward();
   } catch (error) {
     const cause: unknown = starting.signal.aborted ? starting.signal.reason : error;
     await end("closed");

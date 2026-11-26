@@ -584,6 +584,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/sign-update-metadata.mjs
+            electron/update-metadata-signature.mjs
+            electron/update-metadata-public-key.mjs
+            electron/github-release-asset.mjs
+            server/model-manifest/model-manifest.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: assets
@@ -635,6 +649,27 @@ jobs:
             "EduBot-$VERSION-x86_64.AppImage" \
             > SHA256SUMS
           sha256sum -c SHA256SUMS
+      - name: Sign the update metadata
+        env:
+          EDUBOT_UPDATE_SIGNING_KEY: ${{ secrets.EDUBOT_UPDATE_SIGNING_KEY }}
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          cp server/model-manifest/model-manifest.json assets/model-manifest.json
+          publish=false
+          if [ "$EVENT" = push ] && [ "$REF_TYPE" = tag ]; then
+            publish=true
+          fi
+          if [ "$EVENT" = workflow_dispatch ] && [ "$DRY_RUN" = false ] && [ "$REF_TYPE" = tag ]; then
+            publish=true
+          fi
+          if [ "$publish" = true ]; then
+            node scripts/sign-update-metadata.mjs --require assets/latest.yml assets/latest-linux.yml assets/latest-mac.yml
+          else
+            node scripts/sign-update-metadata.mjs assets/latest.yml assets/latest-linux.yml assets/latest-mac.yml
+          fi
       - name: Publish a draft, or stop when this is a dry run
         env:
           EVENT: ${{ github.event_name }}
@@ -660,7 +695,7 @@ jobs:
             echo
             sed 's/^/- /' assets/SIGNING-mac.txt assets/SIGNING-windows.txt assets/SIGNING-linux.txt
             echo
-            echo "SHA256SUMS lists the installers. The desktop app updates itself on Windows and Linux; on macOS, install each version by hand."
+            echo "SHA256SUMS lists the installers. The desktop app updates itself on Windows and Linux from this published release, and only when the signed update metadata verifies; on macOS, install each version by hand."
           } > "$notes"
           cat "$notes"
           echo "----- SHA256SUMS -----"
@@ -677,6 +712,10 @@ jobs:
             echo "::error::refusing to publish a release from $GITHUB_REPOSITORY"
             exit 1
           }
+          for signed in latest.yml latest-linux.yml latest-mac.yml; do
+            test -f "assets/$signed.sig" || { echo "::error::missing $signed.sig"; exit 1; }
+          done
+          test -f assets/model-manifest.json || { echo "::error::missing model-manifest.json"; exit 1; }
           # GitHub's release API can answer HTTP 500 to a single create or upload, sometimes after doing it; each call
           # retries on its own, and a create that already made the draft counts as done.
           retry() {
@@ -702,8 +741,12 @@ jobs:
             "assets/EduBot-$VERSION-amd64.deb"
             "assets/EduBot-$VERSION-x86_64.AppImage"
             assets/latest-mac.yml
+            assets/latest-mac.yml.sig
             assets/latest.yml
+            assets/latest.yml.sig
             assets/latest-linux.yml
+            assets/latest-linux.yml.sig
+            assets/model-manifest.json
             assets/SHA256SUMS
           )
           create_draft() {
