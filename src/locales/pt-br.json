@@ -10544,6 +10544,7 @@
   "devices.mine.looking": "Procurando seus computadores…",
   "devices.mine.failed": "Não foi possível procurar seus computadores. Uma nova tentativa é feita em um minuto.",
   "devices.mine.tailscaleOff": "Ative o Tailscale neste computador para ver aqui seus outros computadores.",
+  "devices.mine.tailscaleUnreadable": "O Tailscale está ligado, mas o {app} não conseguiu ler do Tailscale a lista dos seus computadores.",
   "devices.mine.none": "Nenhum dos seus outros computadores está com o {app} aberto e {switch} ativado.",
   "devices.mine.eduBot": "On-line, {app}",
   "devices.mine.eduBotVersion": "On-line, {app} {version}",

@@ -38,9 +38,10 @@ export type TailnetComputer = { id: string; name: string; os: string | null } & 
   | { status: "eduBot"; version: string | null; platform: string | null; address: string }
 );
 
-/** `tailscale` is "off" unless Tailscale runs signed in on this computer. */
+/** `tailscale` is "off" unless Tailscale runs signed in on this computer; "unreadable" when it is on (this computer has a
+ * tailnet address) but its list of computers could not be read. */
 export interface TailnetComputers {
-  tailscale: "ready" | "off";
+  tailscale: "ready" | "off" | "unreadable";
   computers: TailnetComputer[];
 }
 

@@ -1,6 +1,7 @@
 // Runs only when the person presses Turn on or Check again on the Tailscale route (or the app starts with its share for
-// other computers on), and only Tailscale's command-line tool: never the macOS app's executable, so the app is never
-// opened or signed in. Never logs Tailscale's raw output (it can carry auth keys and node names).
+// other computers on), and only Tailscale's command-line tool. The macOS app's own executable is run only for a read-only
+// `status --json`, with TAILSCALE_BE_CLI=1 so it acts as that tool and never opens the app or signs in. Never logs
+// Tailscale's raw output (it can carry auth keys and node names).
 import { execFile } from "node:child_process";
 import { Resolver } from "node:dns/promises";
 import fs from "node:fs";
@@ -21,6 +22,14 @@ export const TAILSCALE_CLI_PATHS = Object.freeze([
 ]);
 
 const macApps = (home) => ["/Applications/Tailscale.app", path.join(home, "Applications", "Tailscale.app")];
+
+/** The executable inside the macOS app (App Store and standalone), which answers as the command-line tool when
+ * TAILSCALE_BE_CLI=1 is set: https://tailscale.com/kb/1080/cli?tab=macos */
+export const macAppExecutables = (home = os.homedir()) => macApps(home).map((app) => path.join(app, "Contents", "MacOS", "Tailscale"));
+
+/** Where a read-only `tailscale status --json` can come from here: the command-line tool, then on macOS the app itself. */
+export const tailscaleStatusCommands = ({ platform = process.platform, home = os.homedir() } = {}) =>
+  platform === "darwin" ? [...TAILSCALE_CLI_PATHS, ...macAppExecutables(home)] : [...TAILSCALE_CLI_PATHS];
 const onPath = (name, env) => (env.PATH ?? "").split(path.delimiter).filter(Boolean).some((dir) => fs.existsSync(path.join(dir, name)));
 
 /** Looks for files only: nothing is run. "app-only" is the macOS app without its command-line tool. */

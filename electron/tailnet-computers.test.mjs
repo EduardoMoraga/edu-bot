@@ -3,6 +3,7 @@ import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson } from "./tailnet-computers.mjs";
+import { macAppExecutables, tailscaleStatusCommands, TAILSCALE_CLI_PATHS } from "./tailscale-check.mjs";
 
 const ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const descriptor = (over = {}) => ({ environmentId: ID, label: "Mac mini", platform: "darwin", version: "0.1.140", capabilities: { remoteSessions: true }, ...over });
@@ -128,9 +129,20 @@ describe("the My computers list", () => {
   it("is off, and asks no computer, when Tailscale is not ready or not there", async () => {
     let probed = 0;
     const origins = () => { probed++; return []; };
-    expect(await createTailnetComputers({ status: async () => '{"BackendState":"Stopped"}', origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
-    expect(await createTailnetComputers({ status: async () => null, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
-    expect(await createTailnetComputers({ status: async () => { throw new Error("gone"); }, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    const interfaces = () => ({ lo: [{ address: "127.0.0.1" }] });
+    expect(await createTailnetComputers({ status: async () => '{"BackendState":"Stopped"}', interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(await createTailnetComputers({ status: async () => null, interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(await createTailnetComputers({ status: async () => { throw new Error("gone"); }, interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(probed).toBe(0);
+  });
+
+  it("says it could not read the list, not that Tailscale is off, when this computer is on the tailnet", async () => {
+    let probed = 0;
+    const origins = () => { probed++; return []; };
+    const onMac = () => ({ utun4: [{ address: "100.90.146.38" }, { address: "fd7a:115c:a1e0::1a01:9226" }] });
+    for (const read of [async () => null, async () => "", async () => { throw new Error("gone"); }]) {
+      expect(await createTailnetComputers({ status: read, interfaces: onMac, origins, fetch }).list()).toEqual({ tailscale: "unreadable", computers: [] });
+    }
     expect(probed).toBe(0);
   });
 
@@ -164,5 +176,18 @@ describe("the My computers list", () => {
     expect(await readStatusJson({ run, candidates: ["a", "b", "c"] })).toBe("{}");
     expect(ran).toEqual(["a", "b"]);
     expect(await readStatusJson({ run: async () => ({ missing: true }), candidates: ["a"] })).toBeNull();
+  });
+
+  it("on a Mac with only the Tailscale app, reads status --json from the app's own executable", async () => {
+    const app = macAppExecutables("/Users/eduardo");
+    expect(app).toEqual(["/Applications/Tailscale.app/Contents/MacOS/Tailscale", "/Users/eduardo/Applications/Tailscale.app/Contents/MacOS/Tailscale"]);
+    expect(tailscaleStatusCommands({ platform: "darwin", home: "/Users/eduardo" })).toEqual([...TAILSCALE_CLI_PATHS, ...app]);
+    for (const platform of ["linux", "win32"]) expect(tailscaleStatusCommands({ platform, home: "/home/x" })).toEqual([...TAILSCALE_CLI_PATHS]);
+    const ran = [];
+    const run = async (cli) => { ran.push(cli); return cli === app[0] ? { missing: false, stdout: status([["ffm-eduardomoraga", {}]]) } : { missing: true, stdout: "" }; };
+    const read = await readStatusJson({ run, candidates: tailscaleStatusCommands({ platform: "darwin", home: "/Users/eduardo" }) });
+    expect(ran).toEqual([...TAILSCALE_CLI_PATHS, app[0]]);
+    const list = await createTailnetComputers({ status: async () => read, origins: () => [], fetch }).list();
+    expect(list).toMatchObject({ tailscale: "ready", computers: [{ id: "ffm-eduardomoraga.tail9f9734.ts.net", status: "noEduBot" }] });
   });
 });

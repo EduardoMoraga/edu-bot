@@ -155,6 +155,9 @@ describe("My computers", () => {
     expect(list("loading")).toContain("Looking for your computers…");
     expect(list("failed")).toContain("Couldn't look for your computers.");
     expect(list({ tailscale: "off", computers: [] })).toContain("Turn on Tailscale on this computer to see your other computers here.");
+    const unreadable = list({ tailscale: "unreadable", computers: [] });
+    expect(unreadable).toContain("Tailscale is on, but Edu Bot could not read the list of your computers from it.");
+    expect(unreadable).not.toContain("Turn on Tailscale");
     const none = list({ tailscale: "ready", computers: [phone, macMini] });
     expect(none).toContain("None of your other computers has Edu Bot open with Your other computers on.");
     expect(none).toContain("S24 Ultra de Eduardo");
@@ -171,6 +174,7 @@ describe("My computers", () => {
       expect(html).toContain("Android · En línea, sin Edu Bot");
       expect(html).toContain("macOS · Apagado");
       expect(list({ tailscale: "off", computers: [] })).toContain("Enciende Tailscale en este equipo");
+      expect(list({ tailscale: "unreadable", computers: [] })).toContain("Tailscale está encendido, pero Edu Bot no pudo leer de Tailscale la lista de tus equipos.");
       expect(list({ tailscale: "ready", computers: [] })).toContain("con Tus otros equipos encendido");
     } finally {
       setLocale("en");

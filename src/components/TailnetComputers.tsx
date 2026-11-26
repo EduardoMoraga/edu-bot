@@ -100,6 +100,7 @@ export function MyComputersList({ view }: { view: MyComputersView }) {
   const empty = view === "loading" ? t("devices.mine.looking")
     : view === "failed" ? t("devices.mine.failed")
     : view.tailscale === "off" ? t("devices.mine.tailscaleOff")
+    : view.tailscale === "unreadable" ? t("devices.mine.tailscaleUnreadable", { app })
     : view.computers.some((computer) => computer.status === "eduBot") ? null : t("devices.mine.none", { app, switch: t("devices.computers.title") });
   const computers = typeof view === "object" && view.tailscale === "ready" ? view.computers : [];
   return (
