@@ -1,7 +1,8 @@
 # v0.3.0 plan (from v0.3.0-look-and-brand.md). Starts only after v0.2.0 is published.
 
-One worker at a time (12 GB rule), each PR audited by Grok (C also by Agy: protocol and file migrations), CI green,
-then merge. Order matters: README shots come last, after the look is final.
+One worker at a time (12 GB rule), each PR audited by Grok (C also by Agy: protocol and file migrations).
+Commit that audit in `docs/edu-bot/reports/` as `YYYY-MM-DD-<milestone>-<reviewer>.md` (see that folder's README).
+CI green, then merge. Order matters: README shots come last, after the look is final.
 
 | PR | What | Worker | Est. |
 | --- | --- | --- | --- |
