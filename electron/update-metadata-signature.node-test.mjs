@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync } from "node:crypto";
+import { createPublicKey, generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,6 +61,8 @@ test("a valid signature matches the bytes and the embedded file is not a private
   assert.equal(verifyUpdateMetadata(YML, signature, publicPem).ok, true);
   assert.equal(metadataAgrees(YML, INFO), true);
   assert.doesNotMatch(UPDATE_METADATA_PUBLIC_KEY_PEM, /PRIVATE/);
+  const embedded = createPublicKey(UPDATE_METADATA_PUBLIC_KEY_PEM);
+  assert.equal(embedded.asymmetricKeyType, "ed25519");
   assert.equal(verifyUpdateMetadata(YML, signature, UPDATE_METADATA_PUBLIC_KEY_PEM).ok, false);
 });
 
