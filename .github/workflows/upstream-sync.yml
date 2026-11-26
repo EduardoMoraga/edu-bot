@@ -1,0 +1,46 @@
+# Weekly drift report against milind-soni/OpenMausBot.
+# A clean merge updates the draft pull request on branch upstream-sync.
+# A conflict updates one issue. Nothing is merged, and main is never pushed.
+# The job's token can write only this repository. The script also refuses the
+# upstream repository and every ref other than refs/heads/upstream-sync.
+
+name: Upstream sync
+
+on:
+  schedule:
+    - cron: "23 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: upstream-sync
+  cancel-in-progress: false
+
+jobs:
+  report:
+    if: github.repository == 'EduardoMoraga/edu-bot'
+    name: Report upstream drift
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          # The fork point is weeks of history behind upstream. A shallow
+          # checkout would invent a merge-base at the shallow boundary.
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+      - name: Fetch upstream and publish the report
+        env:
+          UPSTREAM_FETCH_URL: https://github.com/milind-soni/OpenMausBot.git
+          GH_REPO: EduardoMoraga/edu-bot
+        run: node scripts/upstream-sync.mjs publish
