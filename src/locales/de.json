@@ -4358,5 +4358,7 @@
   "botSettings.data.allow": "Erlauben",
   "profiles.field.data": "Datenverbindungen",
   "settings.data.connectionFailed": "Die Verbindung konnte nicht gespeichert werden.",
-  "settings.simple.themes.followPair": "Folgt deinem Computer: {light}, wenn es hell ist, {dark}, wenn es dunkel ist."
+  "settings.simple.themes.followPair": "Folgt deinem Computer: {light}, wenn es hell ist, {dark}, wenn es dunkel ist.",
+  "remote.devices.retiredShort": "Ältere Telefon-App. Aktualisiere sie und öffne sie einmal in deinem WLAN.",
+  "phone.pair.rowLine": "Installiere die Telefon-App aus dem App Store oder von Google Play, wo sie „{store}“ heißt, und kopple sie dann hier."
 }

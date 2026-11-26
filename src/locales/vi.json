@@ -6078,5 +6078,7 @@
   "botSettings.data.allow": "Cho phép",
   "profiles.field.data": "kết nối dữ liệu",
   "settings.data.connectionFailed": "Không thể lưu kết nối.",
-  "settings.simple.themes.followPair": "Theo máy tính của bạn: {light} khi sáng, {dark} khi tối."
+  "settings.simple.themes.followPair": "Theo máy tính của bạn: {light} khi sáng, {dark} khi tối.",
+  "remote.devices.retiredShort": "Ứng dụng điện thoại cũ. Hãy cập nhật, rồi mở một lần trên Wi-Fi của bạn.",
+  "phone.pair.rowLine": "Cài ứng dụng điện thoại từ App Store hoặc Google Play, nơi ứng dụng có tên “{store}”, rồi ghép nối tại đây."
 }

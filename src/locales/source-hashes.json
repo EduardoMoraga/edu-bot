@@ -4334,7 +4334,9 @@
       "server.profiles.bot.refusedStartsAt": "8e8035dd952aa871adec2909f2d3d35b0e5057d6f27b844e1d38ea02ffe49464",
       "server.profiles.bot.refusedGoesTo": "80009689bafc793dd2aad0b089bf679c5e40940e15a29a60def94c0b4bbeb690",
       "server.profiles.bot.refusedStaysAt": "d55839dc66b6f73c0ca2e94b81ff85b6e3bf6cc1b257a4b5d1115d01f67a5558",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "es": {
       "cloudAccount.notSetUp": "257081a46bba2504b155bcee223091e65cd29a23f6275fdfacedb2641ac3bac6",
@@ -20052,7 +20054,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "hi": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -23870,7 +23874,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "ja": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -31913,7 +31919,9 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "pt-br": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -53806,7 +53814,9 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "zh-tw": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -64077,7 +64087,9 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "uk": {
       "pro.fromPrice": "d987cb24a0047365eaccd50bf5ca52c7a9c255c22030969ca50e906d1a10ca56",
@@ -68315,7 +68327,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "vi": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -74370,7 +74384,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "tr": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -80425,7 +80441,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "pl": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -87679,7 +87697,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "ru": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -94986,7 +95006,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "it": {
       "whop.description": "1a07cf04ef17029448d3781415cbac16d54e66b821907a40d94e0e6349710e70",
@@ -102105,7 +102127,9 @@
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
       "keys.section.apps": "c80fdc77d5ef4ea97e66f50f72428d1566ff235d66c1b7634d9d34b71c1ea349",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     },
     "ko": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -109884,7 +109908,9 @@
       "connectors.tile.needsKey": "ffd45850a7c6ad83d83982690a89828ce7a5c365fbbd98191c2b81b93c3cc73f",
       "connectors.empty.noKeyDesc": "1081e4b2624467ff5c0a49e30dced77c3ec36a7435400e857f728a11215db983",
       "connectors.empty.addMcp": "6f731aa539076cd79dac1fc94c9a2b2e10ed23619b95b0ebff84f80e1a1ae71d",
-      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb"
+      "settings.simple.themes.followPair": "8157003a214791d497b00c171d24a591ed870427ac31b51e17e69058396f07cb",
+      "remote.devices.retiredShort": "1c7fd5c00ee36f12be0db8b3ee51c6badd216c57c8127b291408410695ae824c",
+      "phone.pair.rowLine": "6f6d0d83666999e7d4db457bdb75001e07dc1c27411f5d325498e651012bc2ae"
     }
   }
 }

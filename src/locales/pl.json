@@ -7276,5 +7276,7 @@
   "botSettings.data.allow": "Zezwól",
   "profiles.field.data": "połączenia danych",
   "settings.data.connectionFailed": "Nie udało się zapisać połączenia.",
-  "settings.simple.themes.followPair": "Za komputerem: {light}, gdy jest jasno, {dark}, gdy jest ciemno."
+  "settings.simple.themes.followPair": "Za komputerem: {light}, gdy jest jasno, {dark}, gdy jest ciemno.",
+  "remote.devices.retiredShort": "Stara aplikacja na telefon. Zaktualizuj ją i raz otwórz w swojej sieci Wi-Fi.",
+  "phone.pair.rowLine": "Zainstaluj aplikację na telefon z App Store lub Google Play, gdzie nazywa się „{store}”, a potem połącz ją tutaj."
 }

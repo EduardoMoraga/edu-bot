@@ -7142,5 +7142,7 @@
   "botSettings.data.allow": "Consenti",
   "profiles.field.data": "connessioni dati",
   "settings.data.connectionFailed": "Non è stato possibile salvare la connessione.",
-  "settings.simple.themes.followPair": "Segue il computer: {light} quando è chiaro, {dark} quando è buio."
+  "settings.simple.themes.followPair": "Segue il computer: {light} quando è chiaro, {dark} quando è buio.",
+  "remote.devices.retiredShort": "App del telefono vecchia. Aggiornala, poi aprila una volta sulla tua Wi-Fi.",
+  "phone.pair.rowLine": "Installa l'app del telefono dall'App Store o da Google Play, dove si chiama “{store}”, poi collegala qui."
 }

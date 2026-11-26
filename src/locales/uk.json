@@ -4261,5 +4261,7 @@
   "botSettings.data.allow": "Дозволити",
   "profiles.field.data": "підключення даних",
   "settings.data.connectionFailed": "Не вдалося зберегти підключення.",
-  "settings.simple.themes.followPair": "Слідує за комп’ютером: {light}, коли світло, {dark}, коли темно."
+  "settings.simple.themes.followPair": "Слідує за комп’ютером: {light}, коли світло, {dark}, коли темно.",
+  "remote.devices.retiredShort": "Старий застосунок для телефона. Оновіть його й один раз відкрийте у своїй мережі Wi-Fi.",
+  "phone.pair.rowLine": "Установіть застосунок для телефона з App Store або Google Play, де він називається «{store}», а потім під'єднайте його тут."
 }

@@ -7329,5 +7329,7 @@
   "botSettings.data.allow": "Разрешить",
   "profiles.field.data": "подключения к данным",
   "settings.data.connectionFailed": "Не удалось сохранить подключение.",
-  "settings.simple.themes.followPair": "Следует за компьютером: {light}, когда светло, {dark}, когда темно."
+  "settings.simple.themes.followPair": "Следует за компьютером: {light}, когда светло, {dark}, когда темно.",
+  "remote.devices.retiredShort": "Старое приложение для телефона. Обновите его и один раз откройте в своей сети Wi-Fi.",
+  "phone.pair.rowLine": "Установите приложение для телефона из App Store или Google Play, где оно называется «{store}», затем подключите его здесь."
 }

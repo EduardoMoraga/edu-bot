@@ -7801,5 +7801,7 @@
   "botSettings.data.allow": "허용",
   "profiles.field.data": "데이터 연결",
   "settings.data.connectionFailed": "연결을 저장하지 못했습니다.",
-  "settings.simple.themes.followPair": "컴퓨터를 따름: 밝을 때는 {light}, 어두울 때는 {dark}."
+  "settings.simple.themes.followPair": "컴퓨터를 따름: 밝을 때는 {light}, 어두울 때는 {dark}.",
+  "remote.devices.retiredShort": "오래된 휴대폰 앱이에요. 업데이트한 뒤 Wi-Fi에서 한 번 열어 주세요.",
+  "phone.pair.rowLine": "App Store 또는 Google Play에서 휴대폰 앱(스토어 이름: “{store}”)을 설치한 다음 여기에서 연결하세요."
 }

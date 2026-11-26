@@ -8065,5 +8065,7 @@
   "botSettings.data.allow": "許可",
   "profiles.field.data": "データ接続",
   "settings.data.connectionFailed": "接続を保存できませんでした。",
-  "settings.simple.themes.followPair": "コンピュータに合わせる：明るいときは {light}、暗いときは {dark}。"
+  "settings.simple.themes.followPair": "コンピュータに合わせる：明るいときは {light}、暗いときは {dark}。",
+  "remote.devices.retiredShort": "古いスマホアプリです。更新してから、一度 Wi-Fi で開いてください。",
+  "phone.pair.rowLine": "App Store または Google Play からスマホアプリ（ストアでの名前は「{store}」）をインストールし、ここでペアリングします。"
 }

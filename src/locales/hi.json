@@ -3841,5 +3841,7 @@
   "botSettings.data.allow": "अनुमति",
   "profiles.field.data": "डेटा कनेक्शन",
   "settings.data.connectionFailed": "कनेक्शन सहेजा नहीं जा सका।",
-  "settings.simple.themes.followPair": "आपके कंप्यूटर के अनुसार: उजाले में {light}, अँधेरे में {dark}।"
+  "settings.simple.themes.followPair": "आपके कंप्यूटर के अनुसार: उजाले में {light}, अँधेरे में {dark}।",
+  "remote.devices.retiredShort": "पुराना फ़ोन ऐप। इसे अपडेट करें, फिर अपने Wi-Fi पर एक बार खोलें।",
+  "phone.pair.rowLine": "App Store या Google Play से फ़ोन ऐप इंस्टॉल करें, वहाँ इसका नाम “{store}” है, फिर उसे यहाँ जोड़ें।"
 }

@@ -10291,5 +10291,7 @@
   "botSettings.data.saved": "已儲存。",
   "botSettings.data.allow": "允許",
   "profiles.field.data": "資料連線",
-  "settings.data.connectionFailed": "無法儲存連線。"
+  "settings.data.connectionFailed": "無法儲存連線。",
+  "remote.devices.retiredShort": "舊版手機應用程式。請先更新，然後在你的 Wi-Fi 下開啟一次。",
+  "phone.pair.rowLine": "從 App Store 或 Google Play 安裝手機應用程式（商店中的名稱是「{store}」），然後在這裡配對。"
 }

@@ -6078,5 +6078,7 @@
   "botSettings.data.allow": "İzin ver",
   "profiles.field.data": "veri bağlantıları",
   "settings.data.connectionFailed": "Bağlantı kaydedilemedi.",
-  "settings.simple.themes.followPair": "Bilgisayarını izler: aydınlıkta {light}, karanlıkta {dark}."
+  "settings.simple.themes.followPair": "Bilgisayarını izler: aydınlıkta {light}, karanlıkta {dark}.",
+  "remote.devices.retiredShort": "Eski telefon uygulaması. Güncelleyin, sonra Wi-Fi'nizde bir kez açın.",
+  "phone.pair.rowLine": "Telefon uygulamasını App Store veya Google Play'den kurun (orada adı “{store}”), sonra burada eşleyin."
 }

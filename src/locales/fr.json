@@ -3987,5 +3987,7 @@
   "botSettings.data.allow": "Autoriser",
   "profiles.field.data": "connexions de données",
   "settings.data.connectionFailed": "La connexion n'a pas pu être enregistrée.",
-  "settings.simple.themes.followPair": "Suit votre ordinateur : {light} quand il fait clair, {dark} quand il fait sombre."
+  "settings.simple.themes.followPair": "Suit votre ordinateur : {light} quand il fait clair, {dark} quand il fait sombre.",
+  "remote.devices.retiredShort": "Ancienne app du téléphone. Mettez-la à jour, puis ouvrez-la une fois sur votre Wi-Fi.",
+  "phone.pair.rowLine": "Installez l'app du téléphone depuis l'App Store ou Google Play, où elle s'appelle « {store} », puis associez-la ici."
 }
