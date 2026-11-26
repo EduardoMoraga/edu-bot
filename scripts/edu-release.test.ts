@@ -83,7 +83,10 @@ describe("Edu Bot 0.2.0 release metadata", () => {
     expect(doc).toContain("cua_driver_sdk.dll");
     expect(doc).toContain("resources/elevate.exe");
     expect(doc).toContain("0.45.4");
-    expect(doc).toContain("Mirroring that exact binary onto this repository is deferred.");
+    expect(doc).toContain("third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe");
+    expect(doc).toContain("33bee834f6a6072ec8688b0914726e0262874d758f69f27e8baf7eaac6b5ed15");
+    expect(win).toContain("third_party/browser/agent-browser-win32-x64-0.36.0-omb.1.exe");
+    expect(read(".gitattributes")).toContain("third_party/browser/*.exe binary -eol");
     const afterPack = read("scripts/after-pack.mjs");
     for (const name of ["cua-driver-LICENSE.md", "cua-driver-Inter-OFL-1.1.txt", "cua-driver-THIRD_PARTY_NOTICES.md"]) {
       expect(afterPack).toContain(name);
