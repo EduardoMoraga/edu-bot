@@ -77,7 +77,7 @@ Tus chats siguen en `~/.edubot`.
 ## Primeros pasos en 3 pasos
 
 1. **Inicia sesión en un motor.** Edu Bot usa programas que ya tienes, por ejemplo `claude`, `codex` y Antigravity (`agy`, para Gemini). Hay más en **Ajustes → IA → Proveedores**. Claude usa tu propio Claude Code: inicia sesión con `claude auth login`. Edu Bot nunca lee ni guarda los tokens de Claude y no consulta la API de uso de Anthropic.
-2. **Crea un bot.** Pulsa **Bot nuevo**.
+2. **Crea un bot.** Pulsa **Nuevo bot**.
 3. **Pregunta.** Escribe lo que necesitas. La respuesta aparece en el chat.
 
 Después, cuando quieras más:
