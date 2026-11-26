@@ -11,13 +11,17 @@ function setup(t) {
   const documentsDir = join(dir, "home", "Documents");
   mkdirSync(documentsDir, { recursive: true });
   const state = openSyncState(join(dir, "user", "state.db"));
-  t.after(() => { state.close(); rmSync(dir, { recursive: true, force: true }); });
+  const open = [state];
+  t.after(() => {
+    for (const handle of open.reverse()) handle.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
   const legacy = join(documentsDir, "MausBot"), current = join(documentsDir, "Edu Bot");
   const work = (root, file = "plan.md", text = "the plan") => {
     mkdirSync(join(root, "Owl", "Q3"), { recursive: true });
     writeFileSync(join(root, "Owl", "Q3", file), text);
   };
-  return { dir, documentsDir, state, legacy, current, work };
+  return { dir, documentsDir, state, legacy, current, work, closesBeforeRemoval: (handle) => open.push(handle) };
 }
 
 test("only Documents/MausBot with this app's work: renamed to Documents/Edu Bot once, its places follow", (t) => {
@@ -89,7 +93,7 @@ test("Files shows and opens Documents/Edu Bot after moving this app's MausBot fo
     cloudOrigin: () => null, fetch: async () => { throw new Error("no network in tests"); }, trashItem: async () => {},
     watch: () => () => {}, freeBytes: () => 100 * 1024 ** 3,
   });
-  t.after(() => service.close());
+  s.closesBeforeRemoval(service);
   assert.equal(service.state().outputs.dir, s.current);
   assert.equal(readFileSync(join(s.current, "Owl", "Q3", "plan.md"), "utf8"), "the plan");
   assert.equal(s.state.place("bot-owl-q3"), join(s.current, "Owl", "Q3"));
