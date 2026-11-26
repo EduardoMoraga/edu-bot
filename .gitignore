@@ -34,6 +34,7 @@ cloudflare/control-plane/worker-configuration.d.ts
 *.jks
 *.keystore
 *.p12
+edubot-update-signing.pem
 
 # per-tenant deploy settings (see deploy/.env.example)
 deploy/.env
