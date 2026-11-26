@@ -24,7 +24,6 @@ const store = vi.hoisted(() => ({ state: {} as Record<string, unknown>, dispatch
 vi.mock("@/state/store", () => ({ api: store.api, useStore: () => ({ state: store.state, dispatch: store.dispatch }) }));
 // The gate's job is choosing; the flow itself has its own recipe.
 vi.mock("./WelcomeFlow", () => ({ WelcomeFlow: () => null }));
-vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
 import { SharedWorkspaceHint } from "./SharedWorkspaceHint";
 import { useWelcomeViewer, WelcomeGate } from "./WelcomeGate";
 import { WelcomeFlow } from "./WelcomeFlow";
@@ -143,6 +142,8 @@ describe("who gets the welcome flow", () => {
     const { tree, html } = gate({ hosted: true, canSave: false });
     expect(tree?.type).toBe(SharedWorkspaceHint);
     expect(html).toContain("Your team&#x27;s shared Edu Bot");
+    expect(html).toContain('data-edu-mascot="happy"');
+    expect(html).not.toContain("data-avatar");
     expect(html).not.toContain("role=\"dialog\"");
     fixture.values = [];
     const hint = render(() => SharedWorkspaceHint({ replay: false, onClose: vi.fn() }));

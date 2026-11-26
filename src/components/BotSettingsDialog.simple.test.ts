@@ -519,8 +519,8 @@ describe("the avatar editor", () => {
     const rendered = editor(bot);
     expect(rendered.html.match(/aria-label="Use the \w+ body"/g)).toHaveLength(9);
     expect(rendered.html.match(/aria-label="Use \w+ mascot color"/g)).toHaveLength(12);
-    expect(rendered.html).not.toContain(">Halloween<");
-    expect(rendered.html).not.toContain(">Diwali<");
+    expect(rendered.html).not.toContain(">Carved<");
+    expect(rendered.html).not.toContain(">Festive<");
     expect(has(rendered, "data-avatar-face", "idle")).toBe(false);
     expect(find(rendered, "aria-label", "Use the Squircle body").props["aria-pressed"]).toBe(true);
     click(find(rendered, "aria-label", "Use the Blob body"));
@@ -541,8 +541,8 @@ describe("the avatar editor", () => {
     const open = editor(bot);
     expect(find(open, "data-avatar-more").props["aria-expanded"]).toBe(true);
     expect(open.html.match(/aria-label="Use the [\w ]+ body"/g)).toHaveLength(29);
-    expect(open.html).toContain(">Halloween<");
-    expect(open.html).toContain(">Diwali<");
+    expect(open.html).toContain(">Carved<");
+    expect(open.html).toContain(">Festive<");
     click(find(open, "aria-label", "Use the Pumpkin body"));
     expect(patch).toHaveBeenLastCalledWith({ mascotBody: "pumpkin" });
     click(find(open, "aria-label", "Use the Kaju katli body"));

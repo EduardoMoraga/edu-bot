@@ -3,13 +3,13 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { introStaged, stageIntro, useWelcomingBot } from "@/lib/default-bot";
+import { DEFAULT_BOT_NAME, introStaged, stageIntro, useWelcomingBot } from "@/lib/default-bot";
 import { setLocale } from "@/lib/i18n";
 import type { Bot } from "@/state/store";
 
 const f = vi.hoisted(() => ({ state: {} as { bots: Bot[]; instances: unknown[] }, dispatch: vi.fn(), landed: vi.fn(), onDone: vi.fn(), onLeave: vi.fn(), reduced: true }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ state: f.state, dispatch: f.dispatch }) }));
-vi.mock("@/components/Avatar", () => ({ BotAvatar: () => null, MausAvatar: () => null }));
+vi.mock("@/components/Avatar", () => ({ BotAvatar: () => null, BotFace: () => null }));
 vi.mock("@/components/mascot-clock", () => ({ usePrefersReducedMotion: () => f.reduced }));
 vi.mock("@/lib/default-bot", async (original) => ({ ...(await original<typeof import("@/lib/default-bot")>()), useViewerEmail: () => null }));
 vi.mock("@/lib/mausbot-landing", () => ({ FLIGHT_MS: 700, landInSidebar: (input: { botId: string; commit: () => void }) => { f.landed(input.botId); input.commit(); } }));
@@ -101,6 +101,15 @@ describe("Create", () => {
     expect(welcoming).toBeNull();
     expect(f.onDone).toHaveBeenCalledExactlyOnceWith("maus");
     expect(introStaged("maus")).toBe(true);
+  });
+
+  it("before the first bot exists, the Edu mascot stands in under the bot's name, and no bot's face is drawn", async () => {
+    f.state = { ...f.state, bots: [] };
+    await show();
+    const mascot = host.querySelector<HTMLElement>("[data-edu-mascot]")!;
+    expect(mascot.getAttribute("role")).toBe("img");
+    expect(mascot.getAttribute("aria-label")).toBe(DEFAULT_BOT_NAME);
+    expect(host.querySelector("[data-avatar]")).toBeNull();
   });
 
   it("makes MausBot the Chief where the place has none, and brings it back to the sidebar", async () => {

@@ -4,7 +4,7 @@ import { BOT_BODY_IDS } from "../../shared/bot-body";
 import { en, locales } from "@/locales";
 import { setLocale } from "./i18n";
 import { MAUS_COLOR_NAMES, PICKABLE_STATES } from "./mascot";
-import { bodyName, colorName, expressionName, silhouetteName } from "./mascot-names";
+import { bodyName, bodyPackName, colorName, expressionName, silhouetteName } from "./mascot-names";
 
 afterEach(() => {
   setLocale("en");
@@ -28,6 +28,15 @@ describe("mascot names", () => {
     expect([bodyName("pumpkin"), colorName("red"), expressionName("happy"), silhouetteName("Ghost")]).toEqual(["Pumpkin", "red", "happy", "Ghost"]);
     setLocale("pt-br");
     expect([bodyName("pumpkin"), colorName("red"), expressionName("happy"), silhouetteName("Ghost")]).toEqual(["Abóbora", "vermelha", "feliz", "Fantasma"]);
+  });
+
+  it("titles the two packs of carved bodies without naming a festival, in English, Spanish and Brazilian Portuguese", () => {
+    const titles = () => [bodyPackName("halloween"), bodyPackName("diwali")];
+    expect(titles()).toEqual(["Carved", "Festive"]);
+    setLocale("es");
+    expect(titles()).toEqual(["Tallados", "Festivos"]);
+    setLocale("pt-br");
+    expect(titles()).toEqual(["Esculpidos", "Festivos"]);
   });
 
   it("falls back to the id or name it was given when the catalog has none", () => {

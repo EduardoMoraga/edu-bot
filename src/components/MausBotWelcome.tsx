@@ -16,7 +16,7 @@ import { useStore, type Bot } from "@/state/store";
 import { BOT_PROFILE_LIMITS } from "../../shared/bot-profile";
 import { BotAvatar } from "./Avatar";
 import { useAvatarImage } from "./avatar-editing";
-import { MausBotCustomize } from "./MausBotCustomize";
+import { BotCustomize } from "./BotCustomize";
 import { usePrefersReducedMotion } from "./mascot-clock";
 
 const LOOK = ["name", "color", "mascotBody", "avatarUrl", "avatarCrop", "avatarZoom", "avatarFocusX", "avatarFocusY"] as const;
@@ -207,7 +207,7 @@ export function MausBotWelcomeCard({ bot, onClose }: { bot: Bot; onClose: () => 
         >
           <div className="min-h-0 overflow-hidden">
             <div className="pt-4">
-              <MausBotCustomize preview={preview} name={draft.name} nameRef={nameRef} image={image} onName={(next) => edit({ name: next })} onPatch={edit} />
+              <BotCustomize preview={preview} name={draft.name} nameRef={nameRef} image={image} onName={(next) => edit({ name: next })} onPatch={edit} />
             </div>
           </div>
         </div>

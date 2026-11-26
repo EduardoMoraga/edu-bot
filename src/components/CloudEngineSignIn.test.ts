@@ -66,6 +66,9 @@ it("offers the three ways in and says plainly whose plan limits apply", () => {
   expect(html).toContain("Anthropic&#x27;s Claude Max plan or an API key works best");
   expect(html).not.toMatch(/included/i);
   expect(html).not.toContain("data-engine-setup");
+  expect(html, "the Edu mascot, named for screen readers").toContain('data-edu-mascot="idle"');
+  expect(html).toContain('role="img" aria-label="Edu Bot"');
+  expect(html).not.toContain("data-avatar");
 });
 
 it("opens the existing paste-code and device-code sign-ins on this server's own engines", () => {

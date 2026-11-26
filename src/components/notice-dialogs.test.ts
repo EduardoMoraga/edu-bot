@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { setLocale } from "@/lib/i18n";
 
-vi.mock("@/components/Avatar", () => ({ MausAvatar: () => null }));
 vi.mock("@/components/EngineLibrary", () => ({ engineReady: () => true }));
 const { otherDialogOpen, useOtherDialogOpen } = await import("./notice-dialogs");
 const { Spotlight } = await import("./onboarding/Spotlight");
@@ -66,6 +65,8 @@ it("the first conversation's spotlight is a dialog the popup waits for", async (
   await mount(createElement(Spotlight, { anchor: null, placement: "below", primary: { label: "Got it", onClick: gotIt }, onDone: gotIt, children: "Approve this step" }));
   expect(document.querySelector('[role="dialog"]')!.getAttribute("aria-modal"), "the spotlight is not modal").toBeNull();
   expect(otherDialogOpen()).toBe(true);
+  expect(document.querySelector<HTMLElement>('[role="dialog"] [data-edu-mascot]')!.dataset.eduMascot, "the Edu mascot speaks the tip").toBe("idle");
+  expect(document.querySelector('[role="dialog"] [data-avatar]'), "no bot's face").toBeNull();
 });
 
 it("the calendar's Quick create (a dialog with only a label) counts too", () => {

@@ -10,7 +10,7 @@ import { type Bot } from "@/state/store";
 import { mayRename, useTeamPeople } from "@/state/team-people";
 import { PICKABLE_MASCOT_BODY_IDS } from "../../../shared/mascot-bodies";
 import { BODY_PACK_IDS, BODY_PACKS, botBodyId, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
-import { MausAvatar } from "../Avatar";
+import { BotFace } from "../Avatar";
 import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
 import { Segmented } from "./rows";
@@ -87,7 +87,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         !showsImage && body === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]",
       )}
     >
-      <MausAvatar color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={40} animated={false} trackPointer={false} />
+      <BotFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={40} animated={false} trackPointer={false} />
     </button>
   );
 

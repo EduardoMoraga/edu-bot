@@ -60,9 +60,10 @@ afterAll(() => {
 });
 
 describe("a chat with no messages yet", () => {
-  it("shows the Edu drawing with no mascot, the bot's name, four things to ask and New bot", async () => {
+  it("shows the Edu mascot and no bot face, the bot's name, four things to ask and New bot", async () => {
     await draw();
-    expect(empty()?.querySelector("svg[data-empty-chat-art]")?.getAttribute("aria-hidden")).toBe("true");
+    expect(empty()?.querySelector("[data-edu-mascot]")?.getAttribute("aria-hidden")).toBe("true");
+    expect(empty()?.querySelector("[data-edu-mascot]")?.hasAttribute("data-moving")).toBe(false);
     expect(empty()?.querySelector("[data-avatar]")).toBeNull();
     expect(empty()?.textContent).toContain("Pepper");
     expect(suggestions().map((button) => button.textContent)).toEqual([

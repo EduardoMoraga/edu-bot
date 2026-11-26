@@ -246,6 +246,8 @@ it("says the Cloud is ready once, in the session that finished it", async () => 
   f.values.splice(f.ownHooks);
   const { html } = render();
   expect(html).toContain("The Cloud is ready");
+  expect(html, "the Edu mascot celebrates, and no bot's face").toContain('data-edu-mascot="happy"');
+  expect(html).not.toContain("data-avatar");
   expect(html).not.toContain("Set up Edu Bot Cloud");
 });
 

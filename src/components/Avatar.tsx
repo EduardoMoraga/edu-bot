@@ -76,9 +76,9 @@ export function roomAvatarGradient(color: MausColor): [string, string, string] {
   return gradient;
 }
 
-export type MausAvatarHandle = CursorAvatarHandle;
+export type BotFaceHandle = CursorAvatarHandle;
 
-export type MausAvatarProps = {
+export type BotFaceProps = {
   color: MausColor;
   state?: MausState;
   expression?: number;
@@ -104,7 +104,7 @@ export type MausAvatarProps = {
   kind?: AvatarKind;
 };
 
-function MausAvatarComponent(props: MausAvatarProps, ref: React.Ref<MausAvatarHandle>) {
+function BotFaceComponent(props: BotFaceProps, ref: React.Ref<BotFaceHandle>) {
   const { bodyId, color, size, state, motion, motionKey, gaze, trackPointer, animated, label, kind } = props;
   if (isCarvedBody(bodyId)) {
     return (
@@ -151,8 +151,8 @@ function GradientAvatarComponent(
     gradient,
     faceColor,
     kind,
-  }: MausAvatarProps,
-  ref: React.Ref<MausAvatarHandle>,
+  }: BotFaceProps,
+  ref: React.Ref<BotFaceHandle>,
 ) {
   const silhouette = MASCOT_BODIES[botMascotBody(bodyId)];
   const chrome = color === "chrome";
@@ -208,9 +208,9 @@ function GradientAvatarComponent(
 
 const GradientAvatar = forwardRef(GradientAvatarComponent);
 
-export const MausAvatar = memo(forwardRef(MausAvatarComponent));
+export const BotFace = memo(forwardRef(BotFaceComponent));
 
-export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
+export type BotAvatarProps = Omit<BotFaceProps, "color" | "gradient"> & {
   readable?: boolean;
   bot: {
     name?: string;
@@ -254,7 +254,7 @@ export function BotAvatar({ bot, size = 44, label, readable = false, ...mascotPr
 
   if (outcome !== "flatImage") {
     return (
-      <MausAvatar
+      <BotFace
         bodyId={bot.mascotBody ?? undefined}
         {...mascotProps}
         color={bot.color}

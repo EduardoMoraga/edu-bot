@@ -284,6 +284,17 @@ and use it everywhere, rather than styling a one-off.
 | Bot panel rows | `src/components/bot-panel/rows.tsx` (`NavRow`, `SwitchRow`, `Segmented`, `ItemRow` and more) |
 | A keyboard shortcut hint | `ShortcutHint` |
 | Copy to clipboard | `copyText` from `src/lib/copy-text.ts` |
+| The app speaking for itself | `EduMascot` from `src/components/EduMascot.tsx` |
+
+**The Edu mascot** is the app's own character: a speech bubble with a face,
+painted only with `--color-accent`, `--color-accent-ink` and
+`--color-accent-text`, so every skin colours it. It appears where the app
+speaks and no bot does: the empty chat, onboarding tips and tours, the Cloud's
+setup screens and the bot limit popup. It has three moods (idle, happy,
+thinking), hops once when it turns happy, and pulses its thought dots while
+it is thinking. A bot's face is a separate thing
+(`BotAvatar`, `BotFace`): the body, colour and picture someone chose for that
+bot. Never draw the mascot for a bot, or a bot's face for the app.
 
 ## 10. Motion
 
@@ -331,7 +342,7 @@ talks.
   themes. "Your name · Not set yet" beats an empty field with grey text.
 - **Empty states are one line and one action.** Say what goes here and how
   to add the first one. No paragraphs, no illustrations made for the occasion.
-  The empty chat is the one screen with its own drawing
+  The empty chat is the one empty state that shows the Edu mascot
   (see [section 12](#12-states)).
 - **Never promise.** No "coming soon" and no teasers for unbuilt features.
 - **Use "…" (one character)** for work in progress ("Saving…") and for a
@@ -354,8 +365,8 @@ Before a UI change is done, it handles each of these:
   takes over 300ms. No skeletons for things that load in under a second.
 - **Empty.** See [section 11](#11-words).
 - **Empty chat** (`EmptyChat`). A conversation with no messages shows, centred
-  in the chat column: the Edu drawing (`EmptyChatArt`, an inline SVG painted
-  only with skin tokens, never a mascot), the bot's name at 17px, its
+  in the chat column: the Edu mascot (`EduMascot`, happy, never the bot's
+  face), the bot's name at 17px, its
   description or one line saying what to do, four things to ask as `.ui-pill`
   buttons, and **New bot** as a plain `.ui-button`. A thing to ask fills the
   composer and puts the cursor there; it is never sent, and pressing it twice

@@ -3543,6 +3543,17 @@ button:disabled.bg-danger {
   100% { opacity: 0; transform: translate(120px, 36px); }
 }
 
+[data-edu-mascot][data-moving] .edu-mascot-hop { animation: edu-mascot-hop 300ms cubic-bezier(0.22, 1, 0.36, 1); }
+[data-edu-mascot][data-moving] .edu-mascot-dot { animation: edu-mascot-dot 1.4s ease-in-out infinite; }
+[data-edu-mascot] .edu-mascot-dot:nth-child(2) { animation-delay: 0.18s; }
+[data-edu-mascot] .edu-mascot-dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes edu-mascot-hop { 0%, 100% { transform: translateY(0); } 45% { transform: translateY(-3px); } }
+@keyframes edu-mascot-dot { 0%, 60%, 100% { opacity: 0.35; } 30% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  [data-edu-mascot] :is(.edu-mascot-hop, .edu-mascot-dot) { animation: none; }
+}
+:root[data-reduced-motion="true"] [data-edu-mascot] :is(.edu-mascot-hop, .edu-mascot-dot) { animation: none; }
+
 /* Trace waterfall: AI steps lavender, tools pale teal, errors red, each mixed into the skin's card so every skin keeps its contrast. */
 .trace-bar { border: 1px solid transparent; }
 .trace-bar-step {
