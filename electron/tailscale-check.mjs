@@ -25,7 +25,8 @@ const macApps = (home) => ["/Applications/Tailscale.app", path.join(home, "Appli
 
 /** The executable inside the macOS app (App Store and standalone), which answers as the command-line tool when
  * TAILSCALE_BE_CLI=1 is set: https://tailscale.com/kb/1080/cli?tab=macos */
-export const macAppExecutables = (home = os.homedir()) => macApps(home).map((app) => path.join(app, "Contents", "MacOS", "Tailscale"));
+export const macAppExecutables = (home = os.homedir()) =>
+  ["/Applications/Tailscale.app", path.posix.join(home, "Applications", "Tailscale.app")].map((app) => path.posix.join(app, "Contents", "MacOS", "Tailscale"));
 
 /** Where a read-only `tailscale status --json` can come from here: the command-line tool, then on macOS the app itself. */
 export const tailscaleStatusCommands = ({ platform = process.platform, home = os.homedir() } = {}) =>
