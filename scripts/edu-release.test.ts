@@ -151,6 +151,10 @@ describe("Edu Bot 0.2.0 release metadata", () => {
     expect(releaseText).toContain("rpm must not be uploaded");
     expect(releaseText).toContain("latest-linux.yml must not list an rpm");
     expect(releaseText).toContain("node scripts/strip-linux-rpm-feed.mjs release/latest-linux.yml");
+    expect(releaseText).toContain("node scripts/sign-update-metadata.mjs");
+    expect(releaseText).toContain("EDUBOT_UPDATE_SIGNING_KEY");
+    expect(releaseText).toContain("assets/model-manifest.json");
+    expect(releaseText).toContain("assets/latest.yml.sig");
     const linuxUpload = releaseText.slice(releaseText.indexOf("name: linux-release"), releaseText.indexOf("assemble:"));
     expect(linuxUpload).not.toContain("rpm");
     expect(releaseText).toContain('[ "$GITHUB_REPOSITORY" = "EduardoMoraga/edu-bot" ]');

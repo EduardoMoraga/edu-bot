@@ -16,7 +16,8 @@ const ASSETS = [
   `EduBot-${VERSION}-arm64.zip.blockmap`, `EduBot-${VERSION}-x64.dmg`, `EduBot-${VERSION}-x64.dmg.blockmap`,
   `EduBot-${VERSION}-x64.zip`, `EduBot-${VERSION}-x64.zip.blockmap`, `EduBot-${VERSION}-setup.exe`,
   `EduBot-${VERSION}-setup.exe.blockmap`, `EduBot-${VERSION}-amd64.deb`, `EduBot-${VERSION}-x86_64.AppImage`,
-  "latest-mac.yml", "latest.yml", "latest-linux.yml", "SHA256SUMS",
+  "latest-mac.yml", "latest-mac.yml.sig", "latest.yml", "latest.yml.sig", "latest-linux.yml", "latest-linux.yml.sig",
+  "model-manifest.json", "SHA256SUMS",
 ];
 
 // A stand-in for the gh CLI that answers like GitHub's release API on a bad day: the create returns HTTP 500 after it

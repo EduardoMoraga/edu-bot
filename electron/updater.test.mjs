@@ -17,6 +17,9 @@ const OTHER = "https://bots.example.test";
 const OWN = "https://omb-c-a.fly.dev";
 
 const fixture = vi.hoisted(() => ({ autoUpdater: null, handlers: new Map(), home: "" }));
+const updateGate = vi.hoisted(() => ({ gateUpdateDownload: vi.fn() }));
+
+vi.mock("./update-metadata-signature.mjs", () => updateGate);
 
 vi.mock("./desktop-updates.mjs", () => ({ DESKTOP_AUTO_UPDATE: true }));
 vi.mock("electron", () => ({
@@ -123,6 +126,7 @@ const settle = async () => {
 };
 
 beforeEach(() => {
+  updateGate.gateUpdateDownload.mockClear();
   fixture.home = mkdtempSync(join(tmpdir(), "omb-updater-home-"));
   localOriginModule.setLocalOrigin(LOCAL);
   vi.useFakeTimers();
@@ -257,6 +261,8 @@ it("a downloaded update installs when the app quits, except a system package, wh
       updater.startUpdater();
       expect(autoUpdater.autoInstallOnAppQuit, `${os} ${marker ?? image ?? ""}`).toBe(installsOnQuit);
       expect(autoUpdater.autoDownload).toBe(false);
+      expect(autoUpdater.allowPrerelease).toBe(false);
+      expect(updateGate.gateUpdateDownload).toHaveBeenCalledWith(autoUpdater);
     }
   } finally {
     Object.defineProperty(process, "platform", platform);
