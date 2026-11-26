@@ -262,14 +262,16 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
       borrar. LICENSE y NOTICE intactos. Revisado por Grok:
       [informe](reports/2026-11-26-pr-70-grok.md).
     - #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
-      "Enciende Tailscale". La lectura por la app ya entró con tu #75. Falta probar en el Mac mini que no abre
-      la ventana de Tailscale. Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
+      "Enciende Tailscale". La lectura por la app ya entró con tu #75. Probado en el Mac mini (26-11): la app
+      de Tailscale 1.102.3 entrega la lista sin pedir el CLI. Falta mirar que no abra la ventana de Tailscale.
+      Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
   - [ ] Después de tu aprobación: PR de versión 0.3.0 y publicar (te pregunto antes).
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
   Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
-- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
+- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md). Pendiente: se hace con tus manos
+  en los equipos.
 
 ## Cómo trabajamos
 
