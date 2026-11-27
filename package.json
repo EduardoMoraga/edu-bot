@@ -2,7 +2,7 @@
   "name": "edu-bot",
   "productName": "Edu Bot",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Your team of AI bots, on your computer. An open-source, local-first desktop app that runs Claude Code, Codex, Gemini and other AI agents as a team of bots.",
   "keywords": [
     "ai-agents",
