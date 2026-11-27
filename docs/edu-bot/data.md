@@ -47,3 +47,20 @@ MausBot apps for iOS and Android, and Edu Bot does not control them:
   for. The computer's mDNS host name is Edu Bot's own (`edubot-<hash>.local`).
 
 Environment variables keep their `OMB_` prefix.
+
+## Names kept for compatibility
+
+Everything a person reads says Edu Bot. These names keep their old form on purpose, because something outside
+this app looks for them, or because changing them would break an install, a paired phone or a saved file:
+
+| Name | Why it stays |
+| --- | --- |
+| `openmausbot://pair?…` links and the `_openmausbot._tcp` service | The published phone apps only open and browse for these (see above). |
+| The phone app's name in the App Store and Google Play: "MausBot" | Edu Bot does not publish those apps. The pairing and update texts say what to search for. |
+| `openmausbot://` desktop links | Still opened, like `edubot://`, but never registered with the OS, so an OpenMausBot installed beside Edu Bot keeps its own links. |
+| `app: "openmausbot"`, `x-openmausbot-*` headers, `openmausbot:*` messages between the desktop app and its helpers | Older servers, companions and phone apps check them. |
+| `OMB_*` environment variables, `omb-*` browser storage keys, `@openmausbot/*` package names, `pnpm omb` | Saved settings, scripts and existing installs use them. |
+| The bundled skill id `openmausbot-docs` | Bots and saved skill lists name it. A model can see this id; its name and text say Edu Bot. |
+| `Documents/MausBot` | If Edu Bot's own Files put work there, it is renamed to `Documents/Edu Bot` once. If both folders exist, Edu Bot uses `Documents/Edu Bot` and leaves `Documents/MausBot` as it is; a `Documents/MausBot` this app never wrote to belongs to OpenMausBot and is not touched. |
+| `.mausbot-theme.json` | Themes export as `.edubot-theme.json`; import still reads the old files. |
+

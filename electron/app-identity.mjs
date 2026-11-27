@@ -13,6 +13,12 @@ export const dataDirNameFor = slug => `${DATA_DIR_NAME}-${slug}`;
 
 export const DEEP_LINK_SCHEME = "edubot";
 export const DEEP_LINK_PREFIX = `${DEEP_LINK_SCHEME}://`;
+/** Links written before the app had its own scheme. They open like edubot:// ones, but the scheme is never registered
+ * with the OS, so an OpenMausBot installed beside it keeps its own links. */
+export const LEGACY_DEEP_LINK_PREFIX = "openmausbot://";
+export const ownDeepLink = value => typeof value === "string" && value.slice(0, LEGACY_DEEP_LINK_PREFIX.length).toLowerCase() === LEGACY_DEEP_LINK_PREFIX
+  ? DEEP_LINK_PREFIX + value.slice(LEGACY_DEEP_LINK_PREFIX.length)
+  : value;
 
 // The published MausBot phone apps register only this scheme, so a pairing link meant for a phone must use it.
 export const PHONE_LINK_SCHEME = "openmausbot";

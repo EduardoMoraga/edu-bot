@@ -17,7 +17,7 @@ import { withAnswer } from "./testing/your-computer.ts";
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const RERUN_NOTE = "Edu Bot restarted while your previous turn here was running";
 const RERUN_CHIP = "Resuming after a restart";
-const SECRET_PROVIDED = "OpenMausBot credential update: the user securely provided";
+const SECRET_PROVIDED = "Edu Bot credential update: the user securely provided";
 const SEAT_FREE = "the computer this conversation waited for is free again";
 const INTERRUPTED_OUTWARD = "Interrupted by an Edu Bot restart after it already";
 const SETTLED = "Your downstream room requests have settled.";

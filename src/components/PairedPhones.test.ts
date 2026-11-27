@@ -42,12 +42,12 @@ describe("paired phones", () => {
     const rowFor = (device: PhoneDevice, controller: PhoneSetupController, onPairAgain?: () => void) =>
       createElement(PhoneRow, { device, connected: false, state: state(), c: controller, onRemoved: () => {}, onPairAgain });
     const markup = renderToStaticMarkup(rowFor(phone(), retired, () => {}));
-    expect(markup).toContain("This phone has an older MausBot app. Update the app, then open it once on the same Wi-Fi as this computer. If that doesn&#x27;t reconnect it, pair it again here.");
-    expect(markup, "the short line names the published phone app").toContain("Older MausBot app. Update it, then open it once on your Wi-Fi.");
+    expect(markup).toContain("This phone has an older version of the phone app. Update it from the App Store or Google Play, where it is listed as “MausBot”, then open it once on the same Wi-Fi as this computer. If that doesn&#x27;t reconnect it, pair it again here.");
+    expect(markup, "the short line names the published phone app").toContain("Older phone app. Update it, then open it once on your Wi-Fi.");
     expect(markup).toMatch(/<button type="button"[^>]*>Pair again<\/button>/);
     expect(renderToStaticMarkup(rowFor(phone(), retired)), "no way to pair from here: no button").not.toContain("Pair again");
-    expect(renderToStaticMarkup(rowFor(phone({ e2eAt: NOW }), retired, () => {})), "a phone on the encrypted connection").not.toContain("older MausBot app");
-    expect(renderToStaticMarkup(rowFor(phone(), c, () => {})), "the link not ended").not.toContain("older MausBot app");
+    expect(renderToStaticMarkup(rowFor(phone({ e2eAt: NOW }), retired, () => {})), "a phone on the encrypted connection").not.toContain("older version of the phone app");
+    expect(renderToStaticMarkup(rowFor(phone(), c, () => {})), "the link not ended").not.toContain("older version of the phone app");
   });
 
   it("lists connected phones first, then the most recently seen", () => {

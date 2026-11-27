@@ -485,7 +485,7 @@ it("keeps the person's request on work handed on after a card answer, on the roo
   f.plan[f.lead.id] = { reply: "LEAD_DONE" };
   const ask = (key: string, brief: string, credential: string) => ({
     steps: [{ tool: "request_credential", arguments: { credential_id: credential, reason: "The team needs it" } }], reply: "Asked",
-    byPrompt: [{ promptIncludes: "OpenMausBot credential update", plan: f.delegate(key, [f.lead], brief) }],
+    byPrompt: [{ promptIncludes: "Edu Bot credential update", plan: f.delegate(key, [f.lead], brief) }],
   });
 
   f.plan[f.chief.id] = ask("after-card", "CARD_ONE_BRIEF check the team", "xaiApiKey");

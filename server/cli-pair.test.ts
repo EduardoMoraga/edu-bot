@@ -178,7 +178,7 @@ describe("the phone-app link `edubot pair --phone android` scans", () => {
     expect(await runPair({ ...options, phone: "android", publicUrl: explicitOrigin })).toBe(0);
     expect(printed()).not.toContain("openmausbot://");
     expect(printed()).not.toContain(credential);
-    expect(printed()).toContain("scan this with the MausBot app");
+    expect(printed()).toContain("scan this with the phone app");
   });
 
   it("keeps a proxy path in the web link", async () => {

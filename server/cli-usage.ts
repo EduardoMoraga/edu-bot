@@ -12,7 +12,7 @@ export function routeCli(argv: readonly string[]): { headless: boolean; argv: st
 }
 
 export const HEADLESS_USAGE = `Drive a running workspace (scripts, CI, other agents):
-  edubot login [SERVER]            sign this terminal in once: MausBot shows a card to allow it (logout, whoami, use NAME, servers)
+  edubot login [SERVER]            sign this terminal in once: Edu Bot shows a card to allow it (logout, whoami, use NAME, servers)
   edubot status                    every bot at a glance: working, waiting on you, paused, failed or idle, and its computer
   edubot bots delete|pause|resume|stop (BOT… | --team T | --all)   act on bots; delete asks first (--yes, --dry-run)
   edubot stop (BOT… | --team T | --all)   stop their work now, without pausing
@@ -79,7 +79,7 @@ pair    a new pairing code for the running server, with its link and QR
         (--phone: chat and approvals only; --ttl keeps it open up to 24h,
         still single use)
 devices lists paired devices; "devices revoke ID" signs one out
-account login signs this machine in to an OpenMausBot account (an emailed
+account login signs this machine in to an Edu Bot account (an emailed
         code) and reserves its public address for --tunnel; with --relay it
         reserves none, for serve --relay. account logout releases that
         address and signs out. account status: the running server, the
@@ -124,7 +124,7 @@ Ways in (pick one; --lan can join any):
              open ports 80 and 443.
 
 --relay      phones only, and it can join any of the above except --tunnel:
-             the MausBot phone app pairs by QR through MausBot Relay,
+             the phone app pairs by QR through Edu Bot Relay,
              end-to-end encrypted, with no address, open port or VPN. Run
              \`edubot account login --relay\` once on this machine first. Not on a
              machine with a tunnel address: the relay stays off there.

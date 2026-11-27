@@ -170,7 +170,7 @@ La organización, sus áreas y sus bots pueden vivir en archivos. Dos personas c
 
 La app muestra un plan primero. Nada cambia hasta que lo aplicas. Una línea **Da más acceso** solo se aplica si tú la permites en la app de escritorio.
 
-Ábrelo en **Ajustes → Perfiles**. En una copia local, ejecuta `pnpm omb profiles plan <carpeta>` y `pnpm omb profiles apply <carpeta>`.
+Ábrelo en **Ajustes → Perfiles**. Desde la línea de comandos, ejecuta `edubot profiles plan <carpeta>` y `edubot profiles apply <carpeta>`.
 
 Detalle: [Perfiles](docs/profiles.md).
 

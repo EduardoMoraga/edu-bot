@@ -48,7 +48,7 @@ describe("Open on your phone, on a Team Cloud: the phones it opened", () => {
     expect(rows()[0]).toContain("Ada's iPhone · ada@acme.test");
     expect(rows()[0]).toContain("seen 3 min ago");
     expect(host.textContent).toContain("Paired devices");
-    expect(host.textContent, "the phone app keeps its published name").toContain("Scan this code with the MausBot phone app. Your phone opens Acme as you, with the chats you see here.");
+    expect(host.textContent, "the phone app keeps its published name").toContain("Scan this code with the phone app. Your phone opens Acme as you, with the chats you see here.");
     expect(removeButtons().map((button) => button.textContent)).toEqual(["Remove"]);
   });
 
@@ -78,7 +78,7 @@ describe("Open on your phone, on a Team Cloud: the phones it opened", () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
     flushSync(() => host.querySelector<HTMLButtonElement>("[data-phone-pairing-action]")!.click());
     await vi.waitFor(() => expect(host.querySelector("[data-team-phone-code]")).not.toBeNull());
-    expect(host.querySelector("[data-team-phone-code]")!.textContent).toContain("Scan it from inside the MausBot app, not the camera.");
+    expect(host.querySelector("[data-team-phone-code]")!.textContent).toContain("Scan it from inside the phone app, not the camera.");
     expect(host.querySelector("[data-team-phone-code]")!.textContent).not.toMatch(/phone's camera|in the browser/);
     fixture.phones = [phone("ph-ada", "Ada's iPhone", "ada@acme.test")];
     await vi.advanceTimersByTimeAsync(PHONE_ARRIVAL_POLL_MS);

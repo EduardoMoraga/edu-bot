@@ -41,6 +41,13 @@ describe("About", () => {
     expect(html).not.toContain("Connected to");
   });
 
+  it("names only Edu Bot, and keeps the Notice link that credits where it comes from", () => {
+    const html = about({ location: { host: "bots.example.test" } });
+    expect(html).toContain(">Edu Bot</h2>");
+    expect(html).not.toMatch(/maus/i);
+    expect(html).toContain(">Notices</button>");
+  });
+
   it("names the server as it was saved, in the person's language", () => {
     const app = { version: "0.1.127", ownPage: false };
     expect(aboutVersionLines({ app, bundle: "0.1.116", platform: "macOS", server: "Office Mac" })).toEqual([

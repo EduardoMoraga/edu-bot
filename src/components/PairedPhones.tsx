@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Smartphone } from "lucide-react";
 
-import { COMPANION_APP_NAME } from "@/lib/brand";
+import { PHONE_APP_STORE_NAME } from "@/lib/brand";
 import { t } from "@/lib/i18n";
 import type { CompanionState, PhoneDevice, PhoneSetupController } from "./PhoneSetupFlow";
 import { SIMPLE_CARD, Switch } from "./SettingsPrimitives";
@@ -59,9 +59,9 @@ export function PhoneRow({ device, connected, state, c, onRemoved, onPairAgain, 
           </div>
           {c.account?.paused && <div className="truncate text-[12px] leading-4 text-ink-secondary">{t("remote.devices.paused")}</div>}
           {retired && (
-            <div className="flex items-start gap-1.5 text-[12px] leading-4 text-warning" data-phone-retired="" title={t("remote.devices.retired")}>
+            <div className="flex items-start gap-1.5 text-[12px] leading-4 text-warning" data-phone-retired="" title={t("remote.devices.retired", { store: PHONE_APP_STORE_NAME })}>
               <span aria-hidden="true" className="mt-[5px] size-1.5 shrink-0 rounded-full bg-warning" />
-              <span>{t("remote.devices.retiredShort", { app: COMPANION_APP_NAME })}</span>
+              <span>{t("remote.devices.retiredShort")}</span>
             </div>
           )}
         </div>

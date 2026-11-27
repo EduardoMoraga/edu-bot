@@ -547,9 +547,9 @@ export function createPhoneClaim(
       if (response.status === 401 || response.status === 403) {
         return { ok: false, message: "This turn no longer has phone access. Start a new turn to use the phone." };
       }
-      return { ok: false, message: "OpenMausBot could not reserve the phone for this call. This call was not performed; try again, or start a new turn if it keeps failing." };
+      return { ok: false, message: "Edu Bot could not reserve the phone for this call. This call was not performed; try again, or start a new turn if it keeps failing." };
     } catch {
-      return { ok: false, message: "OpenMausBot could not be reached to reserve the phone. This call was not performed; try again." };
+      return { ok: false, message: "Edu Bot could not be reached to reserve the phone. This call was not performed; try again." };
     }
   };
 }

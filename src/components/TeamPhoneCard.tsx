@@ -1,4 +1,3 @@
-import { COMPANION_APP_NAME } from "@/lib/brand";
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -80,7 +79,7 @@ export function TeamPhoneCard({ team, blocked }: { team: string; blocked?: strin
   }
 
   return (
-    <Card title={t("teamPhone.title")} subtitle={t("teamPhone.subtitle", { team, app: COMPANION_APP_NAME })}>
+    <Card title={t("teamPhone.title")} subtitle={t("teamPhone.subtitle", { team })}>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         <button type="button" data-phone-pairing-action onClick={() => void create()} disabled={busy || Boolean(blocked)} title={blocked ?? undefined} className="ui-button ui-button-primary">
           {busy ? t("remote.serverPairing.creating") : t("remote.serverPairing.create")}
@@ -99,7 +98,7 @@ export function TeamPhoneCard({ team, blocked }: { team: string; blocked?: strin
               <div className="min-w-[200px] flex-1">
                 <div className="font-mono text-[18px] tracking-[0.14em] text-ink">{offer.code}</div>
                 <div className="mt-1 text-[13px] text-ink-secondary">{codeUntil(offer.expiresAt)}</div>
-                {offer.url ? <p className="mt-2 text-[12px] text-ink-tertiary">{t("phone.code.notCamera", { app: COMPANION_APP_NAME })}</p> : <p className="mt-3 text-[13px] text-ink-secondary">{offer.hint ?? t("remote.serverPairing.noLink")}</p>}
+                {offer.url ? <p className="mt-2 text-[12px] text-ink-tertiary">{t("phone.code.notCamera")}</p> : <p className="mt-3 text-[13px] text-ink-secondary">{offer.hint ?? t("remote.serverPairing.noLink")}</p>}
               </div>
             </div>
           )}
