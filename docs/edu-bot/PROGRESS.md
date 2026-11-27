@@ -248,14 +248,30 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   - [x] PR B2 (#65): letra propia para Edu (Atkinson Hyperlegible Next, hecha para leer fácil), más aire en
     modo simple, la fila elegida de la barra lateral con una raya verde, y el chat vacío con un dibujo, 4 ideas
     para empezar y el botón "Nuevo bot". Separé la mascota en su propio PR para que cada revisión sea chica.
-  - [ ] PR B2b (#66), en revisión: la mascota Edu, una burbuja de chat verde con cara. Reemplaza la carita del
+  - [x] PR B2b (#66): la mascota Edu, una burbuja de chat verde con cara. Reemplaza la carita del
     bot en las pantallas de la app (nube, límite de bots, guía). Las caras de tus bots no cambian. En el
     selector de caras, "Halloween" y "Diwali" ahora se llaman "Tallados" y "Festivos".
+  - [x] PR D (#69): el README en inglés y español, con banner, botones de descarga, capturas nuevas, un GIF de
+    18 s y un diagrama. Falta subir `docs/images/og-social.png` como "social preview" en Settings de GitHub
+    (solo se puede a mano).
+  - [x] #68: el release sube cada archivo por separado y reintenta si GitHub da error 500. Las notas dicen que
+    la app se actualiza sola en Windows y Linux.
+  - [ ] **Esperan tu aprobación** (nueva regla: solo tú mergeas):
+    - #70, marca propia: todo dice "Edu Bot". El bot ya no dice "OpenMausBot" cuando le preguntas quién es
+      (venía de las instrucciones de cada bot). Documentos/MausBot pasa a Documentos/Edu Bot sin mezclar ni
+      borrar. LICENSE y NOTICE intactos. Revisado por Grok:
+      [informe](reports/2026-11-26-pr-70-grok.md).
+    - #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
+      "Enciende Tailscale". La lectura por la app ya entró con tu #75. Probado en el Mac mini (26-11): la app
+      de Tailscale 1.102.3 entrega la lista sin pedir el CLI y no abre su ventana.
+      Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
+  - [ ] Después de tu aprobación: PR de versión 0.3.0 y publicar (te pregunto antes).
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
   Ya decidiste las 2 preguntas (25-11): sin clic de confirmación, y FFM también recibe órdenes.
-- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md).
+- [ ] Prueba con varios equipos: [multi-device-test.md](multi-device-test.md). Pendiente: se hace con tus manos
+  en los equipos.
 
 ## Cómo trabajamos
 
