@@ -10884,6 +10884,7 @@
   "devices.mine.looking": "Buscando tus equipos…",
   "devices.mine.failed": "No se pudo buscar tus equipos. Se vuelve a intentar en un minuto.",
   "devices.mine.tailscaleOff": "Enciende Tailscale en este equipo para ver aquí tus otros equipos.",
+  "devices.mine.tailscaleUnreadable": "Tailscale está encendido, pero {app} no pudo leer de Tailscale la lista de tus equipos.",
   "devices.mine.none": "Ninguno de tus otros equipos tiene {app} abierto con {switch} encendido.",
   "devices.mine.eduBot": "En línea, {app}",
   "devices.mine.eduBotVersion": "En línea, {app} {version}",

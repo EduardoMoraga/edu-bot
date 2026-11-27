@@ -132,9 +132,20 @@ describe("the My computers list", () => {
   it("is off, and asks no computer, when Tailscale is not ready or not there", async () => {
     let probed = 0;
     const origins = () => { probed++; return []; };
-    expect(await createTailnetComputers({ status: async () => '{"BackendState":"Stopped"}', origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
-    expect(await createTailnetComputers({ status: async () => null, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
-    expect(await createTailnetComputers({ status: async () => { throw new Error("gone"); }, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    const interfaces = () => ({ lo: [{ address: "127.0.0.1" }] });
+    expect(await createTailnetComputers({ status: async () => '{"BackendState":"Stopped"}', interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(await createTailnetComputers({ status: async () => null, interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(await createTailnetComputers({ status: async () => { throw new Error("gone"); }, interfaces, origins, fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(probed).toBe(0);
+  });
+
+  it("says it could not read the list, not that Tailscale is off, when this computer is on the tailnet", async () => {
+    let probed = 0;
+    const origins = () => { probed++; return []; };
+    const onMac = () => ({ utun4: [{ address: "100.90.146.38" }, { address: "fd7a:115c:a1e0::1a01:9226" }] });
+    for (const read of [async () => null, async () => "", async () => { throw new Error("gone"); }]) {
+      expect(await createTailnetComputers({ status: read, interfaces: onMac, origins, fetch }).list()).toEqual({ tailscale: "unreadable", computers: [] });
+    }
     expect(probed).toBe(0);
   });
 
@@ -222,6 +233,6 @@ describe("finding Tailscale for My computers", () => {
     expect(await readStatusJson({ run, candidates: tailscaleStatusCandidates(home) })).toBeNull();
     expect(ran).toContain(APP_CLI);
     expect(ran).toContain(`${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`);
-    expect(await createTailnetComputers({ status: async () => readStatusJson({ run }), origins: () => [], fetch }).list()).toEqual({ tailscale: "off", computers: [] });
+    expect(await createTailnetComputers({ status: async () => readStatusJson({ run }), interfaces: () => ({}), origins: () => [], fetch }).list()).toEqual({ tailscale: "off", computers: [] });
   });
 });

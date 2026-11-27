@@ -46,8 +46,11 @@ has Edu Bot open (with its version), is online without Edu Bot, or is off. This 
   Tailscale only.
 - A computer shows Edu Bot only while **Your other computers** is on there, since that switch is what lets other
   computers reach it.
-- The list is read when you open it and every minute while it stays open, and never in the background. It needs
-  Tailscale's command-line tool on this computer.
+- The list is read when you open it and every minute while it stays open, and never in the background. It reads
+  `tailscale status --json` from Tailscale's command-line tool, or, on a Mac with only the Tailscale app, from the
+  app's own executable (`Tailscale.app/Contents/MacOS/Tailscale` with `TAILSCALE_BE_CLI=1`, read only; it does not
+  open the app). If Tailscale is on but the list cannot be read, the list says so instead of asking you to turn
+  Tailscale on.
 
 ## What the other computer lends
 

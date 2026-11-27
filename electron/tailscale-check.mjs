@@ -1,6 +1,7 @@
 // Runs only when the person presses Turn on or Check again on the Tailscale route (or the app starts with its share for
-// other computers on), and only Tailscale's command-line tool: never the macOS app's executable, so the app is never
-// opened or signed in. Never logs Tailscale's raw output (it can carry auth keys and node names).
+// other computers on), and only Tailscale's command-line tool. The macOS app's own executable is run only for a read-only
+// `status --json`, with TAILSCALE_BE_CLI=1 so it acts as that tool and never opens the app or signs in. Never logs
+// Tailscale's raw output (it can carry auth keys and node names).
 import { execFile } from "node:child_process";
 import { Resolver } from "node:dns/promises";
 import fs from "node:fs";

@@ -3,7 +3,7 @@
 import os from "node:os";
 
 import { DESKTOP_PORTS } from "./desktop-ports.mjs";
-import { readTailnetPeers } from "./tailnet.mjs";
+import { readTailnetPeers, tailnetInterfaceAddresses } from "./tailnet.mjs";
 import { runTailscaleStatus, TAILSCALE_CLI_PATHS } from "./tailscale-check.mjs";
 
 const DESCRIPTOR = "/.well-known/openmausbot/environment";
@@ -132,17 +132,18 @@ async function eachLimited(items, limit, work) {
 }
 
 /**
- * `list()` resolves `{ tailscale: "ready" | "off", computers }`, Edu Bots first. One round runs at a time: a call while one
+ * `list()` resolves `{ tailscale: "ready" | "off" | "unreadable", computers }`, Edu Bots first. "unreadable": this computer
+ * has a tailnet address, so Tailscale is on, but its status could not be read. One round runs at a time: a call while one
  * runs gets that round, and a call within `minGapMs` of the last gets its answer. `status()` is `tailscale status --json`.
  */
-export function createTailnetComputers({ status = () => readStatusJson(), fetch: fetchImpl, origins = computerOrigins, timeoutMs = 3_000, concurrency = 4, minGapMs = 5_000, now = Date.now }) {
+export function createTailnetComputers({ status = () => readStatusJson(), interfaces = () => os.networkInterfaces(), fetch: fetchImpl, origins = computerOrigins, timeoutMs = 3_000, concurrency = 4, minGapMs = 5_000, now = Date.now }) {
   let round = null;
   let last = null;
   let lastAt = 0;
 
   async function run() {
     const read = readTailnetPeers(await status().catch(() => null));
-    if (!read.ready) return { tailscale: "off", computers: [] };
+    if (!read.ready) return { tailscale: tailnetInterfaceAddresses(interfaces()).length ? "unreadable" : "off", computers: [] };
     const computers = await eachLimited(read.peers, concurrency, async (peer) =>
       entry(peer, peer.online ? await probeComputer(origins(peer.name), { fetch: fetchImpl, timeoutMs }) : null));
     const rank = { eduBot: 0, noEduBot: 1, offline: 2 };
