@@ -238,8 +238,12 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
   todavía no, falta la firma de Apple). Desde la 0.1.0 hay que instalarla a mano una vez. Probé la actualización
   en Linux: pasa de una versión vieja a la 0.2.0 en el mismo lugar. GitHub falló al armar el borrador; subí yo los
   mismos archivos que hizo CI, revisados con SHA256SUMS.
-- [ ] **Ahora: v0.3.0, temas, diseño, marca propia y README** (pedido 25-11). Plan en 5 PRs, unos 5 a 7 días:
-  [plan-v0.3.0.md](plan-v0.3.0.md).
+- [x] **v0.3.0 publicada** (27-11): https://github.com/EduardoMoraga/edu-bot/releases/tag/v0.3.0
+  Trae los temas, el look Edu, la mascota, el nombre Edu Bot en todo y Mis equipos en el Mac. **Desde la 0.3.0
+  la app solo instala actualizaciones firmadas por Edu Bot.** Revisé todos los archivos con SHA256SUMS y las 3
+  firmas con la llave que trae la app. Probé la actualización en Linux con la 0.2.0 publicada: pasa a la 0.3.0
+  en el mismo lugar. GitHub no falló esta vez; no tuve que subir nada a mano.
+  Plan: [plan-v0.3.0.md](plan-v0.3.0.md).
   - [x] PR A (#62): los temas cambian con un clic. Claro u oscuro ya funciona con un tema propio puesto. La
     grilla de temas se ve de entrada, y la letra y el ancho del chat ya no piden modo avanzado.
   - [x] PR B1 (#63): una instalación nueva se ve con el look **Edu** (verde claro) y **Edu Night** (verde
@@ -256,16 +260,13 @@ Plan (exploración de Claude, `~/Projects/edu-bot-wt/reports/claude-m4-scout.md`
     (solo se puede a mano).
   - [x] #68: el release sube cada archivo por separado y reintenta si GitHub da error 500. Las notas dicen que
     la app se actualiza sola en Windows y Linux.
-  - [ ] **Esperan tu aprobación** (nueva regla: solo tú mergeas):
-    - #70, marca propia: todo dice "Edu Bot". El bot ya no dice "OpenMausBot" cuando le preguntas quién es
-      (venía de las instrucciones de cada bot). Documentos/MausBot pasa a Documentos/Edu Bot sin mezclar ni
-      borrar. LICENSE y NOTICE intactos. Revisado por Grok:
-      [informe](reports/2026-11-26-pr-70-grok.md).
-    - #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
-      "Enciende Tailscale". La lectura por la app ya entró con tu #75. Probado en el Mac mini (26-11): la app
-      de Tailscale 1.102.3 entrega la lista sin pedir el CLI y no abre su ventana.
-      Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
-  - [ ] Después de tu aprobación: PR de versión 0.3.0 y publicar (te pregunto antes).
+  - [x] #70, marca propia: todo dice "Edu Bot". El bot ya no dice "OpenMausBot" cuando le preguntas quién es
+    (venía de las instrucciones de cada bot). Documentos/MausBot pasa a Documentos/Edu Bot sin mezclar ni
+    borrar. LICENSE y NOTICE intactos. Revisado por Grok: [informe](reports/2026-11-26-pr-70-grok.md).
+  - [x] #71, Mis equipos en el Mac con solo la app de Tailscale: si no puede leer la lista, lo dice en vez de
+    "Enciende Tailscale". Probado en el Mac mini (26-11): la app de Tailscale 1.102.3 entrega la lista sin
+    pedir el CLI y no abre su ventana. Revisado por Grok: [informe](reports/2026-11-26-pr-71-grok.md).
+  - [x] #80: versión 0.3.0. Tú la mergeaste; yo puse el tag y publiqué.
 - [ ] Después: tus equipos por Tailscale, PRs 2 a 4 (conectar solos, órdenes, herdr).
   Tus equipos aparecen solos por Tailscale y puedes mandar órdenes de un
   equipo a otro. Plan y estimación (unas 2 semanas, 4 PRs): [plan-tailnet-devices.md](plan-tailnet-devices.md).
