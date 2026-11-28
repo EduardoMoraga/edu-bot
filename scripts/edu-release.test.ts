@@ -34,10 +34,10 @@ function resourcePaths(value: unknown, found: string[] = []): string[] {
   return found;
 }
 
-describe("Edu Bot 0.3.0 release metadata", () => {
-  it("pins package.json and the released data format to 0.3.0", () => {
-    expect(JSON.parse(read("package.json")).version).toBe("0.3.0");
-    expect(JSON.parse(read("server/data-format-released.json")).version).toBe("0.3.0");
+describe("Edu Bot 0.3.1 release metadata", () => {
+  it("pins package.json and the released data format to 0.3.1", () => {
+    expect(JSON.parse(read("package.json")).version).toBe("0.3.1");
+    expect(JSON.parse(read("server/data-format-released.json")).version).toBe("0.3.1");
   });
 
   it("does not package Android platform-tools or Chrome for Testing", () => {
