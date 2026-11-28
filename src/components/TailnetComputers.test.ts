@@ -222,7 +222,7 @@ describe("Computers", () => {
 
   it("lists every own computer with one Always allow each that can take it, and never a link or a code", () => {
     const html = list({ tailscale: "ready", computers: [ffm, old, { ...macMini, allowed: true, folders: ["EduBotPrueba"] }] });
-    expect(html).toContain("Computers");
+    expect(html).toContain("My computers");
     expect(html).toContain('data-always-allow="ffm-eduardomoraga.tail9f9734.ts.net"');
     expect(html).toContain('aria-label="Always allow FFM-EDUARDOMORAGA"');
     expect(html).not.toContain('data-always-allow="old.tail9f9734.ts.net"');
@@ -261,7 +261,7 @@ describe("Computers", () => {
     const root = createRoot(host);
     try {
       await act(async () => root.render(createElement(MyComputers)));
-      expect(host.innerHTML).toContain("Computers");
+      expect(host.innerHTML).toContain("My computers");
       await act(async () => { toggle(host, ffm.id).click(); });
       expect(allowComputer).toHaveBeenCalledWith(ffm.id);
       expect(host.innerHTML).toContain("Uses EduBotPrueba");

@@ -10895,7 +10895,7 @@
   "devices.mine.eduBotVersion": "Online, {app} {version}",
   "devices.mine.noEduBot": "Online, no {app}",
   "devices.mine.offline": "Off",
-  "computers.title": "Computers",
+  "computers.title": "My computers",
   "computers.detail": "Your own computers on Tailscale. Always allow lets one of them use a folder you choose on this computer, and nothing else.",
   "computers.allow": "Always allow",
   "computers.allowFor": "Always allow {name}",
