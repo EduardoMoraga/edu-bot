@@ -6928,6 +6928,7 @@
   "devices.computers.pairButton": "Associa un computer",
   "devices.computers.title": "I tuoi altri computer",
   "devices.mine.title": "I miei computer",
+  "computers.title": "Computer",
   "devices.computers.pairTitle": "Associa un altro computer",
   "remote.tailscale.needsApproval": "Questo computer è in attesa di approvazione sulla tua rete Tailscale. Approvalo nella console di amministrazione di Tailscale, poi riprova.",
   "together.switch.title": "Questo computer e Il mio Cloud insieme",
