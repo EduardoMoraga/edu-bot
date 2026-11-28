@@ -4,7 +4,7 @@ import os from "node:os";
 
 import { DESKTOP_PORTS } from "./desktop-ports.mjs";
 import { readTailnetPeers, tailnetInterfaceAddresses } from "./tailnet.mjs";
-import { runTailscaleStatus, TAILSCALE_CLI_PATHS } from "./tailscale-check.mjs";
+import { runTailscaleStatus, tailscaleStatusCandidates } from "./tailscale-check.mjs";
 
 const DESCRIPTOR = "/.well-known/openmausbot/environment";
 const BODY_MAX_BYTES = 8_192;
@@ -24,7 +24,8 @@ const tailscaleOs = (os) => (typeof os === "string" && /^[A-Za-z0-9]{1,16}$/.tes
 
 /**
  * An Edu Bot's public description, read strictly: `environmentId` a UUID, `label`, `platform` and `version` strings and a
- * `capabilities` object, else null. Only the label, platform and version come out, each cleaned and capped.
+ * `capabilities` object, else null. Only the label, platform and version come out, each cleaned and capped, and whether
+ * it signs in the same Tailscale owner's computers (`trust`).
  */
 export function readDescriptor(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
@@ -36,6 +37,7 @@ export function readDescriptor(body) {
     label: plainText(label),
     platform: /^[a-z0-9]{1,16}$/.test(platform) ? platform : null,
     version: /^[0-9A-Za-z.+-]{1,32}$/.test(version) ? version : null,
+    trust: capabilities.tailnetTrust === true,
   };
 }
 
@@ -88,17 +90,6 @@ export async function probeComputer(origins, { fetch: fetchImpl, timeoutMs = 3_0
   return index === -1 ? null : { ...answers[index], address: origins[index] };
 }
 
-/** Standalone `tailscale` first, then the CLI inside the macOS app (App Store and the standalone .app both
- * ship it at Contents/MacOS/Tailscale; `runTailscaleStatus` sets TAILSCALE_BE_CLI so the app does not open).
- * https://tailscale.com/docs/reference/tailscale-cli?tab=macos */
-export function tailscaleStatusCandidates(home = os.homedir()) {
-  return [
-    ...TAILSCALE_CLI_PATHS,
-    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
-    `${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`,
-  ];
-}
-
 /** `tailscale status --json` through the first command-line tool that is there, including the macOS app's; null without one. */
 export async function readStatusJson({ run = runTailscaleStatus, candidates = tailscaleStatusCandidates() } = {}) {
   for (const cli of candidates) {
@@ -115,7 +106,7 @@ function entry(peer, found) {
   const base = { id: peer.name, name, os: tailscaleOs(peer.os) };
   if (!peer.online) return { ...base, status: "offline" };
   if (!found) return { ...base, status: "noEduBot" };
-  return { ...base, status: "eduBot", version: found.version, platform: found.platform, address: found.address };
+  return { ...base, status: "eduBot", version: found.version, platform: found.platform, address: found.address, trust: found.trust === true };
 }
 
 async function eachLimited(items, limit, work) {

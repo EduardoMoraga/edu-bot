@@ -127,7 +127,7 @@ export function serverInstall(env: NodeJS.ProcessEnv = process.env, script = pro
  * /api/auth/session answer, never in the description anyone may read before pairing. */
 export const OWNER_LENDING = Object.freeze({ sharedComputers: true, lendingDetails: true, commandTimeouts: true, longCommands: true, fileEdits: true, lentMcp: true, mcpCaller: true } as const);
 
-export function environmentDescriptor(input: { environmentId: string; desktopManaged: boolean; emailSignIn?: boolean; sharedComputers?: boolean; cloudHome?: boolean; cloudTeam?: boolean; ownHome?: boolean; label?: string }): EnvironmentDescriptor {
+export function environmentDescriptor(input: { environmentId: string; desktopManaged: boolean; emailSignIn?: boolean; sharedComputers?: boolean; cloudHome?: boolean; cloudTeam?: boolean; ownHome?: boolean; tailnetTrust?: boolean; label?: string }): EnvironmentDescriptor {
   return {
     environmentId: input.environmentId,
     label: input.label?.trim() || process.env.OMB_ENVIRONMENT_LABEL?.trim() || process.env.OMB_SERVER_NAME?.trim() || hostname(),
@@ -144,6 +144,7 @@ export function environmentDescriptor(input: { environmentId: string; desktopMan
       ...(input.cloudHome === true ? { cloudHome: true as const, move: 1 as const } : {}),
       ...(input.ownHome === true && input.cloudHome !== true ? { move: 1 as const } : {}),
       ...(input.cloudHome === true && input.cloudTeam === true ? { cloudTeam: true as const } : {}),
+      ...(input.tailnetTrust === true && input.cloudHome !== true && input.cloudTeam !== true ? { tailnetTrust: true as const } : {}),
       selfUpdate: input.desktopManaged ? "desktop-managed" : "operator",
       ...(input.desktopManaged ? {} : { install: serverInstall() }),
       emailSignIn: input.emailSignIn === true,

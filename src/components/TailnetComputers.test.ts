@@ -210,3 +210,85 @@ describe("My computers", () => {
     }
   });
 });
+
+describe("Computers", () => {
+  type View = Parameters<typeof MyComputersList>[0]["view"];
+  const ffm = { id: "ffm-eduardomoraga.tail9f9734.ts.net", name: "FFM-EDUARDOMORAGA", os: "windows", status: "eduBot" as const, version: "0.3.1", platform: "win32",
+    address: "http://ffm-eduardomoraga.tail9f9734.ts.net:8799", trust: true };
+  const old = { ...ffm, id: "old.tail9f9734.ts.net", name: "OLD-PC", version: "0.3.0", trust: false };
+  const macMini = { id: "mac-mini-de-eduardomoraga.tail9f9734.ts.net", name: "Mac mini de EduardoMoraga", os: "macOS", status: "offline" as const };
+  const list = (view: View, onAllow = () => {}) => renderToStaticMarkup(createElement(MyComputersList, { view, onAllow })).replaceAll("&#x27;", "'");
+  const toggle = (host: HTMLElement, id: string) => host.querySelector<HTMLButtonElement>(`[data-always-allow="${id}"] button`)!;
+
+  it("lists every own computer with one Always allow each that can take it, and never a link or a code", () => {
+    const html = list({ tailscale: "ready", computers: [ffm, old, { ...macMini, allowed: true, folders: ["EduBotPrueba"] }] });
+    expect(html).toContain("My computers");
+    expect(html).toContain('data-always-allow="ffm-eduardomoraga.tail9f9734.ts.net"');
+    expect(html).toContain('aria-label="Always allow FFM-EDUARDOMORAGA"');
+    expect(html).not.toContain('data-always-allow="old.tail9f9734.ts.net"');
+    expect(html).toContain("Update Edu Bot there to allow it");
+    expect(html).toContain('data-always-allow="mac-mini-de-eduardomoraga.tail9f9734.ts.net"');
+    expect(html).toContain("macOS · Off · Uses EduBotPrueba");
+    expect(html).not.toMatch(/Copy link|Pair a computer|Advanced mode|Connect to a server/);
+    expect(html).not.toContain(ffm.address);
+  });
+
+  it("reads in plain Spanish", async () => {
+    const { setLocale } = await import("@/lib/i18n");
+    setLocale("es");
+    try {
+      const html = list({ tailscale: "ready", computers: [{ ...ffm, allowed: true, folders: ["EduBotPrueba"] }, old] });
+      expect(html).toContain("Computadoras");
+      expect(html).toContain("Permitir siempre");
+      expect(html).toContain('aria-label="Permitir siempre a FFM-EDUARDOMORAGA"');
+      expect(html).toContain("Windows · En línea, Edu Bot 0.3.1 · Usa EduBotPrueba");
+      expect(html).toContain("Actualiza Edu Bot allí para permitirla");
+    } finally {
+      setLocale("en");
+    }
+  });
+
+  it("turns Always allow on and off through the desktop, then shows the list it reads back", async () => {
+    const lent = { ...ffm, allowed: true, folders: ["EduBotPrueba"] };
+    let current: { tailscale: "ready"; computers: Array<typeof ffm & { allowed?: boolean; folders?: string[] }> } = { tailscale: "ready", computers: [ffm] };
+    const computers = vi.fn(async () => current);
+    const allowComputer = vi.fn(async () => { current = { tailscale: "ready", computers: [lent] }; return true; });
+    const stopComputer = vi.fn(async () => { current = { tailscale: "ready", computers: [ffm] }; });
+    (globalThis as { ogb?: unknown }).ogb = { companion: { computers, allowComputer, stopComputer, tailnetComputers: vi.fn() } };
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(createElement(MyComputers)));
+      expect(host.innerHTML).toContain("My computers");
+      await act(async () => { toggle(host, ffm.id).click(); });
+      expect(allowComputer).toHaveBeenCalledWith(ffm.id);
+      expect(host.innerHTML).toContain("Uses EduBotPrueba");
+      await act(async () => { toggle(host, ffm.id).click(); });
+      expect(stopComputer).toHaveBeenCalledWith(ffm.id);
+      expect(host.innerHTML).not.toContain("Uses EduBotPrueba");
+    } finally {
+      await act(async () => root.unmount());
+      delete (globalThis as { ogb?: unknown }).ogb;
+    }
+  });
+
+  it("says why on the row when allowing fails", async () => {
+    (globalThis as { ogb?: unknown }).ogb = { companion: { computers: async () => ({ tailscale: "ready", computers: [ffm] }),
+      allowComputer: async () => { throw new Error("Error invoking remote method 'companion:computer-allow': Error: FFM-EDUARDOMORAGA didn't allow it"); }, stopComputer: async () => {} } };
+    const { createRoot } = await import("react-dom/client");
+    const { act } = await import("react");
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    try {
+      await act(async () => root.render(createElement(MyComputers)));
+      await act(async () => { toggle(host, ffm.id).click(); });
+      expect(host.textContent).toContain("FFM-EDUARDOMORAGA didn't allow it");
+      expect(host.textContent).not.toContain("Error invoking");
+    } finally {
+      await act(async () => root.unmount());
+      delete (globalThis as { ogb?: unknown }).ogb;
+    }
+  });
+});

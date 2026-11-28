@@ -85,17 +85,26 @@ function useMyComputers(source: () => Promise<TailnetComputersList>): MyComputer
 
 const OS_NAMES: Record<string, string> = { windows: "Windows", linux: "Linux", android: "Android", macos: "macOS", ios: "iOS", freebsd: "FreeBSD" };
 
-function computerLine(computer: TailnetComputer): string {
+function computerLine(computer: TailnetComputer, allows: boolean): string {
   const app = productName();
   const status = computer.status === "eduBot"
     ? computer.version ? t("devices.mine.eduBotVersion", { app, version: computer.version }) : t("devices.mine.eduBot", { app })
     : computer.status === "noEduBot" ? t("devices.mine.noEduBot", { app }) : t("devices.mine.offline");
   const os = computer.os ? OS_NAMES[computer.os.toLowerCase()] ?? computer.os : null;
-  return os ? `${os} · ${status}` : status;
+  const uses = computer.allowed && computer.folders?.length ? t("computers.uses", { folders: computer.folders.join(", ") })
+    : allows && computer.status === "eduBot" && !computer.trust ? t("computers.update", { app }) : null;
+  return [os, status, uses].filter(Boolean).join(" · ");
 }
 
-/** My computers: the person's own other computers on Tailscale, and which have Edu Bot open. Only shows them. */
-export function MyComputersList({ view }: { view: MyComputersView }) {
+/** Always allow, for a computer that can be allowed now or is allowed already. */
+function canSwitch(computer: TailnetComputer): boolean {
+  return computer.allowed === true || (computer.status === "eduBot" && computer.trust === true);
+}
+
+/** Computers: the person's own other computers on Tailscale, which have Edu Bot open, and, with `onAllow`, one Always
+ * allow switch each. */
+export function MyComputersList({ view, onAllow, busy = null, problem = null }: { view: MyComputersView; onAllow?: (computer: TailnetComputer, on: boolean) => void;
+  busy?: string | null; problem?: { id: string; text: string } | null }) {
   const app = productName();
   const empty = view === "loading" ? t("devices.mine.looking")
     : view === "failed" ? t("devices.mine.failed")
@@ -104,13 +113,18 @@ export function MyComputersList({ view }: { view: MyComputersView }) {
     : view.computers.some((computer) => computer.status === "eduBot") ? null : t("devices.mine.none", { app, switch: t("devices.computers.title") });
   const computers = typeof view === "object" && view.tailscale === "ready" ? view.computers : [];
   return (
-    <SettingsGroup block="my-computers" label={t("devices.mine.title")} description={t("devices.mine.detail", { app })}>
+    <SettingsGroup block="my-computers" label={t(onAllow ? "computers.title" : "devices.mine.title")} description={onAllow ? t("computers.detail") : t("devices.mine.detail", { app })}>
       <SettingsRows>
         {empty && <SettingsEmptyRow><span aria-live="polite" data-my-computers-empty="">{empty}</span></SettingsEmptyRow>}
         {computers.map((computer) => (
           <SettingRow key={computer.id} title={computer.name}
-            subtitle={<span data-my-computer={computer.status}><StatusDot tone={computer.status === "eduBot" ? "success" : null} />{computerLine(computer)}</span>}>
-            {null}
+            subtitle={<span data-my-computer={computer.status}><StatusDot tone={computer.status === "eduBot" ? "success" : null} />{computerLine(computer, Boolean(onAllow))}</span>}
+            message={problem?.id === computer.id ? <span className="text-danger" aria-live="polite">{problem.text}</span> : undefined}>
+            {onAllow && canSwitch(computer) ? <span data-always-allow={computer.id} className="contents">
+              <span className="text-[13px] text-ink-secondary">{t("computers.allow")}</span>
+              <Switch checked={computer.allowed === true} disabled={busy !== null} aria-label={t("computers.allowFor", { name: computer.name })}
+                onClick={() => onAllow(computer, computer.allowed !== true)} />
+            </span> : null}
           </SettingRow>
         ))}
       </SettingsRows>
@@ -118,12 +132,36 @@ export function MyComputersList({ view }: { view: MyComputersView }) {
   );
 }
 
-/** Only in the desktop app's own window for this computer. */
+/** Only in the desktop app's own window for this computer: Computers with Always allow on an app that has it, else the list. */
 export function MyComputers() {
-  const [source] = useState(() => (pageIsThisComputer() ? companionBridge()?.tailnetComputers : undefined));
-  return source ? <ShownMyComputers source={source} /> : null;
+  const [bridge] = useState(() => (pageIsThisComputer() ? companionBridge() : undefined));
+  if (bridge?.computers && bridge.allowComputer && bridge.stopComputer) {
+    return <Computers source={bridge.computers} allow={bridge.allowComputer} stop={bridge.stopComputer} />;
+  }
+  return bridge?.tailnetComputers ? <ShownMyComputers source={bridge.tailnetComputers} /> : null;
 }
 
 function ShownMyComputers({ source }: { source: () => Promise<TailnetComputersList> }) {
   return <MyComputersList view={useMyComputers(source)} />;
+}
+
+const message = (error: unknown) => (error instanceof Error ? error.message.replace(/^Error invoking remote method '[^']+': (?:Error: )?/, "") : String(error));
+
+function Computers({ source, allow, stop }: { source: () => Promise<TailnetComputersList>; allow: (id: string) => Promise<boolean>; stop: (id: string) => Promise<void> }) {
+  const listed = useMyComputers(source);
+  // The list read after a switch, until the next minute's read replaces it.
+  const [after, setAfter] = useState<{ view: TailnetComputersList; over: MyComputersView } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ id: string; text: string } | null>(null);
+  const onAllow = (computer: TailnetComputer, on: boolean) => {
+    const over = listed;
+    setBusy(computer.id);
+    setProblem(null);
+    (on ? allow(computer.id).then(() => undefined) : stop(computer.id))
+      .catch((error: unknown) => setProblem({ id: computer.id, text: message(error) }))
+      .then(() => source())
+      .then((view) => setAfter({ view, over }), () => {})
+      .finally(() => setBusy(null));
+  };
+  return <MyComputersList view={after && after.over === listed ? after.view : listed} onAllow={onAllow} busy={busy} problem={problem} />;
 }

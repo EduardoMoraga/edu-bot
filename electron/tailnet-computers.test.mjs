@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { tailscaleInstall } from "./tailscale-check.mjs";
-import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson, tailscaleStatusCandidates } from "./tailnet-computers.mjs";
+import { tailscaleInstall, tailscaleStatusCandidates } from "./tailscale-check.mjs";
+import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson } from "./tailnet-computers.mjs";
 
 const ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const descriptor = (over = {}) => ({ environmentId: ID, label: "Mac mini", platform: "darwin", version: "0.1.140", capabilities: { remoteSessions: true }, ...over });
@@ -35,7 +35,9 @@ const json = (body, status = 200) => (_req, res) => {
 
 describe("reading an Edu Bot's public description", () => {
   it("takes the name, system and version of a well-formed one", () => {
-    expect(readDescriptor(descriptor())).toEqual({ label: "Mac mini", platform: "darwin", version: "0.1.140" });
+    expect(readDescriptor(descriptor())).toEqual({ label: "Mac mini", platform: "darwin", version: "0.1.140", trust: false });
+    expect(readDescriptor(descriptor({ capabilities: { tailnetTrust: true } }))).toMatchObject({ trust: true });
+    expect(readDescriptor(descriptor({ capabilities: { tailnetTrust: "yes" } }))).toMatchObject({ trust: false });
   });
 
   it("refuses anything not shaped exactly like one", () => {
@@ -60,7 +62,7 @@ describe("reading an Edu Bot's public description", () => {
 describe("asking a computer whether it runs Edu Bot", () => {
   it("finds an Edu Bot, says which address answered, and sends no cookie or credential", async () => {
     const good = await fake(json(descriptor()));
-    expect(await probeComputer([good.origin], { fetch })).toEqual({ label: "Mac mini", platform: "darwin", version: "0.1.140", address: good.origin });
+    expect(await probeComputer([good.origin], { fetch })).toEqual({ label: "Mac mini", platform: "darwin", version: "0.1.140", trust: false, address: good.origin });
     expect(good.seen[0].url).toBe("/.well-known/openmausbot/environment");
     expect(good.seen[0].headers.cookie).toBeUndefined();
     expect(good.seen[0].headers.authorization).toBeUndefined();
@@ -121,7 +123,7 @@ describe("the My computers list", () => {
       fetch,
     });
     expect(await list.list()).toEqual({ tailscale: "ready", computers: [
-      { id: "ffm-eduardomoraga.tail9f9734.ts.net", name: "FFM", os: "windows", status: "eduBot", version: "0.1.140", platform: "darwin", address: good.origin },
+      { id: "ffm-eduardomoraga.tail9f9734.ts.net", name: "FFM", os: "windows", status: "eduBot", version: "0.1.140", platform: "darwin", address: good.origin, trust: false },
       { id: "s24-ultra.tail9f9734.ts.net", name: "s24-ultra", os: "android", status: "noEduBot" },
       { id: "ipad153.tail9f9734.ts.net", name: "ipad153", os: "iOS", status: "offline" },
       { id: "nucbox-m6.tail9f9734.ts.net", name: "nucbox-m6", os: "windows", status: "offline" },

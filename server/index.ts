@@ -522,7 +522,7 @@ import { applyPendingWorkspaceRestore, readLastWorkspaceRestore, type WorkspaceR
 import { repairMovedWorkspacePaths } from "./moved-paths-repair.ts";
 import { createCustomDomainVerifier, customDomainIpv4, normalizeCustomDomain } from "./custom-domain.ts";
 import { allowedScopes, createEmailSignIn, parseAllowList } from "./account-signin.ts";
-import { pairingLinkBase, signInMailTarget } from "./pairing-base.ts"; import { lanUrl, listenHost } from "./lan-address.ts"; import { createTailnetShare } from "./tailnet-listener.ts";
+import { pairingLinkBase, signInMailTarget } from "./pairing-base.ts"; import { lanUrl, listenHost } from "./lan-address.ts"; import { createTailnetShare } from "./tailnet-listener.ts"; import { tailscaleReader } from "./tailnet-trust.ts"; import { createTailnetSignInRoute, TAILNET_SIGN_IN_PATH } from "./routes/tailnet-sign-in.ts";
 import { ProviderAuthSessions } from "./provider-auth-sessions.ts";
 import {
   clearSessionCookie,
@@ -778,6 +778,8 @@ delete process.env.OMB_CLI_OWNER_STDIN;
 let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 let companionMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 const FALLBACK_PUBLIC_URL = process.env.OMB_PUBLIC_URL?.trim().replace(/\/+$/, "") || null; const tailnetShare = createTailnetShare({ port: PORT, handle: (req, res) => handleRequest(req, res), attach: (listener, handle) => upgrades.attach(listener, handle), log: (line) => console.log(line) });
+const TEST_TAILSCALE_CLI = import.meta.url.endsWith(".ts") ? process.env.OMB_TEST_TAILSCALE_CLI?.trim() : undefined, TAILNET_SIGN_IN_UNAVAILABLE = HOSTED_WORKSPACE ? "Sign in through the workspace portal." : CLOUD_HOME ? "A Cloud home does not take sign-ins from Tailscale." : null; const tailnetTrustOpen = () => TAILNET_SIGN_IN_UNAVAILABLE === null && tailnetShare.state().listening.length > 0;
+const tailnetSignInRoute = createTailnetSignInRoute({ sessions, tailscale: tailscaleReader(TEST_TAILSCALE_CLI ? [TEST_TAILSCALE_CLI] : undefined), arrivedOnTailnet: (req) => tailnetShare.arrivedHere(req), unavailable: TAILNET_SIGN_IN_UNAVAILABLE, standIn: process.env.OMB_TEST_TAILNET_STAND_IN, log: (line) => console.warn(line), cookieName: SESSION_COOKIE, environment: () => environmentDescriptor({ environmentId: ENVIRONMENT_ID, desktopManaged: DESKTOP_MANAGED, emailSignIn: emailSignIn.enabled(), sharedComputers: lendingEnabled(), ownHome: ownHome.takesMove(), tailnetTrust: tailnetTrustOpen() }) });
 const cfg = loadConfig();
 const hostedModels = hostedModelPolicy(DATA_DIR);
 const providerConfigs = () => hostedModels ? hostedModels.configs() : instanceConfigs(cfg);
@@ -12476,7 +12478,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     // Hosted workspaces have one sign-in authority: a missing optional layer must never reactivate email/QR credential minting.
     if (HOSTED_WORKSPACE) {
-      if (method === "POST" && ["/api/auth/pair", "/api/pair", "/api/auth/pairing", "/api/auth/email/start", "/api/auth/email/verify"].includes(path)) {
+      if (method === "POST" && ["/api/auth/pair", "/api/pair", "/api/auth/pairing", "/api/auth/email/start", "/api/auth/email/verify", TAILNET_SIGN_IN_PATH].includes(path)) {
         return json(res, 403, { error: "Sign in through the workspace portal." });
       }
       if (workspaceAccess) {
@@ -12501,7 +12503,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     // Two public routes come first; everything else needs the loopback owner or a paired session with the right scope.
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && (moveFreeze.screen(path) ? (res.writeHead(302, { location: moveFreeze.screen(path)!, "cache-control": "no-store" }).end(), true) : serveStatic(res, path, STATIC_DIR))) return;
     if (method === "GET" && path === "/.well-known/openmausbot/environment") {
-      return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && !CLOUD_HOME && emailSignIn.enabled(), sharedComputers: lendingEnabled(), cloudHome: Boolean(CLOUD_HOME), cloudTeam: CLOUD_TEAM !== null, ownHome: ownHome.takesMove() }));
+      return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && !CLOUD_HOME && emailSignIn.enabled(), sharedComputers: lendingEnabled(), cloudHome: Boolean(CLOUD_HOME), cloudTeam: CLOUD_TEAM !== null, ownHome: ownHome.takesMove(), tailnetTrust: tailnetTrustOpen() }));
     }
     const domainCheck = /^\/\.well-known\/openmausbot\/domain-check\/([a-f0-9]{64})$/.exec(path);
     if (method === "GET" && domainCheck) {
@@ -12511,7 +12513,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (await emailSignInRoute({ cloudHome: Boolean(CLOUD_HOME), emailSignIn, sessions, cookieName: SESSION_COOKIE, target: (r) => signInMailTarget(publicUrl(), requestOrigin(r)),
       environment: () => environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: true, sharedComputers: lendingEnabled() }) }, req, res, path, method)) return;
-    if ((cloudSigned && await cloudSigned({ req, res, url, path, method })) || chatApps.serveFile(req, res, path, method) || await cliLogin.open(req, res, path, method)) return;
+    if ((cloudSigned && await cloudSigned({ req, res, url, path, method })) || chatApps.serveFile(req, res, path, method) || await cliLogin.open(req, res, path, method) || await tailnetSignInRoute(req, res, path, method)) return;
     if (method === "POST" && path === "/api/auth/pair") {
       // JSON only: a cross-site HTML form cannot send this content type without a preflight, so no unused code is planted as a session.
       if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
@@ -12536,7 +12538,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, result.status, { ...refusalBody(result), code: result.code });
       }
       if (CLOUD_TEAM) teamHost.met(result.session);
-      const environment = environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: !CLOUD_HOME && emailSignIn.enabled(), sharedComputers: lendingEnabled(), cloudHome: Boolean(CLOUD_HOME), cloudTeam: CLOUD_TEAM !== null, ownHome: ownHome.takesMove() });
+      const environment = environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: !CLOUD_HOME && emailSignIn.enabled(), sharedComputers: lendingEnabled(), cloudHome: Boolean(CLOUD_HOME), cloudTeam: CLOUD_TEAM !== null, ownHome: ownHome.takesMove(), tailnetTrust: tailnetTrustOpen() });
       if (wantsCookie) {
         const previous = browser ? sessions.authenticate(parseCookies(req.headers.cookie).get(SESSION_COOKIE)) : null;
         if (previous && previous.id !== result.session.id) sessions.revoke(previous.id);

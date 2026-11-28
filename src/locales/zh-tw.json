@@ -10078,6 +10078,7 @@
   "devices.computers.pairButton": "配對電腦",
   "devices.computers.title": "你的其他電腦",
   "devices.mine.title": "我的電腦",
+  "computers.title": "電腦",
   "devices.computers.pairTitle": "配對另一台電腦",
   "remote.tailscale.needsApproval": "這台電腦正在等待你的 Tailscale 網路核准。請在 Tailscale 管理主控台中核准它，然後再試一次。",
   "together.switch.title": "這台電腦和 My Cloud 合在一起",

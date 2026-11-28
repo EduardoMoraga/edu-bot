@@ -455,6 +455,7 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
     <div className="flex flex-col gap-6 focus:outline-none" ref={pairingFlow} tabIndex={-1} data-phone-pairing="computer">
       {top}
       <RouteNotices c={c} notices={state.notices ?? []} />
+      <MyComputers />
       {pairing && <PairDeviceDialog c={c} state={state} placeName={placeName} onClose={() => setPairing(false)} secureAddress={pairing === "https"} />}
 
       {pairedCount === 0 && !state.pairing ? (
@@ -525,7 +526,6 @@ export function PhoneDevicesSection({ profileEmail = "", focusRequest = 0, simpl
         </SettingsGroup>
       )}
       <TailnetComputers c={c} state={state} blocked={managedBy} simple={simple} status={tailscaleStatus} />
-      <MyComputers />
       <PhonesList />
       {(c.error || state.error) && <div className="px-4 text-[12px] leading-4 text-danger">{c.error ?? state.error}</div>}
     </div>

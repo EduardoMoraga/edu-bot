@@ -167,6 +167,15 @@ describe("environment identity", () => {
     expect(environmentDescriptor({ ...base, sharedComputers: false, cloudHome: true }).capabilities).not.toHaveProperty("myChromeLink");
   });
 
+  it("advertises tailnetTrust only on a server of its own that asks for it, never on a Cloud", () => {
+    const base = { environmentId: "abc", desktopManaged: true };
+    expect(environmentDescriptor({ ...base, tailnetTrust: true }).capabilities)
+      .toEqual({ remoteSessions: true, tailnetTrust: true, selfUpdate: "desktop-managed", emailSignIn: false, jobs: true });
+    expect(environmentDescriptor(base).capabilities).not.toHaveProperty("tailnetTrust");
+    expect(environmentDescriptor({ ...base, tailnetTrust: true, cloudHome: true }).capabilities).not.toHaveProperty("tailnetTrust");
+    expect(environmentDescriptor({ ...base, tailnetTrust: true, cloudHome: true, cloudTeam: true }).capabilities).not.toHaveProperty("tailnetTrust");
+  });
+
   it("says a team's Cloud home is a team's, so a sign-in page names the team", () => {
     const base = { environmentId: "abc", desktopManaged: false, label: "Acme Labs" };
     expect(environmentDescriptor({ ...base, cloudHome: true, cloudTeam: true }).capabilities.cloudTeam).toBe(true);

@@ -7061,6 +7061,7 @@
   "devices.computers.pairButton": "Sparuj komputer",
   "devices.computers.title": "Twoje inne komputery",
   "devices.mine.title": "Moje komputery",
+  "computers.title": "Komputery",
   "devices.computers.pairTitle": "Sparuj inny komputer",
   "remote.tailscale.needsApproval": "Ten komputer czeka na zatwierdzenie w Twojej sieci Tailscale. Zatwierdź go w konsoli administracyjnej Tailscale, a potem spróbuj ponownie.",
   "together.switch.title": "Ten komputer i My Cloud razem",

@@ -32,6 +32,9 @@ export interface EnvironmentDescriptor {
     fileEdits?: true;
     /** A lent computer may say it runs the MCP servers saved here that run on it (mcp_tools, mcp_call). Never a team Cloud. */
     lentMcp?: true;
+    /** POST /api/auth/tailnet: this server's owner's other computers on Tailscale sign in with no code. Only on a server
+     * of its own (never a Cloud or a hosted workspace) while it listens on the tailnet. */
+    tailnetTrust?: true;
     /** A person's own OMB Cloud home. */
     cloudHome?: true;
     /** A team's Cloud home: `label` is the team's name. */

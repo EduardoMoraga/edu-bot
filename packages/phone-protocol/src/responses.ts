@@ -74,6 +74,28 @@ export interface AuthPairResponse {
   environment: EnvironmentDescriptor;
 }
 
+/** POST /api/auth/tailnet (JSON only), from another computer of this one's own Tailscale owner, straight to this
+ * server's tailnet listener: no code. `label` is the caller's computer name. With `cookie: true` the answer sets the
+ * session cookie and leaves `token` out; otherwise it is an `AuthPairResponse`. Advertised as `capabilities.tailnetTrust`. */
+export interface TailnetSignInRequest {
+  label: string;
+  platform?: "darwin" | "win32" | "linux";
+  cookie?: boolean;
+}
+
+/** The `code` on a refused POST /api/auth/tailnet; `error` stays plain words. */
+export type TailnetSignInErrorCode =
+  /** 415 not JSON, or 400 not the fields this sends. */
+  | "tailnet_bad_request"
+  /** 403: a Cloud or a hosted workspace never takes it. */
+  | "tailnet_unavailable"
+  /** 403: not straight from a Tailscale address to this server's tailnet listener (loopback, a proxy, the LAN). */
+  | "tailnet_not_direct"
+  /** 403: Tailscale says the caller is another account's, tagged, shared in, or this computer; or Tailscale did not answer. */
+  | "tailnet_not_trusted"
+  /** 429: too many refusals from this address; `retryAfterMs` says how long to wait. */
+  | "tailnet_too_many";
+
 /** One page of a conversation, newest last. */
 export interface WireMessagePage<Message = WireMessage> {
   messages: Message[];

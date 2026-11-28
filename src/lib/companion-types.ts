@@ -35,8 +35,11 @@ export interface TailnetShareState {
 /** One of the person's own other computers on Tailscale, as My computers lists it. */
 export type TailnetComputer = { id: string; name: string; os: string | null } & (
   | { status: "offline" | "noEduBot" }
-  | { status: "eduBot"; version: string | null; platform: string | null; address: string }
-);
+  | { status: "eduBot"; version: string | null; platform: string | null; address: string; trust?: boolean }
+) & {
+  /** Always allow is on: this computer lends that one these folders, by name. */
+  allowed?: boolean; folders?: string[];
+};
 
 /** `tailscale` is "off" unless Tailscale runs signed in on this computer; "unreadable" when it is on (this computer has a
  * tailnet address) but its list of computers could not be read. */
@@ -98,6 +101,11 @@ export type CompanionBridge = {
   setTailscaleComputers?: (on: boolean) => Promise<CompanionState>;
   /** The person's own other computers on Tailscale and which run Edu Bot. Only looks; absent on older builds. */
   tailnetComputers?: () => Promise<TailnetComputers>;
+  /** My computers with Always allow; absent on an app build before Computers. */
+  computers?: () => Promise<TailnetComputers>;
+  /** Asks for one folder, then lends that computer only that folder; false when no folder was picked. */
+  allowComputer?: (id: string) => Promise<boolean>;
+  stopComputer?: (id: string) => Promise<void>;
   setRoute?: (route: CompanionRoute, on: boolean) => Promise<CompanionState>;
   dismissNotice?: (route: CompanionRoute) => Promise<CompanionState>;
   pairing: (open: boolean, expectedToken?: string) => Promise<CompanionState>;

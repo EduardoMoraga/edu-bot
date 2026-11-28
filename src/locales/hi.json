@@ -3627,6 +3627,7 @@
   "devices.computers.pairButton": "कंप्यूटर जोड़ें",
   "devices.computers.title": "आपके दूसरे कंप्यूटर",
   "devices.mine.title": "मेरे कंप्यूटर",
+  "computers.title": "कंप्यूटर",
   "devices.computers.pairTitle": "दूसरा कंप्यूटर जोड़ें",
   "remote.tailscale.needsApproval": "यह कंप्यूटर आपके Tailscale नेटवर्क पर मंज़ूरी का इंतज़ार कर रहा है। Tailscale एडमिन कंसोल में इसे मंज़ूर करें, फिर दोबारा कोशिश करें।",
   "together.switch.title": "यही कंप्यूटर और मेरा क्लाउड एक साथ",

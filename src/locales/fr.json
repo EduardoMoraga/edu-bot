@@ -3773,6 +3773,7 @@
   "devices.computers.pairButton": "Associer un ordinateur",
   "devices.computers.title": "Vos autres ordinateurs",
   "devices.mine.title": "Mes ordinateurs",
+  "computers.title": "Ordinateurs",
   "devices.computers.pairTitle": "Associer un autre ordinateur",
   "remote.tailscale.needsApproval": "Cet ordinateur attend d'être approuvé sur votre réseau Tailscale. Approuvez-le dans la console d'administration Tailscale, puis réessayez.",
   "together.switch.title": "Cet ordinateur et Mon Cloud ensemble",
