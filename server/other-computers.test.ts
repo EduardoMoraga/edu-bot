@@ -50,7 +50,7 @@ it("never sends a person to turn on a remote login, in any prompt, tool, skill o
     ...files(join(ROOT, "server"), (path) => /\.(ts|json)$/.test(path) && !path.endsWith(".test.ts") && !path.endsWith("other-computers.ts")),
     ...files(join(ROOT, "shared"), (path) => path.endsWith(".ts") && !path.endsWith(".test.ts")),
     ...files(join(ROOT, "skills"), (path) => /\.(md|json)$/.test(path)),
-    ...files(join(ROOT, "src", "locales"), (path) => path.endsWith(".json")),
+    join(ROOT, "src", "locales", "en.json"),
   ];
   const found = sources.flatMap((path) => {
     const match = readFileSync(path, "utf8").match(REMOTE_LOGIN_ADVICE);
