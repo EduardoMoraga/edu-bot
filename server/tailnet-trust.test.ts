@@ -77,7 +77,8 @@ describe("tailscaleReader", () => {
   beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "omb-tailnet-trust-")); });
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it("asks only read-only questions of the first CLI that is there, never through a shell", async () => {
+  // The fake CLI is a POSIX script, which Windows cannot run directly.
+  it.skipIf(process.platform === "win32")("asks only read-only questions of the first CLI that is there, never through a shell", async () => {
     const fake = fakeTailscale({ under: dir });
     fake.status(tailnetStatus());
     fake.whois({ [CALLER]: tailnetWhois() });
