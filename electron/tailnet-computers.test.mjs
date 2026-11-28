@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { tailscaleInstall } from "./tailscale-check.mjs";
-import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson, tailscaleStatusCandidates } from "./tailnet-computers.mjs";
+import { tailscaleInstall, tailscaleStatusCandidates } from "./tailscale-check.mjs";
+import { computerOrigins, createTailnetComputers, plainText, probeComputer, readDescriptor, readStatusJson } from "./tailnet-computers.mjs";
 
 const ID = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
 const descriptor = (over = {}) => ({ environmentId: ID, label: "Mac mini", platform: "darwin", version: "0.1.140", capabilities: { remoteSessions: true }, ...over });

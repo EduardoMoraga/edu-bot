@@ -88,6 +88,7 @@ export function createTailnetShare(options: TailnetShareOptions) {
   let desired: TailnetShareConfig | null = null;
   let listeners = new Map<string, Server>();
   const connections = new WeakMap<Server, Set<Socket>>();
+  const peers = new WeakSet<Socket>();
   let allowed: ReadonlySet<string> = new Set();
   let error: string | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
@@ -129,6 +130,7 @@ export function createTailnetShare(options: TailnetShareOptions) {
     connections.set(server, held);
     server.on("connection", (socket) => {
       if (!tailnetPeerAllowed(socket.remoteAddress, [...listeners.keys()])) return void socket.destroy();
+      peers.add(socket);
       held.add(socket);
       socket.once("close", () => held.delete(socket));
     });
@@ -197,6 +199,11 @@ export function createTailnetShare(options: TailnetShareOptions) {
       if (!desired) return null;
       if ("served" in desired) return desired.served;
       return listeners.size ? tailnetOrigin(desired.name, options.port) : null;
+    },
+    /** Security: true only for a request on a socket one of this share's own listeners accepted. No header or proxy can
+     * make a request arriving elsewhere (loopback, LAN, a tunnel) count. */
+    arrivedHere(req: IncomingMessage): boolean {
+      return peers.has(req.socket);
     },
     state(): TailnetShareState {
       return { origin: share.origin(), listening: [...listeners.keys()], error: desired && "served" in desired ? null : error };

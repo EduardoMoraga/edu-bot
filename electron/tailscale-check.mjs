@@ -1,7 +1,7 @@
 // Runs only when the person presses Turn on or Check again on the Tailscale route (or the app starts with its share for
 // other computers on), and only Tailscale's command-line tool. The macOS app's own executable is run only for a read-only
-// `status --json`, with TAILSCALE_BE_CLI=1 so it acts as that tool and never opens the app or signs in. Never logs
-// Tailscale's raw output (it can carry auth keys and node names).
+// `status --json` or `whois --json`, with TAILSCALE_BE_CLI=1 so it acts as that tool and never opens the app or signs in.
+// Never logs Tailscale's raw output (it can carry auth keys and node names).
 import { execFile } from "node:child_process";
 import { Resolver } from "node:dns/promises";
 import fs from "node:fs";
@@ -39,12 +39,27 @@ export const tailscaleEnvironment = (env = process.env) => ({
   TAILSCALE_BE_CLI: "1",
 });
 
-/** One `tailscale status --json`, read only. */
-export const runTailscaleStatus = (cli) =>
+/** Standalone `tailscale` first, then the CLI inside the macOS app (App Store and the standalone .app both
+ * ship it at Contents/MacOS/Tailscale). https://tailscale.com/docs/reference/tailscale-cli?tab=macos */
+export function tailscaleStatusCandidates(home = os.homedir()) {
+  return [
+    ...TAILSCALE_CLI_PATHS,
+    "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+    `${home}/Applications/Tailscale.app/Contents/MacOS/Tailscale`,
+  ];
+}
+
+const runReadOnly = (cli, args) =>
   new Promise((resolve) => {
-    execFile(cli, ["status", "--json"], { timeout: 5_000, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024, env: tailscaleEnvironment(), windowsHide: true },
+    execFile(cli, args, { timeout: 5_000, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024, env: tailscaleEnvironment(), windowsHide: true },
       (error, stdout, stderr) => resolve({ missing: error?.code === "ENOENT", stdout: String(stdout ?? ""), stderr: String(stderr ?? "") }));
   });
+
+/** One `tailscale status --json`, read only. */
+export const runTailscaleStatus = (cli) => runReadOnly(cli, ["status", "--json"]);
+
+/** One `tailscale whois --json <address>`, read only: who owns that tailnet address. */
+export const runTailscaleWhois = (cli, address) => runReadOnly(cli, ["whois", "--json", address]);
 
 /** What one `tailscale status --json` says, in the row's words: ready (with this computer's MagicDNS name, its tailnet
  * addresses and whether the tailnet hands out HTTPS certificates), signed out, not running, waiting for the tailnet's
