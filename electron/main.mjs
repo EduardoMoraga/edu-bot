@@ -456,7 +456,7 @@ import { companionAdvertisedHostedUrl, companionEnabledAtRest, companionOriginTa
   companionBrowserControlAccess, companionRevoke, companionRunning, companionSettings, companionState, rememberCompanionKeepAwake, setCompanionHostedUrl, setCompanionLifecycleListener, startCompanion, stopCompanion } from "./companion.mjs";
 import { createDesktopCompanionE2E, deviceCounts } from "./companion-e2e-desktop.mjs"; import { startCheckedManagedConnection } from "./managed-companion-start.mjs";
 import { autoStartCompanion } from "./companion-autostart.mjs";
-import { createPhoneLinkRoutes } from "./phone-link-routes.mjs"; import { reachableForKeepAwake } from "./keep-awake.mjs"; import { createTailnetComputers } from "./tailnet-computers.mjs";
+import { createPhoneLinkRoutes } from "./phone-link-routes.mjs"; import { reachableForKeepAwake } from "./keep-awake.mjs"; import { createTailnetComputers } from "./tailnet-computers.mjs"; import { createComputerAllow } from "./computer-allow.mjs";
 import { createRoutineWakeHold, rememberRoutineWake, routineWakeSettings } from "./routine-wake.mjs";
 import { CREDENTIAL_PATCH, credentialSaveError } from "./credential-patch.mjs";
 import { APP_ID, DATA_DIR_NAME, DEEP_LINK_SCHEME, DESKTOP_ENTRY_NAME, dataDirNameFor, ownDeepLink } from "./app-identity.mjs";
@@ -2357,7 +2357,8 @@ ipcMain.handle("routines:keep-awake", localOnly("routines:keep-awake", async (_e
 phoneLinkRoutes.install(ipcMain, localOnly);
 // Node's fetch, not session.defaultSession.fetch: on Electron 43 the session sends these tailnet probes through a
 // configured system HTTP proxy, which would then see and could answer them.
-createTailnetComputers({ fetch: globalThis.fetch }).install(ipcMain, localOnly);
+const tailnetComputers = createTailnetComputers({ fetch: globalThis.fetch });
+tailnetComputers.install(ipcMain, localOnly);
 ipcMain.handle("companion:pairing", localOnly("companion:pairing", (_event, open, expectedToken) => {
   const refusal = open ? managedRemoteAccessRefusal() : null;
   if (refusal) throw new Error(refusal);
@@ -2617,6 +2618,18 @@ installPlaceLook({ ipcMain, guard: workspaceOnly, place: () => savedPlace(enviro
   setColor: (id, swatch) => ensureCloudAccount().setCloudColor(id, swatch), save: (id, color) => persistEnvironments(withPlaceColor(environmentsState, id, color)),
   rail: { owns: event => chromeRail.owns(event), places: railList, saved: id => savedPlace(environmentsState, id) }, t: nativeT });
 const lendingDialogs = createLendingDialogs({ dialog, window: () => mainWindow, validate: validateSharedFolders, isHome: isHomeFolder, t: nativeT });
+// Computers' Always allow: a saved server for that computer, kept off the window, and lending only the folder picked.
+createComputerAllow({ list: () => tailnetComputers.list(), fetch: (...args) => session.defaultSession.fetch(...args), label: os.hostname(), platform: process.platform,
+  environments: {
+    byHost: host => environmentsState.environments.find(env => env.kind !== "local" && !env.home && !env.cloud && !env.team && typeof env.origin === "string" && new URL(env.origin).hostname === host) ?? null,
+    save: ({ origin, name }) => {
+      const next = withEnvironment(environmentsState, { origin, name: environmentsState.environments.find(env => env.origin === origin)?.name ?? name }, () => randomUUID());
+      persistEnvironments(next);
+      return next.environments.find(env => env.origin === origin);
+    },
+  },
+  sharing: { state: id => sharingController().state(id), lendOwn: (env, grant) => sharingController().lendOwn(env, grant), revoke: env => sharingController().revoke(env) },
+  chooseFolder: name => lendingDialogs.chooseFolder(nativeT("native.computers.chooseFolder", { name })), t: nativeT, log: slog }).install(ipcMain, localOnly);
 // Settings → Servers' computer access, and the popup after pairing a server of the person's own (server-lending.mjs).
 const serverLending = installServerLending({ ipcMain, guard: localWorkspaceOnly, sharing: sharingController, dialogs: lendingDialogs, validate: validateSharedFolders, dialog, window: () => (mainWindow && !mainWindow.isDestroyed() ? mainWindow : null),
   saved: savedWorkspace, candidate: lendableServer, flag: refreshSharedComputersAllowed, environments: () => environmentsState.environments, active: () => activeEnvironment(environmentsState), openSettings: openWorkspaceSettings, t: nativeT, log: slog });

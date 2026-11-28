@@ -24,7 +24,8 @@ const tailscaleOs = (os) => (typeof os === "string" && /^[A-Za-z0-9]{1,16}$/.tes
 
 /**
  * An Edu Bot's public description, read strictly: `environmentId` a UUID, `label`, `platform` and `version` strings and a
- * `capabilities` object, else null. Only the label, platform and version come out, each cleaned and capped.
+ * `capabilities` object, else null. Only the label, platform and version come out, each cleaned and capped, and whether
+ * it signs in the same Tailscale owner's computers (`trust`).
  */
 export function readDescriptor(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) return null;
@@ -36,6 +37,7 @@ export function readDescriptor(body) {
     label: plainText(label),
     platform: /^[a-z0-9]{1,16}$/.test(platform) ? platform : null,
     version: /^[0-9A-Za-z.+-]{1,32}$/.test(version) ? version : null,
+    trust: capabilities.tailnetTrust === true,
   };
 }
 
@@ -104,7 +106,7 @@ function entry(peer, found) {
   const base = { id: peer.name, name, os: tailscaleOs(peer.os) };
   if (!peer.online) return { ...base, status: "offline" };
   if (!found) return { ...base, status: "noEduBot" };
-  return { ...base, status: "eduBot", version: found.version, platform: found.platform, address: found.address };
+  return { ...base, status: "eduBot", version: found.version, platform: found.platform, address: found.address, trust: found.trust === true };
 }
 
 async function eachLimited(items, limit, work) {
